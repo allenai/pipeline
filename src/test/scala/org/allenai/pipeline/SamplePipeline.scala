@@ -8,7 +8,7 @@ import org.scalatest.BeforeAndAfterEach
 
 import scala.util.Random
 
-/** See http://goo.gl/cEToXR for explanatory documentation of this example
+/** See README.md for explanatory documentation of this example
   */
 class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
