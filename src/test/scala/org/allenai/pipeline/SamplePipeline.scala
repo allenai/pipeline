@@ -14,7 +14,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
   case class TrainedModel(info: String)
 
-  class JoinAndSplitData(features: Producer[Iterable[Array[Double]]], labels: Producer[Iterable[Boolean]], testSizeRatio: Double) extends CachedProducer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
+  class JoinAndSplitData(features: Producer[Iterable[Array[Double]]], labels: Producer[Iterable[Boolean]], testSizeRatio: Double) extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
     def create = {
       val rand = new Random
       val data = labels.get.zip(features.get)
@@ -23,7 +23,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
     }
   }
 
-  class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]]) extends CachedProducer[TrainedModel] {
+  class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]]) extends Producer[TrainedModel] {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -35,7 +35,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
   type PRMeasurement = Iterable[(Double, Double, Double)]
 
   // Threshold, precision, recall
-  class MeasureModel(model: Producer[TrainedModel], testData: Producer[Iterable[(Boolean, Array[Double])]]) extends CachedProducer[PRMeasurement] {
+  class MeasureModel(model: Producer[TrainedModel], testData: Producer[Iterable[(Boolean, Array[Double])]]) extends Producer[PRMeasurement] {
     def create = {
       model.get
       // Just generate some dummy data
@@ -104,7 +104,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
   case class ParsedDocument(info: String)
 
-  class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]]) extends CachedProducer[Iterable[Array[Double]]] {
+  class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]]) extends Producer[Iterable[Array[Double]]] {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -127,10 +127,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
   "Sample Pipeline 2" should "complete" in {
     // Read input data
-    val docDir = new File(inputDir, "raw-xml")
-    docDir.mkdirs
-    FileUtils.touch(new File(docDir, "doc1.txt"))
-    val docs = ReadFromArtifact.noCaching(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
+    val docDir = new File(inputDir, "xml")
+    val docs = ReadFromArtifact(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] = ReadTsvAsCollection[Boolean](input.flatArtifact(labelFile))
@@ -144,7 +142,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
     assert(new File(outputDir, "PR.txt").exists, "P/R file created")
   }
 
-  class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIO[TrainedModel, FileArtifact]) extends CachedProducer[TrainedModel] {
+  class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIO[TrainedModel, FileArtifact]) extends Producer[TrainedModel] {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
@@ -164,7 +162,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
     implicit val labelFeatureFormat = tsvTuple2Format[Boolean, Array[Double]]("\t")
 
     val docDir = new DirectoryArtifact(new File(inputDir, "raw-xml"))
-    val docs = ReadFromArtifact.noCaching(ParseDocumentsFromXML, docDir)
+    val docs = ReadFromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] = ReadTsvAsCollection[Boolean](input.flatArtifact(labelFile))

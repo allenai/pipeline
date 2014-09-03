@@ -13,27 +13,14 @@ import scala.reflect.ClassTag
 object IOHelpers {
 
   /** General deserialization method */
-  object ReadFromArtifact {
-    def withCaching[T, A <: Artifact](io: ArtifactIO[T, A], artifact: A): Producer[T] = {
-      require(artifact.exists, s"$artifact does not exist")
-      new PersistedCachedProducer(null, io, artifact)
-    }
-
-    def noCaching[T, A <: Artifact](io: ArtifactIO[T, A], artifact: A): Producer[T] = {
-      require(artifact.exists, s"$artifact does not exist")
-      new PersistedNoncachedProducer(null, io, artifact)
-    }
+  def ReadFromArtifact[T, A <: Artifact](io: ArtifactIO[T, A], artifact: A): Producer[T] = {
+    require(artifact.exists, s"$artifact does not exist")
+    new PersistedProducer(null, io, artifact)
   }
 
   /** General deserialization method */
-  object ReadFromArtifactProducer {
-    def withCaching[T, A <: Artifact](io: ArtifactIO[T, A], src: Producer[A]): Producer[T] = new CachedProducer[T] {
-      def create = io.read(src.get)
-    }
-
-    def noCaching[T, A <: Artifact](io: ArtifactIO[T, A], src: Producer[A]): Producer[T] = new Producer[T] {
-      def get = io.read(src.get)
-    }
+  def ReadFromArtifactProducer[T, A <: Artifact](io: ArtifactIO[T, A], src: Producer[A]): Producer[T] = new Producer[T] {
+    def create = io.read(src.get)
   }
 
   /** Factory interface for creating Artifact instances */
@@ -104,37 +91,37 @@ object IOHelpers {
   }
 
   /** Read collection of type T from flat file */
-  def ReadTsvAsCollection[T: StringStorable](artifact: FlatArtifact): Producer[Iterable[T]] = ReadFromArtifact.withCaching(new TsvCollectionIO[T], artifact)
+  def ReadTsvAsCollection[T: StringStorable](artifact: FlatArtifact): Producer[Iterable[T]] = ReadFromArtifact(new TsvCollectionIO[T], artifact)
 
   /** Read iterator of type T from flat file */
-  def ReadTsvAsIterator[T: StringStorable](artifact: FlatArtifact): Producer[Iterator[T]] = ReadFromArtifact.noCaching(new TsvIteratorIO[T], artifact)
+  def ReadTsvAsIterator[T: StringStorable](artifact: FlatArtifact): Producer[Iterator[T]] = ReadFromArtifact(new TsvIteratorIO[T], artifact)
 
   /** Read a collection of arrays of a single type from a flat file */
-  def ReadTsvAsArrayCollection[T: StringStorable: ClassTag](artifact: FlatArtifact, sep: String = "\t"): Producer[Iterable[Array[T]]] =
-    ReadFromArtifact.withCaching(new TsvCollectionIO[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
+  def ReadTsvAsArrayCollection[T: StringStorable : ClassTag](artifact: FlatArtifact, sep: String = "\t"): Producer[Iterable[Array[T]]] =
+    ReadFromArtifact(new TsvCollectionIO[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
 
   /** Read an iterator of arrays of a single type from a flat file */
-  def ReadTsvAsArrayIterator[T: StringStorable: ClassTag](artifact: FlatArtifact, sep: String = "\t"): Producer[Iterator[Array[T]]] =
-    ReadFromArtifact.noCaching(new TsvIteratorIO[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
+  def ReadTsvAsArrayIterator[T: StringStorable : ClassTag](artifact: FlatArtifact, sep: String = "\t"): Producer[Iterator[Array[T]]] =
+    ReadFromArtifact(new TsvIteratorIO[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
 
   /** Read collection of json-serializable objects */
-  def ReadJsonAsCollection[T: JsonFormat](artifact: FlatArtifact): Producer[Iterable[T]] = ReadFromArtifact.withCaching(new JsonCollectionIO[T], artifact)
+  def ReadJsonAsCollection[T: JsonFormat](artifact: FlatArtifact): Producer[Iterable[T]] = ReadFromArtifact(new JsonCollectionIO[T], artifact)
 
   /** Read iterator of json-serializable objects */
-  def ReadJsonAsIterator[T: JsonFormat](artifact: FlatArtifact): Producer[Iterator[T]] = ReadFromArtifact.noCaching(new JsonIteratorIO[T], artifact)
+  def ReadJsonAsIterator[T: JsonFormat](artifact: FlatArtifact): Producer[Iterator[T]] = ReadFromArtifact(new JsonIteratorIO[T], artifact)
 
   /** Read single json-serializable object */
   def ReadJsonAsSingleton[T: JsonFormat](artifact: FlatArtifact): Producer[T] = {
     val collectionProducer = ReadJsonAsCollection[T](artifact)
     new Producer[T] {
-      def get = collectionProducer.get.head
+      def create = collectionProducer.get.head
     }
   }
 
   /** A Pipeline step wrapper for in-memory data */
   object FromMemory {
     def apply[T](data: T): Producer[T] = new Producer[T] {
-      def get = data
+      def create = data
     }
   }
 

@@ -11,27 +11,30 @@ import scala.util.Random
 /** Created by rodneykinney on 8/19/14.
   */
 class TestProducer extends UnitSpec with BeforeAndAfterAll {
+
   import scala.language.reflectiveCalls
+
   val rand = new Random
+
   import org.allenai.pipeline.IOHelpers._
 
   val outputDir = new File("test-output")
 
   implicit val output = new FileSystem(outputDir)
 
-  val randomNumbers = new Producer[Iterable[Double]] {
-    def get = {
-      for (i <- (0 until 20)) yield rand.nextDouble
-    }
-  }
-
-  val cachedRandomNumbers = new CachedProducer[Iterable[Double]] {
+  val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled {
     def create = {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
   }
 
-  "PipelineStep" should "regenerate on each invocation" in {
+  val cachedRandomNumbers = new Producer[Iterable[Double]] with CachingEnabled {
+    def create = {
+      for (i <- (0 until 20)) yield rand.nextDouble
+    }
+  }
+
+  "Uncached random numbers" should "regenerate on each invocation" in {
     randomNumbers.get should not equal (randomNumbers.get)
 
     val cached = randomNumbers.enableCaching
@@ -39,7 +42,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     cached.get should equal(cached.get)
   }
 
-  "PersistentPipelineStep" should "read from file if exists" in {
+  "PersistedProducer" should "read from file if exists" in {
     val pStep = randomNumbers.saveAsTsv("savedNumbers.txt")
 
     pStep.get should equal(pStep.get)
@@ -48,7 +51,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     otherStep.get should equal(pStep.get)
   }
 
-  "CachedStep" should "use cached value" in {
+  "CachedProducer" should "use cached value" in {
     cachedRandomNumbers.get should equal(cachedRandomNumbers.get)
 
     val uncached = cachedRandomNumbers.disableCaching
@@ -56,7 +59,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     uncached.get should not equal (uncached.get)
   }
 
-  "PersistentCachedStep" should "read from file if exists" in {
+  "PersistentCachedProducer" should "read from file if exists" in {
     val pStep = cachedRandomNumbers.saveAsTsv("savedCachedNumbers.txt")
 
     pStep.get should equal(pStep.get)
@@ -65,9 +68,31 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     otherStep.get should equal(pStep.get)
   }
 
+  val randomIterator = new Producer[Iterator[Double]] {
+    def create = {
+      for (i <- (0 until 20).iterator) yield rand.nextDouble
+    }
+  }
+
+  "Random iterator" should "never cache" in {
+    randomIterator.get.toList should not equal (randomIterator.get.toList)
+  }
+
+  "Persisted iterator" should "re-use value" in {
+    val persisted = randomIterator.saveAsTsv("randomIterator.txt")
+    persisted.get.toList should equal(persisted.get.toList)
+  }
+
+  "Persisted iterator" should "read from file if exists" in {
+    val persisted = randomIterator.enableCaching.saveAsTsv("savedCachedIterator.txt")
+    val otherStep = randomIterator.disableCaching.saveAsTsv("savedCachedIterator.txt")
+    otherStep.get.toList should equal (persisted.get.toList)
+  }
+
   override def beforeAll: Unit = {
     require((outputDir.exists && outputDir.isDirectory) || outputDir.mkdirs, s"Unable to create test output directory $outputDir")
   }
+
   override def afterAll: Unit = {
     FileUtils.deleteDirectory(outputDir)
   }

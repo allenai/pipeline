@@ -120,13 +120,13 @@ both features and labels
     class JoinAndSplitData(features: Producer[Features]
                            labels: Producer[Labels],
                            testSizeRatio: Double)
-     extends CachedProducer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])]
+     extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])]
 
 Step 4 takes a Iterable[(Boolean, Array[Double])] producer as input and produces a
 TrainedModel object
 
     class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]]) 
-        extends CachedProducer[TrainedModel]
+        extends Producer[TrainedModel]
 
 Step 5 takes producers of Iterable[(Boolean, Array[Double])] and TrainedModel and
 produces a P/R measurement
@@ -135,7 +135,7 @@ produces a P/R measurement
     type PRMeasurement = Iterable[(Double, Double, Double)]
 
     class MeasureModel(model: Producer[TrainedModel], testData: Producer[Iterable[(Boolean, Array[Double])]])
-          extends CachedProducer[PrecisionRecallMeasurement]
+          extends Producer[PrecisionRecallMeasurement]
 
 The pipeline is defined by simply chaining the producers together
 
@@ -203,10 +203,10 @@ Instead of reading feature data from disk, suppose now that we compute
 it on the fly by processing XML documents from a source directory,
 producing a feature vector for each document.  Suppose further that the
 entire set of documents is too large to fit in memory.  In this case, we
-must implement a different Producer[Features] instance that will process
+must implement a different Producer instance that will process
 an input stream of ParsedDocument objects
 
-    class FeaturizeDocuments(documents:Producer[Iterator[ParsedDocument]]) extends CachedProducer[Features]
+    class FeaturizeDocuments(documents:Producer[Iterator[ParsedDocument]]) extends Producer[Features]
 
 Because this class has an Iterator as its input type, it will not hold
 the raw document dataset in memory.  To produce the Iterator of parsed
@@ -235,7 +235,7 @@ Now we can use our document featurizer as a drop-in replacement for the
 feature data we had originally read from TSV
 
     val docDir = new File("raw-xml")
-    val docs = ReadFromArtifact.noCaching(ParseDocumentsFromXML,
+    val docs = ReadFromArtifact(ParseDocumentsFromXML,
                                           new DirectoryArtifact(docDir))
     val docFeatures = new FeaturizeDocuments(docs) 
     // use in place of featureData above
@@ -255,7 +255,7 @@ shell command is
 
     class TrainModelPython(data: Producer[FileArtifact],
                            io: ArtifactIO[TrainedModel, FileArtifact])
-          extends CachedProducer[TrainedModel] {
+          extends Producer[TrainedModel] {
       def create: TrainedModel = {
         val outputFile = File.createTempFile("model", ".json")
         import sys.process.\_
