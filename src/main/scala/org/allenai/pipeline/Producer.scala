@@ -101,10 +101,12 @@ class PersistedCachedProducer[T, A <: Artifact](step: CachedProducer[T], io: Art
   private lazy val cachedValue = {
     if (artifact.exists) {
       logger.debug(s"Reading from $artifact using $io")
-      io.read(artifact)
+      val result = io.read(artifact)
+      checkNonIterator(result)
+      result
     } else {
       val result = step.create
-      require(!result.isInstanceOf[Iterator[Any]], s"Attempt to cache an instance of Iterator in $step.  Please disable caching when using Iterator return types")
+      checkNonIterator(result)
       logger.debug(s"Writing to $artifact using $io")
       io.write(result, artifact)
       result
@@ -114,6 +116,7 @@ class PersistedCachedProducer[T, A <: Artifact](step: CachedProducer[T], io: Art
   protected def writeToArtifact = io.write(step.get, artifact)
   override def enableCaching: Producer[T] = this
   override def disableCaching: Producer[T] = new PersistedNoncachedProducer(step.disableCaching, io, artifactSource)
+  private def checkNonIterator(result: T) = require(!result.isInstanceOf[Iterator[Any]], s"Attempt to cache an instance of Iterator read from $artifact.  Please disable caching when using Iterator return types")
 }
 
 //
