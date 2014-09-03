@@ -161,7 +161,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
     implicit val featureFormat = tsvArrayFormat[Double](",")
     implicit val labelFeatureFormat = tsvTuple2Format[Boolean, Array[Double]]("\t")
 
-    val docDir = new DirectoryArtifact(new File(inputDir, "raw-xml"))
+    val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = ReadFromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
