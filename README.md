@@ -77,8 +77,8 @@ where the data will be stored.
 Example Pipeline 
 ================
 
-The complete code for this example can be found at
-https://github.com/rodneykinney/scholar/blob/master/backend/src/test/scala/org/allenai/pipeline/SamplePipeline.scala
+The complete code for this example can be found in
+src/test/scala/org/allenai/pipeline/SamplePipeline.scala
 
 The Basic Pipeline
 ------------------
@@ -117,33 +117,33 @@ both features and labels
 
   
 
-    type FeaturesWithLabels = Iterable[(Boolean, Array[Double])]  
-          class JoinAndSplitData(features: Producer[Features],
-                                 labels: Producer[Labels],
-                                 testSizeRatio: Double)
-          extends CachedProducer[(FeaturesWithLabels, FeaturesWithLabels)]
+    class JoinAndSplitData(features: Producer[Features]
+                           labels: Producer[Labels],
+                           testSizeRatio: Double)
+     extends CachedProducer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])]
 
-Step 4 takes a FeaturesWithLabels producer as input and produces a
+Step 4 takes a Iterable[(Boolean, Array[Double])] producer as input and produces a
 TrainedModel object
 
-    class TrainModel(trainingData: Producer[FeaturesWithLabels]) 
+    class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]]) 
         extends CachedProducer[TrainedModel]
 
-Step 5 takes producers of FeaturesWithLabels and TrainedModel and
+Step 5 takes producers of Iterable[(Boolean, Array[Double])] and TrainedModel and
 produces a P/R measurement
 
     // Threshold, precision, recall.
     type PRMeasurement = Iterable[(Double, Double, Double)]
-    class MeasureModel(model: Producer[TrainedModel], testData: Producer[FeaturesWithLabels])
+
+    class MeasureModel(model: Producer[TrainedModel], testData: Producer[Iterable[(Boolean, Array[Double])]])
           extends CachedProducer[PrecisionRecallMeasurement]
 
 The pipeline is defined by simply chaining the producers together
 
-    val Producer2(trainData: Producer[FeaturesWithLabels],
-                  testData: Producer[FeaturesWithLabels])
+    val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
+                  testData: Producer[Iterable[(Boolean, Array[Double])]])
                  = new JoinAndSplitData(featureData, labelData, 0.2)
     val model: Producer[TrainedModel] = new TrainModel(trainData)
-    val measure: Producer[PRMeasurement] = new MeasureModel(model, testData)
+    val measure: Producer[Iterable[(Double, Double, Double)]] = new MeasureModel(model, testData)
 
 Note the use of Producer2.unapply, which converts a Producer of a Tuple
 to a Tuple of Producers. To run the pipeline, we invoke the get method
@@ -156,7 +156,7 @@ Persisting the Output
 
 At this point, the result of the calculation has been created in memory,
 but is not being persisted.  We would like to persist not only the final
-PRMeasurement object, but the intermediate TrainedModel instance.  The
+Iterable[(Double, Double, Double)] object, but the intermediate TrainedModel instance.  The
 earlier import of IOHelpers adds saveAsJson and saveAsTSV methods to
 Producer instances that persist their data before passing it on to
 downstream consumers.  To use them, we must also provide an implicit
@@ -165,10 +165,10 @@ persistence implementation.
     implicit val location = output
     val model: Producer[TrainedModel]
             = new TrainModel(trainData).saveAsJson("model.json")
-    val measure: Producer[PRMeasurement]
+    val measure: Producer[Iterable[(Double, Double, Double)]]
             = new MeasureModel(model, testData).saveAsTSV("PR.txt")
 
-We have opted not to persist the FeaturesWithLabels data, but we could
+We have opted not to persist the Iterable[(Boolean, Array[Double])] data, but we could
 do so in the same way.  Note that we have written no code that performs
 I/O directly.  Instead, we need to define the transformation between our
 data objects and JSON or TSV format
@@ -274,8 +274,8 @@ the structure of the pipeline is unchanged.
     val labelData: Producer[Labels]
          =  ReadCollectionFromTSVFile[Boolean](labelFile.getPath)
     
-    val Producer2(trainData: Producer[FeaturesWithLabels],
-                  testData: Producer[FeaturesWithLabels])
+    val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
+                  testData: Producer[Iterable[(Boolean, Array[Double])]])
          = new JoinAndSplitData(docFeatures, labelData, 0.2)
     
     val trainingDataFile = trainData.saveAsTSV("trainData.tsv").asArtifact
@@ -283,7 +283,7 @@ the structure of the pipeline is unchanged.
                                 new JsonSingletonIO[TrainedModel]).saveAsJson(“model.json”)
     val readModelFromFile: Producer[TrainedModel]
         = ReadFromArtifactProducer(new JsonSingletonIO[TrainedModel], trainModel, true)
-    val measure: Producer[PRMeasurement]
+    val measure: Producer[Iterable[(Double, Double, Double)]]
         = new MeasureModel(readModelFromFile, testData).saveAsTSV("PR.txt")
 
 Summary
