@@ -3,7 +3,7 @@ package org.allenai.pipeline
 import java.io.File
 
 import org.allenai.pipeline.TsvFormats._
-import spray.json.JsonFormat
+import spray.json._
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -65,6 +65,12 @@ object IOHelpers {
     }
   }
 
+  object PathFileSystem extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
+    def flatArtifact(path: String) = FileSystem.flatArtifact(new File(path))
+
+    def structuredArtifact(path: String) = FileSystem.structuredArtifact(new File(path))
+  }
+
   implicit object IdentityFlatArtifactFactory extends FlatArtifactFactory[FlatArtifact] {
     def flatArtifact(a: FlatArtifact) = a
   }
@@ -88,6 +94,28 @@ object IOHelpers {
     def flatArtifact(path: String) = new S3FlatArtifact(toPath(path), config)
 
     def structuredArtifact(path: String) = new S3ZipArtifact(toPath(path), config)
+  }
+
+  class GeneratedPath(rootPath: String, persistence: FlatArtifactFactory[String] with StructuredArtifactFactory[String]) extends FlatArtifactFactory[Signature] with StructuredArtifactFactory[Signature] {
+    def flatArtifact(signature: Signature) = {
+      persistence.flatArtifact(path(signature, "txt").mkString("/"))
+    }
+
+    def structuredArtifact(signature: Signature) = {
+      persistence.structuredArtifact(path(signature, "zip").mkString("/"))
+    }
+
+    def codeVersion = this.getClass.getPackage.getImplementationVersion
+
+    def path(signature: Signature, suffix: String): Seq[String] = {
+      import DefaultJsonProtocol._
+      val digestHash = signature.toJson(Signature.JsonFormat).compactPrint.hashCode
+      List(rootPath,
+        codeVersion,
+        signature.name,
+        s"$digestHash.$suffix"
+      )
+    }
   }
 
   /** Read collection of type T from flat file */
