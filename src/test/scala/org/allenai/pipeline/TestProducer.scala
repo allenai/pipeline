@@ -86,7 +86,21 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   "Persisted iterator" should "read from file if exists" in {
     val persisted = randomIterator.enableCaching.saveAsTsv("savedCachedIterator.txt")
     val otherStep = randomIterator.disableCaching.saveAsTsv("savedCachedIterator.txt")
-    otherStep.get.toList should equal (persisted.get.toList)
+    otherStep.get.toList should equal(persisted.get.toList)
+  }
+
+  "Auto-assigned paths" should "be reusable" in {
+    import spray.json.DefaultJsonProtocol._
+    implicit val pathFinder = new GeneratedPath(new FileSystem(outputDir))
+
+    class RNG(seed: Int, length: Int) extends Producer[Iterable[Double]] with AutoSignature {
+      private val rand = new Random(seed)
+
+      def create = (0 until length).map(i => rand.nextDouble)
+    }
+
+    val rng1 = new RNG(42, 100)
+    val rng2 = new RNG(117, 100)
   }
 
   override def beforeAll: Unit = {

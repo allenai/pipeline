@@ -96,7 +96,7 @@ object IOHelpers {
     def structuredArtifact(path: String) = new S3ZipArtifact(toPath(path), config)
   }
 
-  class GeneratedPath(rootPath: String, persistence: FlatArtifactFactory[String] with StructuredArtifactFactory[String]) extends FlatArtifactFactory[Signature] with StructuredArtifactFactory[Signature] {
+  class GeneratedPath(persistence: FlatArtifactFactory[String] with StructuredArtifactFactory[String]) extends FlatArtifactFactory[Signature] with StructuredArtifactFactory[Signature] {
     def flatArtifact(signature: Signature) = {
       persistence.flatArtifact(path(signature, "txt").mkString("/"))
     }
@@ -108,12 +108,9 @@ object IOHelpers {
     def codeVersion = this.getClass.getPackage.getImplementationVersion
 
     def path(signature: Signature, suffix: String): Seq[String] = {
-      import DefaultJsonProtocol._
-      val digestHash = signature.toJson(Signature.JsonFormat).compactPrint.hashCode
-      List(rootPath,
-        codeVersion,
+      List(codeVersion,
         signature.name,
-        s"$digestHash.$suffix"
+        s"${signature.id}.$suffix"
       )
     }
   }
@@ -157,10 +154,6 @@ object IOHelpers {
     def saveAsJson[I: FlatArtifactFactory](input: I): Producer[T]
   }
 
-  trait TsvPersistable[T] {
-    def saveAsTsv[I: FlatArtifactFactory](input: I): Producer[T]
-  }
-
   implicit def enableSaveJsonSingleton[T: JsonFormat](step: Producer[T]) = new JsonPersistable[T] {
     def saveAsJson[I: FlatArtifactFactory](input: I) = step.persisted(new JsonSingletonIO[T], implicitly[FlatArtifactFactory[I]].flatArtifact(input))
   }
@@ -169,8 +162,16 @@ object IOHelpers {
     def saveAsJson[I: FlatArtifactFactory](input: I) = step.persisted(new JsonCollectionIO[T], implicitly[FlatArtifactFactory[I]].flatArtifact(input))
   }
 
+  implicit def enableAutoSaveJsonCollection[T: JsonFormat](step: Producer[Iterable[T]] with HasSignature)(implicit pathFinder: FlatArtifactFactory[Signature]) = new {
+    def saveAutoAsJson = step.saveAsJson(step.signature)
+  }
+
   implicit def enableSaveJsonIterator[T: JsonFormat](step: Producer[Iterator[T]]) = new JsonPersistable[Iterator[T]] {
     def saveAsJson[I: FlatArtifactFactory](input: I) = step.persisted(new JsonIteratorIO[T], implicitly[FlatArtifactFactory[I]].flatArtifact(input))
+  }
+
+  trait TsvPersistable[T] {
+    def saveAsTsv[I: FlatArtifactFactory](input: I): Producer[T]
   }
 
   implicit def enableSaveTsvCollection[T: StringStorable](step: Producer[Iterable[T]]) = new TsvPersistable[Iterable[T]] {
