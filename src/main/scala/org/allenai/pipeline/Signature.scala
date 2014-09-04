@@ -14,29 +14,26 @@ case class Signature(name: String, codeVersion: String, dependencies: Map[String
 }
 
 trait AutoSignature extends HasSignature {
+  outer =>
+  def fields: Set[String]
   lazy val signature = Signature(name, codeVersion, dependencies, parameters)
-  def checkClassEligible() = {
-    require(this.getClass.getDeclaredConstructors.size == 1,"AutoSignature only works in classes with a single constructor")
-    val construct = this.getClass.getDeclaredConstructors()(0)
-    val x = (this.getClass.getDeclaredFields.map(_.getType),construct.getParameterTypes)
-    val constructorMatchesFields = this.getClass.getDeclaredFields.map(_.getType).zip(construct.getParameterTypes).forall(t => t._1 == t._2)
-    require(constructorMatchesFields, "AutoSignature only works in classes where the declared fields match the constructor arguments")
+  def codeVersion = {
+    val v = outer.getClass.getPackage.getImplementationVersion
+    if (v == null) "compiled-locally" else v
   }
-  def codeVersion = this.getClass.getPackage.getImplementationVersion
-  def name = this.getClass.getSimpleName
+  def name = outer.getClass.getSimpleName
+  private def declaredFields = {
+    val f = outer.getClass.getDeclaredFields.filter(f => fields(f.getName))
+    f.foreach(_.setAccessible(true))
+    f.map(_.getName).zip(f.map(_.get(outer)))
+  }
   def dependencies = {
-    checkClassEligible
-    val deps = for (field <- this.getClass.getDeclaredFields) yield {
-      field.get(this) match {
-        case s: HasSignature => Some((field.getName, s.signature))
-      }
-    }
-    deps.flatten.toMap
+    val deps = for ((name, d: HasSignature) <- declaredFields) yield (name, d.signature)
+    deps.toMap
   }
   def parameters = {
-    checkClassEligible
-    val params = for (field <- this.getClass.getDeclaredFields if !field.get(this).isInstanceOf[HasSignature]) yield {
-      (field.getName, String.valueOf(field.get(this)))
+    val params = for ((name, value)  <- declaredFields if !value.isInstanceOf[HasSignature]) yield {
+      (name, String.valueOf(value))
     }
     params.toMap
   }

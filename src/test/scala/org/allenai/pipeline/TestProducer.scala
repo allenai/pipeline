@@ -1,6 +1,7 @@
 package org.allenai.pipeline
 
 import java.io.File
+import java.lang.reflect.Field
 
 import org.allenai.common.testkit.UnitSpec
 import org.apache.commons.io.FileUtils
@@ -93,7 +94,8 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     import spray.json.DefaultJsonProtocol._
     implicit val pathFinder = new GeneratedPath(new FileSystem(outputDir))
 
-    class RNG(seed: Int, length: Int) extends Producer[Iterable[Double]] with AutoSignature {
+    class RNG(val seed: Int, val length: Int) extends Producer[Iterable[Double]] with AutoSignature {
+      val fields = Set("seed", "length")
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
@@ -101,6 +103,8 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
     val rng1 = new RNG(42, 100)
     val rng2 = new RNG(117, 100)
+
+    rng1.signature should equal(rng2.signature)
   }
 
   override def beforeAll: Unit = {
