@@ -65,7 +65,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
   import TsvFormats._
 
-  implicit val prMeasurementFormat = tsvTuple3Format[Double, Double, Double](",")
+  implicit val prMeasurementFormat = tsvTuple3Format[Double, Double, Double](',')
 
   // Define our persistence implementation
 
@@ -158,8 +158,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
   "Sample Pipeline 3" should "complete" in {
     // TSV format for label+features is <label><tab><comma-separated feature values>
-    implicit val featureFormat = tsvArrayFormat[Double](",")
-    implicit val labelFeatureFormat = tsvTuple2Format[Boolean, Array[Double]]("\t")
+    implicit val featureFormat = tsvArrayFormat[Double](',')
+    implicit val labelFeatureFormat = tsvTuple2Format[Boolean, Array[Double]]('\t')
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = readFromArtifact(ParseDocumentsFromXML, docDir)

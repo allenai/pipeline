@@ -99,12 +99,13 @@ object IoHelpers {
 
   /** Read a collection of arrays of a single type from a flat file. */
   def readTsvAsArrayCollection[T: StringStorable : ClassTag](artifact: FlatArtifact,
-                                                             sep: String = "\t"): Producer[Iterable[Array[T]]] =
+                                                             sep: Char = '\t'): 
+  Producer[Iterable[Array[T]]] =
     readFromArtifact(new TsvCollectionIo[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
 
   /** Read an iterator of arrays of a single type from a flat file. */
   def readTsvAsArrayIterator[T: StringStorable : ClassTag](artifact: FlatArtifact,
-                                                           sep: String = "\t"): Producer[Iterator[Array[T]]] =
+                                                           sep: Char = '\t'): Producer[Iterator[Array[T]]] =
     readFromArtifact(new TsvIteratorIo[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
 
   /** Read collection of json-serializable objects. */
