@@ -30,8 +30,7 @@ trait Producer[T] extends Logging with CachingEnabled {
   def enableCaching: Producer[T] = {
     if (cachingEnabled) {
       this
-    }
-    else {
+    } else {
       new Producer[T] with CachingEnabled {
         def create = self.create
       }
@@ -44,8 +43,7 @@ trait Producer[T] extends Logging with CachingEnabled {
       new Producer[T] with CachingDisabled {
         def create = self.create
       }
-    }
-    else this
+    } else this
   }
 }
 
@@ -58,7 +56,7 @@ trait CachingDisabled extends CachingEnabled {
 }
 
 class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A],
-                                          artifactSource: => A) extends Producer[T] {
+    artifactSource: => A) extends Producer[T] {
   lazy val artifact = artifactSource
 
   def create = {

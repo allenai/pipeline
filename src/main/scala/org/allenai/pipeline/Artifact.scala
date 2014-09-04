@@ -2,7 +2,7 @@ package org.allenai.pipeline
 
 import org.allenai.common.Resource
 
-import java.io.{PrintStream, InputStream, OutputStream}
+import java.io.{ PrintStream, InputStream, OutputStream }
 
 /** Represents data in a persistent store. */
 trait Artifact {
@@ -53,10 +53,11 @@ object StructuredArtifact {
 }
 
 /** Artifact with nested structure, containing multiple data blobs identified by String names.
-  * Only one level of structure is supported. */
+  * Only one level of structure is supported.
+  */
 trait StructuredArtifact extends Artifact {
 
-  import StructuredArtifact.{Reader, Writer}
+  import StructuredArtifact.{ Reader, Writer }
 
   def reader: Reader
 

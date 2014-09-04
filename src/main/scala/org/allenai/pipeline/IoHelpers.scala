@@ -20,7 +20,7 @@ object IoHelpers {
 
   /** General deserialization method. */
   def readFromArtifactProducer[T, A <: Artifact](io: ArtifactIo[T, A],
-                                                 src: Producer[A]): Producer[T] = new Producer[T] {
+    src: Producer[A]): Producer[T] = new Producer[T] {
     def create = io.read(src.get)
   }
 
@@ -33,8 +33,7 @@ object IoHelpers {
     def structuredArtifact(input: T): StructuredArtifact
   }
 
-  class RelativeFileSystem(rootDir: File) extends FlatArtifactFactory[String] with
-  StructuredArtifactFactory[String] {
+  class RelativeFileSystem(rootDir: File) extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
     private def toFile(path: String): File = new File(rootDir, path)
 
     override def flatArtifact(name: String): FlatArtifact = new FileArtifact(toFile(name))
@@ -98,14 +97,13 @@ object IoHelpers {
     readFromArtifact(new TsvIteratorIo[T], artifact)
 
   /** Read a collection of arrays of a single type from a flat file. */
-  def readTsvAsArrayCollection[T: StringStorable : ClassTag](artifact: FlatArtifact,
-                                                             sep: Char = '\t'): 
-  Producer[Iterable[Array[T]]] =
+  def readTsvAsArrayCollection[T: StringStorable: ClassTag](artifact: FlatArtifact,
+    sep: Char = '\t'): Producer[Iterable[Array[T]]] =
     readFromArtifact(new TsvCollectionIo[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
 
   /** Read an iterator of arrays of a single type from a flat file. */
-  def readTsvAsArrayIterator[T: StringStorable : ClassTag](artifact: FlatArtifact,
-                                                           sep: Char = '\t'): Producer[Iterator[Array[T]]] =
+  def readTsvAsArrayIterator[T: StringStorable: ClassTag](artifact: FlatArtifact,
+    sep: Char = '\t'): Producer[Iterator[Array[T]]] =
     readFromArtifact(new TsvIteratorIo[Array[T]]()(tsvArrayFormat[T](sep)), artifact)
 
   /** Read collection of json-serializable objects. */

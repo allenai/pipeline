@@ -6,7 +6,7 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
 
-import java.io.{File, FileOutputStream}
+import java.io.{ File, FileOutputStream }
 
 case class S3Config(service: AmazonS3Client, bucket: String)
 
@@ -18,8 +18,7 @@ object S3Config {
 }
 
 /** Artifact implementations using S3 storage. */
-class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifact with
-S3Artifact[FileArtifact] {
+class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifact with S3Artifact[FileArtifact] {
   def makeLocalArtifact(f: File) = new FileArtifact(f)
 
   override def read = {
@@ -38,8 +37,7 @@ S3Artifact[FileArtifact] {
 }
 
 /** Zip file stored in S3.  */
-class S3ZipArtifact(val path: String, val config: S3Config) extends StructuredArtifact with
-S3Artifact[ZipFileArtifact] {
+class S3ZipArtifact(val path: String, val config: S3Config) extends StructuredArtifact with S3Artifact[ZipFileArtifact] {
 
   import org.allenai.pipeline.StructuredArtifact._
 
@@ -86,7 +84,7 @@ trait S3Artifact[A <: Artifact] extends Logging {
   protected def getCachedArtifact: A = cachedFile match {
     case Some(f) => f
     case None =>
-      val tmpFile = File.createTempFile(path.replaceAll( """/""", """\$"""), "tmp")
+      val tmpFile = File.createTempFile(path.replaceAll("""/""", """\$"""), "tmp")
       if (exists) {
         logger.debug(s"Downloading $bucket/$path to $tmpFile")
         val os = new FileOutputStream(tmpFile)

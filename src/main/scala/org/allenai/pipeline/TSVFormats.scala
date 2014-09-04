@@ -62,9 +62,8 @@ object TsvFormats {
       }
     }
 
-  def tsvFormat2[P1, P2, T <: Product](construct: (P1, P2) => T, sep: Char = '\t')
-                                      (implicit p1Parser: StringStorable[P1],
-                                       p2Parser: StringStorable[P2]) = new StringStorable[T] {
+  def tsvFormat2[P1, P2, T <: Product](construct: (P1, P2) => T, sep: Char = '\t')(implicit p1Parser: StringStorable[P1],
+    p2Parser: StringStorable[P2]) = new StringStorable[T] {
     val p = Pattern.compile(sep.toString)
 
     def fromString(s: String) = {
@@ -81,8 +80,8 @@ object TsvFormats {
   }
 
   def tsvFormat3[P1, P2, P3, T <: Product](construct: (P1, P2, P3) => T,
-                                           sep: Char = '\t')(implicit p1Parser: StringStorable[P1],
-                                                           p2Parser: StringStorable[P2], p3Parser: StringStorable[P3]) = new StringStorable[T] {
+    sep: Char = '\t')(implicit p1Parser: StringStorable[P1],
+      p2Parser: StringStorable[P2], p3Parser: StringStorable[P3]) = new StringStorable[T] {
     val p = Pattern.compile(sep.toString)
 
     def fromString(s: String) = {
@@ -101,11 +100,10 @@ object TsvFormats {
     }
   }
 
-  def tsvFormat4[P1, P2, P3, P4, T <: Product](construct: (P1, P2, P3, P4) => T, sep: Char = '\t')
-                                              (implicit p1Parser: StringStorable[P1],
-                                               p2Parser: StringStorable[P2],
-                                               p3Parser: StringStorable[P3],
-                                               p4Parser: StringStorable[P4]) = new StringStorable[T] {
+  def tsvFormat4[P1, P2, P3, P4, T <: Product](construct: (P1, P2, P3, P4) => T, sep: Char = '\t')(implicit p1Parser: StringStorable[P1],
+    p2Parser: StringStorable[P2],
+    p3Parser: StringStorable[P3],
+    p4Parser: StringStorable[P4]) = new StringStorable[T] {
     val p = Pattern.compile(sep.toString)
 
     def fromString(s: String) = {
@@ -127,12 +125,11 @@ object TsvFormats {
   }
 
   def tsvFormat5[P1, P2, P3, P4, P5, T <: Product](construct: (P1, P2, P3, P4, P5) => T,
-                                                   sep: Char = '\t')
-                                                  (implicit p1Parser: StringStorable[P1],
-                                                   p2Parser: StringStorable[P2],
-                                                   p3Parser: StringStorable[P3],
-                                                   p4Parser: StringStorable[P4],
-                                                   p5Parser: StringStorable[P5]) = new StringStorable[T] {
+    sep: Char = '\t')(implicit p1Parser: StringStorable[P1],
+      p2Parser: StringStorable[P2],
+      p3Parser: StringStorable[P3],
+      p4Parser: StringStorable[P4],
+      p5Parser: StringStorable[P5]) = new StringStorable[T] {
     val p = Pattern.compile(sep.toString)
 
     def fromString(s: String) = {
@@ -185,8 +182,7 @@ object TsvFormats {
     def toString(param: Boolean) = param.toString
   }
 
-  def tsvArrayFormat[T: StringStorable : ClassTag](sep: Char = '\t') = new
-      StringStorable[Array[T]] {
+  def tsvArrayFormat[T: StringStorable: ClassTag](sep: Char = '\t') = new StringStorable[Array[T]] {
     val p = Pattern.compile(sep.toString)
     val colParser = implicitly[StringStorable[T]]
 
