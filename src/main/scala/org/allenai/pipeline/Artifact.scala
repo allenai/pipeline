@@ -1,80 +1,88 @@
 package org.allenai.pipeline
 
-import java.io._
+import org.allenai.common.Resource
 
-/** Represents data in a persistent store
-  */
+import java.io.{PrintStream, InputStream, OutputStream}
+
+/** Represents data in a persistent store. */
 trait Artifact {
+  /** Return true if this data has been written to the persistent store. */
   def exists: Boolean
 }
 
-/** Single file
-  */
+/** Generic data blob.  */
 trait FlatArtifact extends Artifact {
   /** Reading from a flat file gives an InputStream.
-    * The client code is responsible for closing this.  This is necessary to support streaming
+    * The client code is responsible for closing this.  This is necessary to support streaming.
     */
   def read: InputStream
 
   /** The write interface enforces atomic writes to a FlatArtifact
-    * The client code is unable to close any OutputStream, nor to keep it open after the writer function terminates
-    * Furthermore, if a write operation fails (throws an Exception), the resulting Artifact must not be created
+    * The client code is unable to close any OutputStream, nor to keep it open after the writer
+    * function terminates.  Furthermore, if a write operation fails (throws an Exception),
+    * the resulting Artifact must not be created.
     */
   def write[T](writer: ArtifactStreamWriter => T): T
 
   def copyTo(other: FlatArtifact): Unit = {
     other.write { writer =>
-      val is = read
       val buffer = new Array[Byte](16384)
-      Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n => writer.write(buffer, 0, n))
-      is.close()
+      Resource.using(read) { is =>
+        Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
+          writer.write(buffer, 0, n))
+      }
     }
   }
 }
 
-/** Artifact with nested structure
-  */
+object StructuredArtifact {
+
+  trait Reader {
+    /** Read a single entry by name. */
+    def read(entryName: String): InputStream
+
+    /** Read all entries in order. */
+    def readAll: Iterator[(String, InputStream)]
+  }
+
+  trait Writer {
+    /** Write a single entry. */
+    def writeEntry[T](name: String)(writer: ArtifactStreamWriter => T): T
+  }
+
+}
+
+/** Artifact with nested structure, containing multiple data blobs identified by String names.
+  * Only one level of structure is supported. */
 trait StructuredArtifact extends Artifact {
-  def reader: StructuredArtifactReader
+
+  import StructuredArtifact.{Reader, Writer}
+
+  def reader: Reader
 
   /** Like FlatArtifacts, the write interface enforces atomic writes to a StructuredArtifact
-    * Client code cannot open/close an OutputStream, and a failed write should create no Artifact
-    * @param writer
-    * @tparam T
-    * @return
+    * Client code cannot open/close an OutputStream, and a failed write should create no Artifact.
     */
-  def write[T](writer: StructuredArtifactWriter => T): T
+  def write[T](writer: Writer => T): T
 
   def copyTo(other: StructuredArtifact): Unit = {
     other.write { writer =>
       for ((name, is) <- reader.readAll) {
         val buffer = new Array[Byte](16384)
         writer.writeEntry(name) { entryWriter =>
-          Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n => entryWriter.write(buffer, 0, n))
+          Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n => entryWriter.
+            write(buffer, 0, n))
           is.close()
         }
       }
     }
   }
-}
 
-trait StructuredArtifactReader {
-  /** Read a single entry by name */
-  def read(entryName: String): InputStream
-
-  /** Read all entries in order */
-  def readAll: Iterator[(String, InputStream)]
-}
-
-trait StructuredArtifactWriter {
-  /** Write a single entry */
-  def writeEntry[T](name: String)(writer: ArtifactStreamWriter => T): T
 }
 
 /** Class for writing that exposes a more restrictive interface than OutputStream
   * In particular, we don't want clients to close the stream
-  * Also, we force character encoding to UTF-8
-  * @param out
+  * Also, we force character encoding to UTF-8.
   */
 class ArtifactStreamWriter(out: OutputStream) {
   def write(data: Array[Byte]): Unit = {

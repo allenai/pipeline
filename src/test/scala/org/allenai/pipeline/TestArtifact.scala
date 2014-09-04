@@ -1,5 +1,7 @@
 package org.allenai.pipeline
 
+import scala.io.Source
+
 import java.io.{ InputStream, File }
 
 import org.allenai.common.testkit.UnitSpec
@@ -24,7 +26,7 @@ class TestArtifact extends UnitSpec {
         buff += s
       }
     }
-    val lines = io.Source.fromInputStream(a.read).getLines.toList
+    val lines = Source.fromInputStream(a.read).getLines.toList
 
     lines should equal(buff.toList)
     file.delete()
@@ -55,8 +57,8 @@ class TestArtifact extends UnitSpec {
       }
     }
 
-    def readLines(is: InputStream) = io.Source.fromInputStream(is).getLines.toList
-    def readInts(is: InputStream) = io.Source.fromInputStream(is).getLines.map(_.toInt).toList
+    def readLines(is: InputStream) = Source.fromInputStream(is).getLines.toList
+    def readInts(is: InputStream) = Source.fromInputStream(is).getLines.map(_.toInt).toList
     val reader = z.reader
     val x = (readInts(reader.read("numbers")), readLines(reader.read("letters")))
 

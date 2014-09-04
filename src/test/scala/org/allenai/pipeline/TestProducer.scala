@@ -16,11 +16,11 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   val rand = new Random
 
-  import org.allenai.pipeline.IOHelpers._
+  import org.allenai.pipeline.IoHelpers._
 
   val outputDir = new File("test-output")
 
-  implicit val output = new FileSystem(outputDir)
+  implicit val output = new RelativeFileSystem(outputDir)
 
   val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled {
     def create = {

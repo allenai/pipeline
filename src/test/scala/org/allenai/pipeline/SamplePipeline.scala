@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import java.io.{ InputStream, File }
+import java.io.{InputStream, File}
 
 import org.allenai.common.testkit.UnitSpec
 import org.apache.commons.io.FileUtils
@@ -69,10 +69,10 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
   // Define our persistence implementation
 
-  import IOHelpers._
+  import IoHelpers._
 
-  val input = new FileSystem(inputDir)
-  val output = new FileSystem(outputDir)
+  val input = new RelativeFileSystem(inputDir)
+  val output = new RelativeFileSystem(outputDir)
 
   //    This also works:
   //    import org.jets3t.service.impl.rest.httpclient.RestS3Service
@@ -88,8 +88,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
 
   "Sample Pipeline 1" should "complete" in {
     // Read input data
-    val featureData: Producer[Iterable[Array[Double]]] = ReadTsvAsArrayCollection[Double](input.flatArtifact(featureFile))
-    val labelData: Producer[Iterable[Boolean]] = ReadTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+    val featureData: Producer[Iterable[Array[Double]]] = readTsvAsArrayCollection[Double](input.flatArtifact(featureFile))
+    val labelData: Producer[Iterable[Boolean]] = readTsvAsCollection[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]], testData: Producer[Iterable[(Boolean, Array[Double])]]) = new JoinAndSplitData(featureData, labelData, 0.2)
     val model: Producer[TrainedModel] = new TrainModel(trainData).saveAsJson("model.json")
@@ -114,7 +114,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
     }
   }
 
-  object ParseDocumentsFromXML extends ArtifactIO[Iterator[ParsedDocument], StructuredArtifact] {
+  object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact] {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
     }
@@ -128,10 +128,10 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
   "Sample Pipeline 2" should "complete" in {
     // Read input data
     val docDir = new File(inputDir, "xml")
-    val docs = ReadFromArtifact(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
+    val docs = readFromArtifact(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
-    val labelData: Producer[Iterable[Boolean]] = ReadTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+    val labelData: Producer[Iterable[Boolean]] = readTsvAsCollection[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]], testData: Producer[Iterable[(Boolean, Array[Double])]]) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val model: Producer[TrainedModel] = new TrainModel(trainData).saveAsJson("model.json")
@@ -142,7 +142,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
     assert(new File(outputDir, "PR.txt").exists, "P/R file created")
   }
 
-  class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIO[TrainedModel, FileArtifact]) extends Producer[TrainedModel] {
+  class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel, FileArtifact]) extends Producer[TrainedModel] {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
@@ -162,14 +162,14 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach {
     implicit val labelFeatureFormat = tsvTuple2Format[Boolean, Array[Double]]("\t")
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
-    val docs = ReadFromArtifact(ParseDocumentsFromXML, docDir)
+    val docs = readFromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
-    val labelData: Producer[Iterable[Boolean]] = ReadTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+    val labelData: Producer[Iterable[Boolean]] = readTsvAsCollection[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainingDataFile = trainData.saveAsTsv("trainData.tsv").asArtifact
-    val model = new TrainModelPython(trainingDataFile, new JsonSingletonIO[TrainedModel]).saveAsJson("model.json")
+    val model = new TrainModelPython(trainingDataFile, new JsonSingletonIo[TrainedModel]).saveAsJson("model.json")
     val measure: Producer[PRMeasurement] = new MeasureModel(model, testData).saveAsTsv("PR.txt")
     measure.get
 

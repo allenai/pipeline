@@ -3,7 +3,7 @@ package org.allenai.pipeline
 import java.io.InputStream
 
 /** Given a function that converts an InputStream into an Iterator,
-  * this closes the InputStream when the Iterator has been fully consumed
+  * this closes the InputStream when the Iterator has been fully consumed.
   */
 object StreamClosingIterator {
   def apply[T](is: InputStream)(makeIterator: InputStream => Iterator[T]) = {

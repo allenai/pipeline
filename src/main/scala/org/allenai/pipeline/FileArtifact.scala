@@ -1,23 +1,25 @@
 package org.allenai.pipeline
 
-import java.io.{ File, FileInputStream, FileOutputStream, InputStream }
-import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
+import org.apache.commons.io.FileUtils
 
 import scala.collection.JavaConverters._
 
-/** Flat file
-  * @param file
-  */
+import java.io._
+import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
+
+/** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {
-  def exists = file.exists
+  override def exists = file.exists
 
   // Caller is responsible for closing the InputStream.
   // Unfortunately necessary to support streaming
   def read: InputStream = new FileInputStream(file)
 
-  // Note:  The write operation is atomic.  The file is only created if the write operation completes successfully
+  // Note:  The write operation is atomic.  The file is only created if the write operation
+  // completes successfully
   def write[T](writer: ArtifactStreamWriter => T): T = {
     val tmpFile = File.createTempFile(file.getName, "tmp", file.getParentFile)
+    tmpFile.deleteOnExit
     val fileOut = new FileOutputStream(tmpFile)
     val out = new ArtifactStreamWriter(fileOut)
     val result = writer(out)
@@ -26,35 +28,40 @@ class FileArtifact(val file: File) extends FlatArtifact {
     result
   }
 
-  override def toString = s"FileArtifact[$file]"
+  override def toString = s"FileArtifact[${file.getCanonicalPath}]"
 }
 
-/** Directory of files
-  * @param dir
-  */
+/** Directory of files.  */
 class DirectoryArtifact(val dir: File) extends StructuredArtifact {
+
+  import org.allenai.pipeline.StructuredArtifact._
+
   private val parentDir = dir.getAbsoluteFile.getParentFile
-  require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs, s"Unable to find or create directory $dir")
-  def exists = dir.exists && dir.isDirectory
-  def reader: StructuredArtifactReader = new StructuredArtifactReader {
+  require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
+    s"Unable to find or create directory $dir")
+
+  override def exists = dir.exists && dir.isDirectory
+
+  override def reader: Reader = new Reader {
     require(exists, s"Attempt to read for non-existent directory $dir")
-    /** Throw exception if file does not exist */
+
+    /** Throw exception if file does not exist. */
     def read(entryName: String): InputStream = new FileInputStream(new File(dir, entryName))
 
-    /** Read only read plain files (no recursive directory search) */
-    def readAll: Iterator[(String, InputStream)] = dir.listFiles.iterator.filterNot(_.isDirectory).map(f => (f.getName, new FileInputStream(f)))
+    /** Read only read plain files (no recursive directory search). */
+    def readAll: Iterator[(String, InputStream)] = dir.listFiles.iterator.filterNot(
+      _.isDirectory).map(f => (f.getName, new FileInputStream(f)))
   }
 
-  /** Writing to a directory is atomic, like other artifacts
-    * However, if the directory already exists, it will be renamed as a backup
-    * @param writer
-    * @tparam T
-    * @return
+  /** Writing to a directory is atomic, like other artifacts.
+    * However, if the directory already exists, it will be renamed as a backup.
     */
-  def write[T](writer: StructuredArtifactWriter => T): T = {
-    backupExistingDirectory()
+  override def write[T](writer: Writer => T): T = {
+    if (dir.exists) {
+      FileUtils.cleanDirectory(dir)
+    }
     val tmpDir = createTempDirectory
-    val dirWriter = new StructuredArtifactWriter {
+    val dirWriter = new Writer {
       def writeEntry[T](name: String)(writer: ArtifactStreamWriter => T): T = {
         val out = new FileOutputStream(new File(tmpDir, name))
         val result = writer(new ArtifactStreamWriter(out))
@@ -66,36 +73,33 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
     require(tmpDir.renameTo(dir), s"Unable to create directory $dir")
     result
   }
+
   private def createTempDirectory = {
     val f = File.createTempFile(dir.getName, ".tmp", parentDir)
     f.delete()
     f.mkdir
-    new File(f.getPath)
+    val tmpDir = new File(f.getPath)
+    scala.sys.addShutdownHook(FileUtils.deleteDirectory(tmpDir))
+    tmpDir
   }
-  // If the directory we are writing to already exists, rename it to a backup name
-  // This way we ensure that the directory contains only what was written to it
-  private def backupExistingDirectory() {
-    if (dir.exists) {
-      val backupFile = Stream.from(1).map(i => new File(parentDir, s"${dir.getName}-$i")).dropWhile(_.exists).head
-      require(dir.renameTo(backupFile), s"Unable to back up existing copy of $dir")
-    }
-  }
+
   override def toString = s"DirectoryArtifact[$dir]"
 }
 
-/** Zip file
-  * @param file
-  */
+/** Zip file.  */
 class ZipFileArtifact(val file: File) extends StructuredArtifact {
-  def exists = file.exists
 
-  def reader: StructuredArtifactReader = {
+  import org.allenai.pipeline.StructuredArtifact._
+
+  override def exists = file.exists
+
+  override def reader: Reader = {
     require(exists, s"Cannot read from non-existent file $file")
     new ZipFileReader(file)
   }
 
   // Atomic write operation
-  def write[T](writer: StructuredArtifactWriter => T): T = {
+  override def write[T](writer: Writer => T): T = {
     val w = new ZipFileWriter(file)
     val result = writer(w)
     w.close()
@@ -104,7 +108,7 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
 
   override def toString = s"ZipFileArtifact[$file]"
 
-  class ZipFileReader(file: File) extends StructuredArtifactReader {
+  class ZipFileReader(file: File) extends Reader {
     private val zipFile = new ZipFile(file)
 
     // Will throw exception if non-existent entry name is given
@@ -116,8 +120,9 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
     }
   }
 
-  class ZipFileWriter(file: File) extends StructuredArtifactWriter {
+  class ZipFileWriter(file: File) extends Writer {
     private val tmpFile = File.createTempFile(file.getName, "tmp", file.getParentFile)
+    tmpFile.deleteOnExit
     private val zipOut = new ZipOutputStream(new FileOutputStream(tmpFile))
     private val out = new ArtifactStreamWriter(zipOut)
 

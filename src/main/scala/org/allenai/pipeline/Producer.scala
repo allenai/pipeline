@@ -2,73 +2,63 @@ package org.allenai.pipeline
 
 import org.allenai.common.Logging
 
-/** An individual step in a data processing pipeline
-  * A lazily evaluated calculation, with support for in-memory caching and persistence
+/** An individual step in a data processing pipeline.
+  * A lazily evaluated calculation, with support for in-memory caching and persistence.
   */
 trait Producer[T] extends Logging with CachingEnabled {
-  outer =>
-  /** Return the computed value
-    * @return
-    */
+  self =>
+  /** Return the computed value. */
   def create: T
 
   def get: T = {
-    if (cachingEnabled && cachedValue.isDefined)
-      cachedValue.get
-    else
-      create
+    if (cachingEnabled && cachedValue.isDefined) cachedValue.get else create
   }
 
-  private lazy val cachedValue = {
+  private lazy val cachedValue: Option[T] = {
     val result = create
-    if (result.isInstanceOf[Iterator[Any]]) {
-      logger.warn(s"Disabling caching of Iterator instance in $this")
-      None
-    } else Some(result)
+    if (result.isInstanceOf[Iterator[_]]) None else Some(result)
   }
 
-  /** Persist the result of this step
-    * Once computed, write the result to the given artifact
-    * If the artifact we are using for persistence exists, return the deserialized object rather than recomputing it
-    * @param io
-    * @param artifactSource
-    * @tparam A
-    * @return
+  /** Persist the result of this step.
+    * Once computed, write the result to the given artifact.
+    * If the artifact we are using for persistence exists, return the deserialized object rather than recomputing it.
     */
-  def persisted[A <: Artifact](io: ArtifactIO[T, A], artifactSource: => A): PersistedProducer[T, A] = new PersistedProducer(this, io, artifactSource)
+  def persisted[A <: Artifact](io: ArtifactIo[T, A], artifactSource: => A): PersistedProducer[T, A] = new PersistedProducer(this, io, artifactSource)
 
-  /** Default caching policy is set by the implementing class but can be overridden dynamically
+  /** Default caching policy is set by the implementing class but can be overridden dynamically.
     */
   def enableCaching: Producer[T] = {
-    if (cachingEnabled) this
-    else new Producer[T] with CachingEnabled {
-      def create = outer.create
+    if (cachingEnabled) {
+      this
+    }
+    else {
+      new Producer[T] with CachingEnabled {
+        def create = self.create
+      }
     }
   }
 
-  /** Default caching policy is set by the implementing class but can be overridden dynamically
-    */
+  /** Default caching policy is set by the implementing class but can be overridden dynamically.  */
   def disableCaching: Producer[T] = {
-    if (cachingEnabled) new Producer[T] with CachingDisabled {
-      def create = outer.create
+    if (cachingEnabled) {
+      new Producer[T] with CachingDisabled {
+        def create = self.create
+      }
     }
     else this
   }
 }
 
-trait CachingSupported {
-  def cachingEnabled: Boolean
+trait CachingEnabled {
+  def cachingEnabled = true
 }
 
-trait CachingEnabled extends CachingSupported {
-  override def cachingEnabled = true
-}
-
-trait CachingDisabled extends CachingSupported {
+trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled = false
 }
 
-class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIO[T, A], artifactSource: => A) extends Producer[T] {
+class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A],
+                                          artifactSource: => A) extends Producer[T] {
   lazy val artifact = artifactSource
 
   def create = {
@@ -81,13 +71,13 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIO[T, A
     io.read(artifact)
   }
 
-    def asArtifact = new Producer[A] {
-      def create = {
-        if (!artifact.exists)
-          io.write(step.get, artifact)
-        artifact
-      }
+  def asArtifact = new Producer[A] {
+    def create = {
+      if (!artifact.exists)
+        io.write(step.get, artifact)
+      artifact
     }
+  }
 
 }
 

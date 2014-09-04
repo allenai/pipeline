@@ -1,30 +1,33 @@
 package org.allenai.pipeline
 
-import java.io.{ File, FileOutputStream }
+import org.allenai.common.Logging
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
-import org.allenai.common.Logging
+
+import java.io.{File, FileOutputStream}
 
 case class S3Config(service: AmazonS3Client, bucket: String)
 
 object S3Config {
   def apply(accessKey: String, secretAccessKey: String, bucket: String): S3Config =
     S3Config(new AmazonS3Client(new BasicAWSCredentials(accessKey, secretAccessKey)), bucket)
+
   def apply(bucket: String): S3Config = S3Config(new AmazonS3Client(), bucket)
 }
 
-/** Artifact implementations using S3 storage */
-class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifact with S3Artifact[FileArtifact] {
+/** Artifact implementations using S3 storage. */
+class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifact with
+S3Artifact[FileArtifact] {
   def makeLocalArtifact(f: File) = new FileArtifact(f)
 
-  def read = {
+  override def read = {
     require(exists, s"Attempt to read from non-existent S3 location: $path")
     getCachedArtifact.read
   }
 
-  def write[T](writer: ArtifactStreamWriter => T): T = {
+  override def write[T](writer: ArtifactStreamWriter => T): T = {
     val result = getCachedArtifact.write(writer)
     logger.debug(s"Uploading ${cachedFile.get.file} to $bucket/$path")
     service.putObject(bucket, path, cachedFile.get.file)
@@ -34,19 +37,20 @@ class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifac
   override def toString = s"S3Artifact[${config.bucket}, $path}]"
 }
 
-/** Zip file stored in S3
-  * @param path
-  * @param config
-  */
-class S3ZipArtifact(val path: String, val config: S3Config) extends StructuredArtifact with S3Artifact[ZipFileArtifact] {
+/** Zip file stored in S3.  */
+class S3ZipArtifact(val path: String, val config: S3Config) extends StructuredArtifact with
+S3Artifact[ZipFileArtifact] {
+
+  import org.allenai.pipeline.StructuredArtifact._
+
   def makeLocalArtifact(f: File) = new ZipFileArtifact(f)
 
-  def reader: StructuredArtifactReader = {
+  override def reader: Reader = {
     require(exists, s"Attempt to read from non-existent S3 location: $path")
     getCachedArtifact.reader
   }
 
-  def write[T](writer: StructuredArtifactWriter => T): T = {
+  override def write[T](writer: Writer => T): T = {
     val result = getCachedArtifact.write(writer)
     logger.debug(s"Uploading ${cachedFile.get.file} to $bucket/$path")
     service.putObject(bucket, path, cachedFile.get.file)
@@ -82,13 +86,14 @@ trait S3Artifact[A <: Artifact] extends Logging {
   protected def getCachedArtifact: A = cachedFile match {
     case Some(f) => f
     case None =>
-      val tmpFile = File.createTempFile(path.replaceAll("""/""", """\$"""), "tmp")
+      val tmpFile = File.createTempFile(path.replaceAll( """/""", """\$"""), "tmp")
       if (exists) {
         logger.debug(s"Downloading $bucket/$path to $tmpFile")
         val os = new FileOutputStream(tmpFile)
         val is = service.getObject(bucket, path).getObjectContent
         val buffer = new Array[Byte](math.pow(2, 20).toInt) // 1 MB buffer
-        Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n => os.write(buffer, 0, n))
+        Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
+          os.write(buffer, 0, n))
         is.close()
         os.close()
       }
