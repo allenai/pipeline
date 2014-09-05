@@ -43,11 +43,11 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistedProducer" should "read from file if exists" in {
-    val pStep = randomNumbers.saveAsTsv("savedNumbers.txt")
+    val pStep = PersistedCollection.text("savedNumbers.txt")(randomNumbers)
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = cachedRandomNumbers.saveAsTsv("savedNumbers.txt")
+    val otherStep = PersistedCollection.text("savedNumbers.txt")(cachedRandomNumbers)
     otherStep.get should equal(pStep.get)
   }
 
@@ -60,11 +60,11 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistentCachedProducer" should "read from file if exists" in {
-    val pStep = cachedRandomNumbers.saveAsTsv("savedCachedNumbers.txt")
+    val pStep = PersistedCollection.text("savedCachedNumbers.txt")(cachedRandomNumbers)
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = randomNumbers.saveAsTsv("savedCachedNumbers.txt")
+    val otherStep = PersistedCollection.text("savedCachedNumbers.txt")(randomNumbers)
     otherStep.get should equal(pStep.get)
   }
 
@@ -79,13 +79,13 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Persisted iterator" should "re-use value" in {
-    val persisted = randomIterator.saveAsTsv("randomIterator.txt")
+    val persisted = PersistedIterator.text("randomIterator.txt")(randomIterator)
     persisted.get.toList should equal(persisted.get.toList)
   }
 
   "Persisted iterator" should "read from file if exists" in {
-    val persisted = randomIterator.enableCaching.saveAsTsv("savedCachedIterator.txt")
-    val otherStep = randomIterator.disableCaching.saveAsTsv("savedCachedIterator.txt")
+    val persisted = PersistedIterator.text("savedCachedIterator.txt")(randomIterator.enableCaching)
+    val otherStep = PersistedIterator.text("savedCachedIterator.txt")(randomIterator.disableCaching)
     otherStep.get.toList should equal (persisted.get.toList)
   }
 

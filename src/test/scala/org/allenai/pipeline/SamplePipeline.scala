@@ -1,6 +1,7 @@
 package org.allenai.pipeline
 
 import spray.json.DefaultJsonProtocol._
+import spray.json.JsonFormat
 
 import java.io.{InputStream, File}
 
@@ -72,15 +73,15 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   // Enable JSON serialization for our trained model object
 
+  import org.allenai.pipeline.IoHelpers._
+
   implicit val modelFormat = TrainedModel.jsonFormat
 
-  import org.allenai.pipeline.TsvFormats._
-
-  implicit val prMeasurementFormat = tsvTuple3Format[Double, Double, Double](',')
+  implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)]
+  = tuple3ColumnFormat[Double, Double,
+    Double](',')
 
   // Define our persistence implementation
-
-  import IoHelpers._
 
   val input = new RelativeFileSystem(inputDir)
   val output = new RelativeFileSystem(outputDir)
@@ -92,18 +93,24 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   implicit val location = output
 
+  import scala.language.implicitConversions
+
+
   "Sample Pipeline 1" should "complete" in {
     // Read input data
     val featureData: Producer[Iterable[Array[Double]]] =
-      readTsvAsArrayCollection[Double](input.flatArtifact(featureFile))
+      ReadArrayCollection.text[Double](input.flatArtifact(featureFile))
     val labelData: Producer[Iterable[Boolean]] =
-      readTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+      ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
     testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(featureData, labelData, 0.2)
-    val model: Producer[TrainedModel] = new TrainModel(trainData).saveAsJson("model.json")
-    val measure: Producer[PRMeasurement] = new MeasureModel(model, testData).saveAsTsv("PR.txt")
+    val x = implicitly[FlatArtifactFactory[String]]
+    val model: Producer[TrainedModel] =
+      PersistedSingleton.json("model.json") (new TrainModel(trainData))
+    val measure: Producer[PRMeasurement] =
+      PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
 
     // Run pipeline
     measure.get
@@ -143,13 +150,15 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      readTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+      ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
     testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(docFeatures, labelData, 0.2)
-    val model: Producer[TrainedModel] = new TrainModel(trainData).saveAsJson("model.json")
-    val measure: Producer[PRMeasurement] = new MeasureModel(model, testData).saveAsTsv("PR.txt")
+    val model: Producer[TrainedModel] =
+      PersistedSingleton.json("model.json")(new TrainModel(trainData))
+    val measure: Producer[PRMeasurement] =
+      PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
     measure.get
 
     assert(new File(outputDir, "model.json").exists, "Json file created")
@@ -174,21 +183,23 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   "Sample Pipeline 3" should "complete" in {
     // TSV format for label+features is <label><tab><comma-separated feature values>
-    implicit val featureFormat = tsvArrayFormat[Double](',')
-    implicit val labelFeatureFormat = tsvTuple2Format[Boolean, Array[Double]]('\t')
+    implicit val featureFormat = columnArrayFormat[Double](',')
+    implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = readFromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      readTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+      ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
-    val trainingDataFile = trainData.saveAsTsv("trainData.tsv").asArtifact
-    val model = new TrainModelPython(trainingDataFile,
-      new JsonSingletonIo[TrainedModel]).saveAsJson("model.json")
-    val measure: Producer[PRMeasurement] = new MeasureModel(model, testData).saveAsTsv("PR.txt")
+    val trainingDataFile = PersistedCollection.text("trainData.tsv") (trainData).asArtifact
+    val model = PersistedSingleton.json("model.json")(new TrainModelPython(trainingDataFile,
+      SingletonIo.json[TrainedModel]))
+    val measure: Producer[PRMeasurement] = PersistedCollection.text("PR.txt")(new MeasureModel
+    (model,
+      testData))
     measure.get
 
     assert(new File(outputDir, "trainData.tsv").exists, "Training data file created")
