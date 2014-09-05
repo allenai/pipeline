@@ -67,7 +67,7 @@ Data Serialization
 
 Serialization of a data structure of type T into an artifact of type
 A is represented by the ArtifactIo[T,A] trait.  Because common cases,
-such as serialization to JSON and TSV, are implemented by the framework,
+such as serialization to JSON and delimited-columns, are implemented by the framework,
 many pipelines can be implemented end-to-end without any code that
 performs I/O.  Different serialization formats, i.e. different
 implementations of ArtifactIo, can be specified when the pipeline is
@@ -100,16 +100,16 @@ structured dataset (zip file or directory)
     val input = new FileSystem(inputDir)
     val output = new FileSystem(outputDir)
 
-We read the labels using the framework’s built-in TSV parsing methods:
+We read the labels using the framework’s built-in delimited-column parsing methods:
  
 
     val labelData: Producer[Iterable[Boolean]]
-        = ReadTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+        = ReadCollection.text[Boolean](input.flatArtifact(labelFile))
 
 Similarly for features
 
     val featureData: Producer[Iterable[Array[Double]]]
-    = ReadTsvAsArrayCollection[Double](input.flatArtifact(featureFile))
+    = ReadArrayCollection.text[Double](input.flatArtifact(featureFile))
 
 Step 3 takes steps 1 and 2 as input, as well as a parameter determining
 the relative size of the test set.  It produces a pair of datasets with
@@ -157,27 +157,26 @@ Persisting the Output
 At this point, the result of the calculation has been created in memory,
 but is not being persisted.  We would like to persist not only the final
 Iterable[(Double, Double, Double)] object, but the intermediate TrainedModel instance.  The
-earlier import of IoHelpers adds saveAsJson and saveAsTSV methods to
+earlier import of IoHelpers adds PersistedXXX methods to
 Producer instances that persist their data before passing it on to
 downstream consumers.  To use them, we must also provide an implicit
 persistence implementation.
 
     implicit val location = output
     val model: Producer[TrainedModel]
-            = new TrainModel(trainData).saveAsJson("model.json")
+            = PersistedSingleton.json("model.json")(new TrainModel(trainData))
     val measure: Producer[Iterable[(Double, Double, Double)]]
-            = new MeasureModel(model, testData).saveAsTSV("PR.txt")
+            = PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
 
 We have opted not to persist the Iterable[(Boolean, Array[Double])] data, but we could
 do so in the same way.  Note that we have written no code that performs
 I/O directly.  Instead, we need to define the transformation between our
-data objects and JSON or TSV format
+data objects and JSON or column format
 
     import spray.json.DefaultJsonProtocol._
     implicit val modelFormat = jsonFormat1(TrainedModel)
-    import TSVFormats._
     implicit val prMeasurementFormat 
-      = tsvTuple3Format[Double, Double, Double](“,”)
+      = tuple3ColumnFormat[Double, Double, Double](',')
 
 Furthermore, all that is required to have our pipeline persist data to
 S3 is to set the persistence implementation differently
@@ -235,7 +234,7 @@ Now we can use our document featurizer as a drop-in replacement for the
 feature data we had originally read from TSV
 
     val docDir = new File("raw-xml")
-    val docs = ReadFromArtifact(ParseDocumentsFromXML,
+    val docs = readFromArtifact(ParseDocumentsFromXML,
                                           new DirectoryArtifact(docDir))
     val docFeatures = new FeaturizeDocuments(docs) 
     // use in place of featureData above
@@ -272,19 +271,17 @@ type, so that a a downstream out-of-JVM step can consume it.  Otherwise,
 the structure of the pipeline is unchanged.
 
     val labelData: Producer[Labels]
-         =  ReadCollectionFromTSVFile[Boolean](labelFile.getPath)
+         = ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
                   testData: Producer[Iterable[(Boolean, Array[Double])]])
          = new JoinAndSplitData(docFeatures, labelData, 0.2)
     
-    val trainingDataFile = trainData.saveAsTSV("trainData.tsv").asArtifact
-    val model = new TrainModelPython(trainingDataFile,
-                                new JsonSingletonIo[TrainedModel]).saveAsJson(“model.json”)
-    val readModelFromFile: Producer[TrainedModel]
-        = ReadFromArtifactProducer(new JsonSingletonIo[TrainedModel], trainModel, true)
-    val measure: Producer[Iterable[(Double, Double, Double)]]
-        = new MeasureModel(readModelFromFile, testData).saveAsTSV("PR.txt")
+    val trainingDataFile = PersistedCollection.text("trainData.tsv")(trainData).asArtifact
+    val model = PersistedSingleton.json("model.json")(new TrainModelPython(trainingDataFile,
+          SingletonIo.json[TrainedModel]))
+    val measure: Producer[PRMeasurement] 
+        = PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
 
 Summary
 =======
