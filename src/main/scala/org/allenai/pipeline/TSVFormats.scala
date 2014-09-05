@@ -23,11 +23,11 @@ object TsvFormats {
   class TsvCollectionIo[T: StringStorable] extends ArtifactIo[Iterable[T], FlatArtifact] {
     private val parser = implicitly[StringStorable[T]]
 
-    def read(artifact: FlatArtifact): Iterable[T] = Resource.using(Source.fromInputStream(artifact.read)) { src =>
+    override def read(artifact: FlatArtifact): Iterable[T] = Resource.using(Source.fromInputStream(artifact.read)) { src =>
       src.getLines.map(parser.fromString).toList
     }
 
-    def write(data: Iterable[T], artifact: FlatArtifact): Unit = {
+    override def write(data: Iterable[T], artifact: FlatArtifact): Unit = {
       artifact.write { w =>
         for (d <- data) {
           w.println(parser.toString(d))
@@ -39,12 +39,12 @@ object TsvFormats {
   class TsvIteratorIo[T: StringStorable] extends ArtifactIo[Iterator[T], FlatArtifact] {
     private val parser = implicitly[StringStorable[T]]
 
-    def read(artifact: FlatArtifact): Iterator[T] =
+    override def read(artifact: FlatArtifact): Iterator[T] =
       StreamClosingIterator(artifact.read) { is =>
         Source.fromInputStream(is).getLines.map(parser.fromString)
       }
 
-    def write(data: Iterator[T], artifact: FlatArtifact): Unit = {
+    override def write(data: Iterator[T], artifact: FlatArtifact): Unit = {
       artifact.write { w =>
         for (d <- data) {
           w.println(parser.toString(d))
@@ -55,25 +55,25 @@ object TsvFormats {
 
   def tsvFormat[P1, T <: Product](construct: (P1) => T)(implicit p1Parser: StringStorable[P1]) =
     new StringStorable[T] {
-      def fromString(s: String) = construct(p1Parser.fromString(s))
+      override def fromString(s: String) = construct(p1Parser.fromString(s))
 
-      def toString(t: T) = {
+      override def toString(t: T) = {
         p1Parser.toString(t.productElement(0).asInstanceOf[P1])
       }
     }
 
   def tsvFormat2[P1, P2, T <: Product](construct: (P1, P2) => T, sep: Char = '\t')(implicit p1Parser: StringStorable[P1],
     p2Parser: StringStorable[P2]) = new StringStorable[T] {
-    val p = Pattern.compile(sep.toString)
+    val p = compile(sep)
 
-    def fromString(s: String) = {
+    override def fromString(s: String) = {
       p.split(s, -1) match {
         case Array(p1, p2) => construct(p1Parser.fromString(p1), p2Parser.fromString(p2))
         case _ => sys.error("Wrong number of columns in TSV")
       }
     }
 
-    def toString(t: T) = {
+    override def toString(t: T) = {
       List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
         p2Parser.toString(t.productElement(1).asInstanceOf[P2])).mkString(sep.toString)
     }
@@ -82,9 +82,9 @@ object TsvFormats {
   def tsvFormat3[P1, P2, P3, T <: Product](construct: (P1, P2, P3) => T,
     sep: Char = '\t')(implicit p1Parser: StringStorable[P1],
       p2Parser: StringStorable[P2], p3Parser: StringStorable[P3]) = new StringStorable[T] {
-    val p = Pattern.compile(sep.toString)
+    val p = compile(sep)
 
-    def fromString(s: String) = {
+    override def fromString(s: String) = {
       p.split(s, -1) match {
         case Array(p1, p2, p3) => construct(p1Parser.fromString(p1),
           p2Parser.fromString(p2),
@@ -93,7 +93,7 @@ object TsvFormats {
       }
     }
 
-    def toString(t: T) = {
+    override def toString(t: T) = {
       List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
         p2Parser.toString(t.productElement(1).asInstanceOf[P2]),
         p3Parser.toString(t.productElement(2).asInstanceOf[P3])).mkString(sep.toString)
@@ -104,9 +104,9 @@ object TsvFormats {
     p2Parser: StringStorable[P2],
     p3Parser: StringStorable[P3],
     p4Parser: StringStorable[P4]) = new StringStorable[T] {
-    val p = Pattern.compile(sep.toString)
+    val p = compile(sep)
 
-    def fromString(s: String) = {
+    override def fromString(s: String) = {
       p.split(s, -1) match {
         case Array(p1, p2, p3, p4) => construct(p1Parser.fromString(p1),
           p2Parser.fromString(p2),
@@ -116,7 +116,7 @@ object TsvFormats {
       }
     }
 
-    def toString(t: T) = {
+    override def toString(t: T) = {
       List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
         p2Parser.toString(t.productElement(1).asInstanceOf[P2]),
         p3Parser.toString(t.productElement(2).asInstanceOf[P3]),
@@ -130,9 +130,9 @@ object TsvFormats {
       p3Parser: StringStorable[P3],
       p4Parser: StringStorable[P4],
       p5Parser: StringStorable[P5]) = new StringStorable[T] {
-    val p = Pattern.compile(sep.toString)
+    val p = compile(sep)
 
-    def fromString(s: String) = {
+    override def fromString(s: String) = {
       p.split(s, -1) match {
         case Array(p1, p2, p3, p4, p5) => construct(p1Parser.fromString(p1),
           p2Parser.fromString(p2),
@@ -143,7 +143,7 @@ object TsvFormats {
       }
     }
 
-    def toString(t: T) = {
+    override def toString(t: T) = {
       List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
         p2Parser.toString(t.productElement(1).asInstanceOf[P2]),
         p3Parser.toString(t.productElement(2).asInstanceOf[P3]),
@@ -151,44 +151,46 @@ object TsvFormats {
         p5Parser.toString(t.productElement(4).asInstanceOf[P5])).mkString(sep.toString)
     }
   }
+  
+  private def compile(c: Char): Pattern = Pattern.compile(s"\\Q$c\\E")
 
   implicit object IntToString extends StringStorable[Int] {
-    def fromString(s: String) = s.toInt
+    override def fromString(s: String) = s.toInt
 
-    def toString(param: Int) = param.toString
+    override def toString(param: Int) = param.toString
   }
 
   implicit object DoubleToString extends StringStorable[Double] {
-    def fromString(s: String) = s.toDouble
+    override def fromString(s: String) = s.toDouble
 
-    def toString(param: Double) = param.toString
+    override def toString(param: Double) = param.toString
   }
 
   implicit object FloatToString extends StringStorable[Float] {
-    def fromString(s: String) = s.toFloat
+    override def fromString(s: String) = s.toFloat
 
-    def toString(param: Float) = param.toString
+    override def toString(param: Float) = param.toString
   }
 
   implicit object StringToString extends StringStorable[String] {
-    def fromString(s: String) = s
+    override def fromString(s: String) = s
 
-    def toString(param: String) = param
+    override def toString(param: String) = param
   }
 
   implicit object BooleanToString extends StringStorable[Boolean] {
-    def fromString(s: String) = s.toBoolean
+    override def fromString(s: String) = s.toBoolean
 
-    def toString(param: Boolean) = param.toString
+    override def toString(param: Boolean) = param.toString
   }
 
   def tsvArrayFormat[T: StringStorable: ClassTag](sep: Char = '\t') = new StringStorable[Array[T]] {
-    val p = Pattern.compile(sep.toString)
+    val p = compile(sep)
     val colParser = implicitly[StringStorable[T]]
 
-    def fromString(line: String) = p.split(line, -1).map(colParser.fromString)
+    override def fromString(line: String) = p.split(line, -1).map(colParser.fromString)
 
-    def toString(arr: Array[T]) = arr.map(colParser.toString).mkString(sep.toString)
+    override def toString(arr: Array[T]) = arr.map(colParser.toString).mkString(sep.toString)
   }
 
   import scala.language.implicitConversions

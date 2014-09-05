@@ -15,32 +15,35 @@ trait ArtifactIo[T, -A <: Artifact] {
 
 /** Persist a collection of json-serializable objects to a flat file.  */
 class JsonSingletonIo[T: JsonFormat] extends ArtifactIo[T, FlatArtifact] {
-  def read(artifact: FlatArtifact): T = {
+  override def read(artifact: FlatArtifact): T = {
     Resource.using(Source.fromInputStream(artifact.read)) { src =>
       src.mkString.parseJson.convertTo[T]
     }
   }
 
-  def write(data: T, artifact: FlatArtifact): Unit = artifact.write { _.write(data.toJson.prettyPrint) }
+  override def write(data: T, artifact: FlatArtifact): Unit = artifact.write {
+    _.write(data.toJson
+      .prettyPrint)
+  }
 }
 
 /** Persist a collection of json-serializable objects to a flat file, one line per object.  */
 class JsonCollectionIo[T: JsonFormat] extends ArtifactIo[Iterable[T], FlatArtifact] {
   private val delegate = new JsonIteratorIo[T]
 
-  def read(artifact: FlatArtifact): Iterable[T] = delegate.read(artifact).toList
+  override def read(artifact: FlatArtifact): Iterable[T] = delegate.read(artifact).toList
 
-  def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(data.iterator, artifact)
+  override def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(data.iterator, artifact)
 }
 
 /** Persist an iterator of json-serializable objects to a flat file, one line per object.  */
 class JsonIteratorIo[T: JsonFormat] extends ArtifactIo[Iterator[T], FlatArtifact] {
-  def read(artifact: FlatArtifact): Iterator[T] =
+  override def read(artifact: FlatArtifact): Iterator[T] =
     StreamClosingIterator(artifact.read) { is =>
       Source.fromInputStream(is).getLines.map(_.parseJson.convertTo[T])
     }
 
-  def write(data: Iterator[T], artifact: FlatArtifact): Unit = {
+  override def write(data: Iterator[T], artifact: FlatArtifact): Unit = {
     artifact.write { w =>
       for (d <- data)
         w.println(d.toJson.compactPrint)

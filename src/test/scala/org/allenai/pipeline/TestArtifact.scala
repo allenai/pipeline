@@ -71,7 +71,4 @@ class TestArtifact extends UnitSpec {
     letters should equal(x._2)
     file.delete()
   }
-  /*
-   */
-
 }
