@@ -3,16 +3,17 @@ package org.allenai.pipeline
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
-import java.io.{InputStream, File}
+import java.io.{ InputStream, File }
 
 import org.allenai.common.testkit.UnitSpec
 import org.apache.commons.io.FileUtils
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
 
 import scala.util.Random
 
 /** See README.md for explanatory documentation of this example,
-  * which runs a mocked-up pipeline to train and cross-validate a model. */
+  * which runs a mocked-up pipeline to train and cross-validate a model.
+  */
 class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfterAll {
 
   case class TrainedModel(info: String)
@@ -22,9 +23,9 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   }
 
   class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
-                         labels: Producer[Iterable[Boolean]],
-                         testSizeRatio: Double)
-    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
+    labels: Producer[Iterable[Boolean]],
+    testSizeRatio: Double)
+      extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
     def create = {
       val rand = new Random
       val data = labels.get.zip(features.get)
@@ -34,7 +35,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   }
 
   class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[TrainedModel] {
+      extends Producer[TrainedModel] {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -48,8 +49,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   // Threshold, precision, recall
   class MeasureModel(model: Producer[TrainedModel],
-                     testData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[PRMeasurement] {
+    testData: Producer[Iterable[(Boolean, Array[Double])]])
+      extends Producer[PRMeasurement] {
     def create = {
       model.get
       // Just generate some dummy data
@@ -77,9 +78,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   implicit val modelFormat = TrainedModel.jsonFormat
 
-  implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)]
-  = tuple3ColumnFormat[Double, Double,
-    Double](',')
+  implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] = tuple3ColumnFormat[Double, Double, Double](',')
 
   // Define our persistence implementation
 
@@ -95,7 +94,6 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   import scala.language.implicitConversions
 
-
   "Sample Pipeline 1" should "complete" in {
     // Read input data
     val featureData: Producer[Iterable[Array[Double]]] =
@@ -104,11 +102,11 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
-    testData: Producer[Iterable[(Boolean, Array[Double])]]) =
+      testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(featureData, labelData, 0.2)
     val x = implicitly[FlatArtifactFactory[String]]
     val model: Producer[TrainedModel] =
-      PersistedSingleton.json("model.json") (new TrainModel(trainData))
+      PersistedSingleton.json("model.json")(new TrainModel(trainData))
     val measure: Producer[PRMeasurement] =
       PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
 
@@ -122,7 +120,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   case class ParsedDocument(info: String)
 
   class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-    extends Producer[Iterable[Array[Double]]] {
+      extends Producer[Iterable[Array[Double]]] {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -153,7 +151,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
-    testData: Producer[Iterable[(Boolean, Array[Double])]]) =
+      testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(docFeatures, labelData, 0.2)
     val model: Producer[TrainedModel] =
       PersistedSingleton.json("model.json")(new TrainModel(trainData))
@@ -166,7 +164,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   }
 
   class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel, FileArtifact])
-    extends Producer[TrainedModel] {
+      extends Producer[TrainedModel] {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
@@ -194,11 +192,10 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
-    val trainingDataFile = PersistedCollection.text("trainData.tsv") (trainData).asArtifact
+    val trainingDataFile = PersistedCollection.text("trainData.tsv")(trainData).asArtifact
     val model = PersistedSingleton.json("model.json")(new TrainModelPython(trainingDataFile,
       SingletonIo.json[TrainedModel]))
-    val measure: Producer[PRMeasurement] = PersistedCollection.text("PR.txt")(new MeasureModel
-    (model,
+    val measure: Producer[PRMeasurement] = PersistedCollection.text("PR.txt")(new MeasureModel(model,
       testData))
     measure.get
 

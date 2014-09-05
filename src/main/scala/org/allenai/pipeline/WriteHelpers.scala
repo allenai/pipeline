@@ -17,7 +17,7 @@ trait WriteHelpers {
   }
 
   class RelativeFileSystem(rootDir: File)
-    extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
+      extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
     private def toFile(path: String): File = new File(rootDir, path)
 
     override def flatArtifact(name: String): FlatArtifact = new FileArtifact(toFile(name))
@@ -51,17 +51,17 @@ trait WriteHelpers {
   }
 
   implicit object IdentityFlatArtifactFactory
-    extends FlatArtifactFactory[FlatArtifact] {
+      extends FlatArtifactFactory[FlatArtifact] {
     override def flatArtifact(a: FlatArtifact) = a
   }
 
   implicit object IdentityStructuredArtifactFactory
-    extends StructuredArtifactFactory[StructuredArtifact] {
+      extends StructuredArtifactFactory[StructuredArtifact] {
     override def structuredArtifact(a: StructuredArtifact) = a
   }
 
   class S3(config: S3Config, rootPath: Option[String] = None)
-    extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
+      extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
     // Drop leading and training slashes
     private def toPath(path: String): String = rootPath match {
       case None => path
@@ -77,42 +77,36 @@ trait WriteHelpers {
   }
 
   object PersistedSingleton {
-    def text[T: StringSerializable, I: FlatArtifactFactory]
-    (input: I)(step: Producer[T]): PersistedProducer[T, FlatArtifact] = {
+    def text[T: StringSerializable, I: FlatArtifactFactory](input: I)(step: Producer[T]): PersistedProducer[T, FlatArtifact] = {
       step.persisted(SingletonIo.text[T],
         implicitly[FlatArtifactFactory[I]].flatArtifact(input))
     }
 
-    def json[T: JsonFormat, I: FlatArtifactFactory]
-    (input: I)(step: Producer[T]): PersistedProducer[T, FlatArtifact] = {
+    def json[T: JsonFormat, I: FlatArtifactFactory](input: I)(step: Producer[T]): PersistedProducer[T, FlatArtifact] = {
       step.persisted(SingletonIo.json[T],
         implicitly[FlatArtifactFactory[I]].flatArtifact(input))
     }
   }
 
   object PersistedCollection {
-    def text[T: StringSerializable, I: FlatArtifactFactory]
-    (input: I)(step: Producer[Iterable[T]]): PersistedProducer[Iterable[T], FlatArtifact] = {
+    def text[T: StringSerializable, I: FlatArtifactFactory](input: I)(step: Producer[Iterable[T]]): PersistedProducer[Iterable[T], FlatArtifact] = {
       step.persisted(LineCollectionIo.text[T],
         implicitly[FlatArtifactFactory[I]].flatArtifact(input))
     }
 
-    def json[T: JsonFormat, I: FlatArtifactFactory]
-    (input: I)(step: Producer[Iterable[T]]): PersistedProducer[Iterable[T], FlatArtifact] = {
+    def json[T: JsonFormat, I: FlatArtifactFactory](input: I)(step: Producer[Iterable[T]]): PersistedProducer[Iterable[T], FlatArtifact] = {
       step.persisted(LineCollectionIo.json[T],
         implicitly[FlatArtifactFactory[I]].flatArtifact(input))
     }
   }
 
   object PersistedIterator {
-    def text[T: StringSerializable, I: FlatArtifactFactory]
-    (input: I)(step: Producer[Iterator[T]]): PersistedProducer[Iterator[T], FlatArtifact] = {
+    def text[T: StringSerializable, I: FlatArtifactFactory](input: I)(step: Producer[Iterator[T]]): PersistedProducer[Iterator[T], FlatArtifact] = {
       step.persisted(LineIteratorIo.text[T],
         implicitly[FlatArtifactFactory[I]].flatArtifact(input))
     }
 
-    def json[T: JsonFormat, I: FlatArtifactFactory]
-    (input: I)(step: Producer[Iterator[T]]): PersistedProducer[Iterator[T], FlatArtifact] = {
+    def json[T: JsonFormat, I: FlatArtifactFactory](input: I)(step: Producer[Iterator[T]]): PersistedProducer[Iterator[T], FlatArtifact] = {
       step.persisted(LineIteratorIo.json[T],
         implicitly[FlatArtifactFactory[I]].flatArtifact(input))
     }

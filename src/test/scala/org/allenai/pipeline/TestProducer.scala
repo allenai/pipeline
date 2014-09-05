@@ -86,7 +86,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   "Persisted iterator" should "read from file if exists" in {
     val persisted = PersistedIterator.text("savedCachedIterator.txt")(randomIterator.enableCaching)
     val otherStep = PersistedIterator.text("savedCachedIterator.txt")(randomIterator.disableCaching)
-    otherStep.get.toList should equal (persisted.get.toList)
+    otherStep.get.toList should equal(persisted.get.toList)
   }
 
   override def beforeAll: Unit = {

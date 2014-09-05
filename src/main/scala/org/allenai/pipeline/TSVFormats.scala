@@ -5,7 +5,6 @@ import scala.reflect.ClassTag
 
 import java.util.regex.Pattern
 
-
 /** Support for persisting to a column-delimited file.
   * Persisted object can be a case-class or Tuple.
   * Each field of the object must be a primitive type (Int, Double, String)
@@ -112,7 +111,7 @@ trait ColumnFormats {
         p5Parser.toString(t.productElement(4).asInstanceOf[P5])).mkString(sep.toString)
     }
   }
-  
+
   private def compile(c: Char): Pattern = Pattern.compile(s"\\Q$c\\E")
 
   implicit object IntToString extends SS[Int] {
