@@ -29,7 +29,7 @@ trait ColumnFormats {
     override def fromString(s: String) = {
       p.split(s, -1) match {
         case Array(p1, p2) => construct(p1Parser.fromString(p1), p2Parser.fromString(p2))
-        case _ => sys.error("Wrong number of columns in TSV")
+        case x => sys.error(s"Wrong number of columns in TSV (${x.length} instead of 2)")
       }
     }
 
@@ -49,7 +49,7 @@ trait ColumnFormats {
         case Array(p1, p2, p3) => construct(p1Parser.fromString(p1),
           p2Parser.fromString(p2),
           p3Parser.fromString(p3))
-        case _ => sys.error("Wrong number of columns in TSV")
+        case x => sys.error(s"Wrong number of columns in TSV (${x.length} instead of 3)")
       }
     }
 
@@ -72,7 +72,7 @@ trait ColumnFormats {
           p2Parser.fromString(p2),
           p3Parser.fromString(p3),
           p4Parser.fromString(p4))
-        case _ => sys.error("Wrong number of columns in TSV")
+        case x => sys.error(s"Wrong number of columns in TSV (${x.length} instead of 4)")
       }
     }
 
@@ -99,7 +99,7 @@ trait ColumnFormats {
           p3Parser.fromString(p3),
           p4Parser.fromString(p4),
           p5Parser.fromString(p5))
-        case _ => sys.error("Wrong number of columns in TSV")
+        case x => sys.error(s"Wrong number of columns in TSV (${x.length} instead of 5)")
       }
     }
 
