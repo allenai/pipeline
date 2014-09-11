@@ -93,24 +93,31 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       randomIterator.disableCaching)
   }
 
-  "Auto-assigned paths" should "be reusable" in {
+  "Signatures" should "determine unique paths" in {
+    import spray.json._
     import spray.json.DefaultJsonProtocol._
+    import Signature._
 
-    implicit val pathFinder = new PipelineRunner(new RelativeFileSystem(outputDir))
+    implicit val runner = new PipelineRunner(new RelativeFileSystem(outputDir))
 
     case class RNGConfig(seed: Int, length: Int)
-    class RNG(seed: Int, length: Int) extends Producer[Iterable[Double]] with
-    HasSignature {
-      val signature = Signature.auto(RNGConfig(seed, length))
+    class RNG(seed: Int, length: Int) extends Producer[Iterable[Double]]
+    with HasSignature {
+      val signature = Signature.fromObject(RNGConfig(seed, length))
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
     }
 
-    val rng1 = new RNG(42, 100)
-    val rng2 = new RNG(117, 100)
+    val rng1 = runner.PersistCollection.json(new RNG(42, 100))
+    val rng2 = runner.PersistCollection.json(new RNG(117, 100))
 
-    rng1.signature should not equal(rng2.signature)
+    rng1.signature should not equal (rng2.signature)
+
+    rng2.signature.toJson.convertTo[Signature] should equal (rng2.signature)
+
+    val rng3 = runner.PersistCollection.json(new RNG(42, 100))
+    rng1.get should equal(rng3.get)
   }
 
   "PipelineRunner" should "run a pipeline" in {
@@ -120,19 +127,20 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       def create = (0 until length).map(i => rand.nextDouble)
     }
 
-    val rngWithSignature = new RNG(42,100) with HasSignature {
-      lazy val signature = Signature.from(this, "seed" -> seed, "length" -> length)
+    val rngWithSignature = new RNG(42, 100) with HasSignature {
+      lazy val signature = Signature.fromParameters(this, "seed" -> seed, "length" -> length)
     }
 
-    rngWithSignature.signature should not equal(null)
+    rngWithSignature.signature should not equal (null)
 
   }
 
   override def beforeAll: Unit = {
-    require((outputDir.exists && outputDir.isDirectory) || outputDir.mkdirs, s"Unable to create test output directory $outputDir")
+    require((outputDir.exists && outputDir.isDirectory) || outputDir.mkdirs,
+      s"Unable to create test output directory $outputDir")
   }
 
   override def afterAll: Unit = {
-    FileUtils.deleteDirectory(outputDir)
+    //FileUtils.deleteDirectory(outputDir)
   }
 }

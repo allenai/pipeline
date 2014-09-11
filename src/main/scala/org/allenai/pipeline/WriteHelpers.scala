@@ -124,26 +124,28 @@ trait WriteHelpers {
     }
 
     def persist[T, A <: Artifact](producer: Producer[T] with HasSignature, io: ArtifactIo[T, A])
-                                 (artifactSource: Signature => A) = {
+                                 (artifactSource: Signature => A): PersistedProducer[T,
+      A] with HasSignature = {
       new PersistedProducer[T, A](producer,
         io,
-        artifactSource(producer.signature)) {
+        artifactSource(producer.signature)) with HasSignature {
         override def create = {
-          val result = super.get
+          val result = super.create
           val infoArtifact = flatArtifact(producer.signature, "info.json")
           if (!infoArtifact.exists) {
             infoArtifact.write(_.write(producer.signature.infoString))
           }
           result
         }
+        def signature = producer.signature
       }
     }
 
     object PersistCollection {
       def text[T: StringSerializable](producer: Producer[Iterable[T]] with HasSignature) =
-        persist(producer, LineCollectionIo.text[T])(sig => flatArtifact(sig, ".txt"))
+        persist(producer, LineCollectionIo.text[T])(sig => flatArtifact(sig, "txt"))
       def json[T: JsonFormat](producer: Producer[Iterable[T]] with HasSignature) =
-        persist(producer, LineCollectionIo.json[T])(sig => flatArtifact(sig, ".json"))
+        persist(producer, LineCollectionIo.json[T])(sig => flatArtifact(sig, "json"))
     }
 
     def path(signature: Signature, suffix: String): Seq[String] = {

@@ -9,14 +9,14 @@ import java.util.Date
 package object pipeline {
   def codeVersionOf(obj: Any) = {
     obj.getClass.getPackage.getImplementationVersion match {
-      case null => s"local-${System.getProperty("user.name")}-${
-        new SimpleDateFormat
-        ("YYYY-MM-dd:hh:mm:ss").format(new Date())
-      }"
-      case s if s.endsWith("SNAPSHOT") => s"$s-${System.getProperty("user.name")}-${
-        new SimpleDateFormat
-        ("YYYY-MM-dd:hh:mm:ss").format(new Date())
-      }"
+      case null => {
+        val date = new SimpleDateFormat("yyyy-MM-dd:hh:mm:ss").format(new Date())
+        s"local-${System.getProperty("user.name")}-$date"
+      }
+      case s if s.endsWith("SNAPSHOT") => {
+        val date = new SimpleDateFormat("yyyy-MM-dd:hh:mm:ss").format(new Date())
+        s"$s-${System.getProperty("user.name")}-$date"
+      }
       case s => s
     }
   }

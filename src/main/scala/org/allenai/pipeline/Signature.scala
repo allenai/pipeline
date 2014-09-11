@@ -10,11 +10,13 @@ import spray.json._
  */
 case class Signature(name: String,
                      codeVersion: String,
-                     dependencies: Map[String, Signature],
-                     parameters: Map[String, String]) {
-  def id = this.toJson(Signature.JsonFormat).compactPrint.hashCode
+                     dependencies: Map[String, HasSignature],
+                     parameters: Map[String, String]) extends HasSignature {
+  def id: String = this.toJson(Signature.JsonFormat).compactPrint.hashCode.toHexString
 
-  def infoString = this.toJson(Signature.JsonFormat).prettyPrint
+  def infoString: String = this.toJson(Signature.JsonFormat).prettyPrint
+
+  override def signature: Signature = this
 
 }
 
@@ -24,27 +26,47 @@ trait HasSignature {
 
 object Signature {
 
-  object JsonFormat extends JsonFormat[Signature] {
+  implicit object JsonFormat extends JsonFormat[Signature] {
+    private val CODE_VERSION = "codeVersion"
+    private val NAME = "name"
+    private val DEPENDENCIES = "dependencies"
+    private val PARAMETERS = "parameters"
+
     def write(s: Signature) = {
-      val deps = JsObject(
-        s.dependencies.toList.map(t => (t._1, JsonFormat.write(t._2))).sortBy(_._1))
+      // Sort keys in dependencies and parameters so that json format is identical for equal objects
+      val deps = s.dependencies.toList.map(t => (t._1, JsonFormat.write(t._2.signature))).
+        sortBy(_._1).toJson
       val params = s.parameters.toList.sortBy(_._1).toJson
-      JsArray(JsString(s.codeVersion), JsString(s.name), deps, params)
+      JsObject((CODE_VERSION, JsString(s.codeVersion)),
+        (NAME, JsString(s.name)),
+        (DEPENDENCIES, deps),
+        (PARAMETERS, params))
     }
 
     def read(value: JsValue): Signature = value match {
-      case JsArray(List(JsString(_codeVersion), JsString(_name), deps, params)) => {
-        val _dependencies = deps.convertTo[List[(String, JsValue)]].map(t => (t._1,
-          JsonFormat.read(t._2))).toMap
-        val _parameters = params.convertTo[List[(String, String)]].toMap
-        Signature(codeVersion = _codeVersion, name = _name,
-          dependencies = _dependencies, parameters = _parameters)
+      case JsObject(fields) => {
+        (fields.get(CODE_VERSION),
+          fields.get(NAME),
+          fields.get(DEPENDENCIES),
+          fields.get(PARAMETERS)) match {
+          case (Some(JsString(_codeVersion)),
+          Some(JsString(_name)),
+          Some(deps),
+          Some(params)) => {
+            val _dependencies = deps.convertTo[List[(String, JsValue)]].
+              map { case (n, v) => (n, JsonFormat.read(v))}.toMap
+            val _parameters = params.convertTo[List[(String, String)]].toMap
+            Signature(codeVersion = _codeVersion, name = _name,
+              dependencies = _dependencies, parameters = _parameters)
+          }
+          case _ => deserializationError(s"Invalid format for Signature: $value")
+        }
       }
-      case _ => deserializationError("Invalid format for Signature")
+      case _ => deserializationError(s"Invalid format for Signature: $value")
     }
   }
 
-  def from(base: Any, params: (String, Any)*) = {
+  def fromParameters(base: Any, params: (String, Any)*) = {
     val (deps, pars) = params.partition(_._2.isInstanceOf[HasSignature])
     Signature(codeVersion = codeVersionOf(base),
       name = base.getClass.getSimpleName,
@@ -53,7 +75,7 @@ object Signature {
     )
   }
 
-  def auto(obj: Product) = {
+  def fromObject(obj: Product) = {
     def declaredFields() = {
       val f = obj.getClass.getDeclaredFields
       f.foreach(_.setAccessible(true))
@@ -61,7 +83,7 @@ object Signature {
     }
 
     def dependencies() = {
-      val deps = for ((name, d: HasSignature) <- declaredFields) yield (name, d.signature)
+      val deps = for ((name, d: HasSignature) <- declaredFields) yield (name, d)
       deps.toMap
     }
 
