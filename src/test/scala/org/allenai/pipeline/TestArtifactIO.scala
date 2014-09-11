@@ -3,16 +3,14 @@ package org.allenai.pipeline
 import java.io.File
 
 import org.allenai.common.testkit.UnitSpec
-import spray.json.DefaultJsonProtocol
+import spray.json.DefaultJsonProtocol._
+import org.allenai.pipeline.IoHelpers._
 
 import scala.util.Random
 
 /** Created by rodneykinney on 8/19/14.
   */
-class TestArtifactIO extends UnitSpec {
-
-  import DefaultJsonProtocol._
-  import TsvFormats._
+class TestArtifactIo extends UnitSpec {
 
   val rand = new Random
 
@@ -21,14 +19,14 @@ class TestArtifactIO extends UnitSpec {
       (rand.nextInt(i + 1), rand.nextDouble)
     }
 
-    val io = new JsonCollectionIO[(Int, Double)]
-    val file = new File("ioTest.txt")
+    val io = LineCollectionIo.json[(Int, Double)]
+    val file = new File("ioTest.json")
     val artifact = new FileArtifact(file)
     io.write(data, artifact)
     val persistedData = io.read(artifact)
     persistedData should equal(data)
 
-    val iteratorData = new JsonIteratorIO[(Int, Double)].read(artifact)
+    val iteratorData = LineIteratorIo.json[(Int, Double)].read(artifact)
     iteratorData.toList should equal(data)
 
     file.delete()
@@ -36,25 +34,25 @@ class TestArtifactIO extends UnitSpec {
 
   "TSVFormat" should "persist case classes" in {
     case class XYZ(x: Int, y: String, z: Double, w: String)
-    implicit val yFormat = tsvFormat4(XYZ)
+    implicit val yFormat = columnFormat4(XYZ)
 
     val file = new File("tsvTest.txt")
-    val io = new TsvCollectionIO[XYZ]
+    val io = LineCollectionIo.text[XYZ]
     val artifact = new FileArtifact(file)
     val data = (1 to 100) map (i => XYZ(rand.nextInt(i), rand.nextInt(100).toString, rand.nextDouble, i.toString))
     io.write(data, artifact)
     val persistedData = io.read(artifact)
     persistedData should equal(data)
 
-    val iteratorData = new TsvIteratorIO[XYZ].read(artifact)
+    val iteratorData = LineIteratorIo.text[XYZ].read(artifact)
     iteratorData.toList should equal(data)
 
     file.delete()
   }
 
   "TSVFormat" should "persist Tuples" in {
-    implicit val zFormat = tsvTuple3Format[Int, String, Double]()
-    val zIO = new TsvCollectionIO[Tuple3[Int, String, Double]]
+    implicit val zFormat = tuple3ColumnFormat[Int, String, Double]()
+    val zIO = LineCollectionIo.text[Tuple3[Int, String, Double]]
     val file = new File("tsvTupleTest.txt")
     val zArtifact = new FileArtifact(file)
     val z = (1 to 100) map (i => (rand.nextInt(i), rand.nextInt(100).toString, rand.nextDouble))

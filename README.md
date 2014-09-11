@@ -66,11 +66,11 @@ Data Serialization
 ------------------
 
 Serialization of a data structure of type T into an artifact of type
-A is represented by the ArtifactIO[T,A] trait.  Because common cases,
-such as serialization to JSON and TSV, are implemented by the framework,
+A is represented by the ArtifactIo[T,A] trait.  Because common cases,
+such as serialization to JSON and delimited-columns, are implemented by the framework,
 many pipelines can be implemented end-to-end without any code that
 performs I/O.  Different serialization formats, i.e. different
-implementations of ArtifactIO, can be specified when the pipeline is
+implementations of ArtifactIo, can be specified when the pipeline is
 constructed, while the Artifact instance specifies the physical location
 where the data will be stored.
 
@@ -96,20 +96,20 @@ First, we specify the persistence implementation to use for I/O.  These
 have methods for providing artifact representing a flat file or
 structured dataset (zip file or directory)
 
-    import IOHelpers._
+    import IoHelpers._
     val input = new FileSystem(inputDir)
     val output = new FileSystem(outputDir)
 
-We read the labels using the framework’s built-in TSV parsing methods:
+We read the labels using the framework’s built-in delimited-column parsing methods:
  
 
     val labelData: Producer[Iterable[Boolean]]
-        = ReadTsvAsCollection[Boolean](input.flatArtifact(labelFile))
+        = ReadCollection.text[Boolean](input.flatArtifact(labelFile))
 
 Similarly for features
 
     val featureData: Producer[Iterable[Array[Double]]]
-    = ReadTsvAsArrayCollection[Double](input.flatArtifact(featureFile))
+    = ReadArrayCollection.text[Double](input.flatArtifact(featureFile))
 
 Step 3 takes steps 1 and 2 as input, as well as a parameter determining
 the relative size of the test set.  It produces a pair of datasets with
@@ -157,27 +157,26 @@ Persisting the Output
 At this point, the result of the calculation has been created in memory,
 but is not being persisted.  We would like to persist not only the final
 Iterable[(Double, Double, Double)] object, but the intermediate TrainedModel instance.  The
-earlier import of IOHelpers adds saveAsJson and saveAsTSV methods to
+earlier import of IoHelpers adds PersistedXXX methods to
 Producer instances that persist their data before passing it on to
 downstream consumers.  To use them, we must also provide an implicit
 persistence implementation.
 
     implicit val location = output
     val model: Producer[TrainedModel]
-            = new TrainModel(trainData).saveAsJson("model.json")
+            = PersistedSingleton.json("model.json")(new TrainModel(trainData))
     val measure: Producer[Iterable[(Double, Double, Double)]]
-            = new MeasureModel(model, testData).saveAsTSV("PR.txt")
+            = PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
 
 We have opted not to persist the Iterable[(Boolean, Array[Double])] data, but we could
 do so in the same way.  Note that we have written no code that performs
 I/O directly.  Instead, we need to define the transformation between our
-data objects and JSON or TSV format
+data objects and JSON or column format
 
     import spray.json.DefaultJsonProtocol._
     implicit val modelFormat = jsonFormat1(TrainedModel)
-    import TSVFormats._
     implicit val prMeasurementFormat 
-      = tsvTuple3Format[Double, Double, Double](“,”)
+      = tuple3ColumnFormat[Double, Double, Double](',')
 
 Furthermore, all that is required to have our pipeline persist data to
 S3 is to set the persistence implementation differently
@@ -210,19 +209,19 @@ an input stream of ParsedDocument objects
 
 Because this class has an Iterator as its input type, it will not hold
 the raw document dataset in memory.  To produce the Iterator of parsed
-documents, we must implement an ArtifactIO class.  Recall that an
-ArtifactIO class is parameterized with the output type (in this case,
+documents, we must implement an ArtifactIo class.  Recall that an
+ArtifactIo class is parameterized with the output type (in this case,
 Iterator[ParsedDocument]) and the artifact type.  We will define ours in
 terms of the more general StructuredArtifact rather than the narrow
 DirectoryArtifact. This will allow us to read from Zip archives on the
 local file system or in S3 with the same implementation class.  The
-ArtifactIO interface includes both read and write operations, to ensure
+ArtifactIo interface includes both read and write operations, to ensure
 consistency of serialization/deserialization code throughout the
 pipeline.  For this use case, however, we only need implement the read
 operation.
 
     object ParseDocumentsFromXML
-               extends ArtifactIO[Iterator[ParsedDocument], StructuredArtifact] {
+               extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact] {
       def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
         for ((entry, is) \<- a.reader.readAll) yield parse(is)
       }
@@ -235,7 +234,7 @@ Now we can use our document featurizer as a drop-in replacement for the
 feature data we had originally read from TSV
 
     val docDir = new File("raw-xml")
-    val docs = ReadFromArtifact(ParseDocumentsFromXML,
+    val docs = readFromArtifact(ParseDocumentsFromXML,
                                           new DirectoryArtifact(docDir))
     val docFeatures = new FeaturizeDocuments(docs) 
     // use in place of featureData above
@@ -249,12 +248,12 @@ implemented outside the JVM.  For example, our TrainModel class might
 invoke a Python trainer via a shell command.  The only appropriate input
 type for such Producer classes is an Artifact, since the JVM will only
 communicate with outside processes via some persistent store. In the
-constructor, we also supply an ArtifactIO instance to deserialize the
+constructor, we also supply an ArtifactIo instance to deserialize the
 output of the outside process.  A Producer that does training via a
 shell command is
 
     class TrainModelPython(data: Producer[FileArtifact],
-                           io: ArtifactIO[TrainedModel, FileArtifact])
+                           io: ArtifactIo[TrainedModel, FileArtifact])
           extends Producer[TrainedModel] {
       def create: TrainedModel = {
         val outputFile = File.createTempFile("model", ".json")
@@ -272,19 +271,17 @@ type, so that a a downstream out-of-JVM step can consume it.  Otherwise,
 the structure of the pipeline is unchanged.
 
     val labelData: Producer[Labels]
-         =  ReadCollectionFromTSVFile[Boolean](labelFile.getPath)
+         = ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
                   testData: Producer[Iterable[(Boolean, Array[Double])]])
          = new JoinAndSplitData(docFeatures, labelData, 0.2)
     
-    val trainingDataFile = trainData.saveAsTSV("trainData.tsv").asArtifact
-    val model = new TrainModelPython(trainingDataFile,
-                                new JsonSingletonIO[TrainedModel]).saveAsJson(“model.json”)
-    val readModelFromFile: Producer[TrainedModel]
-        = ReadFromArtifactProducer(new JsonSingletonIO[TrainedModel], trainModel, true)
-    val measure: Producer[Iterable[(Double, Double, Double)]]
-        = new MeasureModel(readModelFromFile, testData).saveAsTSV("PR.txt")
+    val trainingDataFile = PersistedCollection.text("trainData.tsv")(trainData).asArtifact
+    val model = PersistedSingleton.json("model.json")(new TrainModelPython(trainingDataFile,
+          SingletonIo.json[TrainedModel]))
+    val measure: Producer[PRMeasurement] 
+        = PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
 
 Summary
 =======
@@ -321,7 +318,7 @@ for managing a pipeline.  Here is a summary:
     in storage, the location where they are stored, and the format used
     to store them. A Producer instance is lightweight and easily used
     even in code that does not otherwise interact with the framework.
-     Similarly, ArtifactIO instances are lightweight, self-contained,
+     Similarly, ArtifactIo instances are lightweight, self-contained,
     and reusable outside the framework.  While it is certainly possible
     to write reusable code without the framework, using the framework
     makes it impossible not to write modular code.
