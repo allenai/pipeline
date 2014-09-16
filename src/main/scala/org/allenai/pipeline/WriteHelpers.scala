@@ -65,10 +65,9 @@ trait WriteHelpers {
     // Drop leading and training slashes
     private def toPath(path: String): String = rootPath match {
       case None => path
-      case Some(dir) => {
+      case Some(dir) =>
         val base = dir.dropWhile(_ == '/').reverse.dropWhile(_ == '/').reverse
         s"$base/$path"
-      }
     }
 
     override def flatArtifact(path: String) = new S3FlatArtifact(toPath(path), config)
@@ -113,7 +112,7 @@ trait WriteHelpers {
   }
 
   class PipelineRunner(persistence: FlatArtifactFactory[String] with
-    StructuredArtifactFactory[String]) {
+    StructuredArtifactFactory[String], rootPath: String) {
 
     def flatArtifact(signature: Signature, suffix: String): FlatArtifact = {
       persistence.flatArtifact(path(signature, suffix).mkString("/"))
@@ -123,12 +122,13 @@ trait WriteHelpers {
       persistence.structuredArtifact(path(signature, suffix).mkString("/"))
     }
 
-    def persist[T, A <: Artifact](producer: Producer[T] with HasSignature, io: ArtifactIo[T, A])
-                                 (artifactSource: Signature => A): PersistedProducer[T,
-      A] with HasSignature = {
+    def persist[T, A <: Artifact](producer: Producer[T],
+                                  io: ArtifactIo[T, A])
+                                 (artifactSource: Signature => A)
+    : PersistedProducer[T, A]  = {
       new PersistedProducer[T, A](producer,
         io,
-        artifactSource(producer.signature)) with HasSignature {
+        artifactSource(producer.signature))  {
         override def create = {
           val result = super.create
           val infoArtifact = flatArtifact(producer.signature, "info.json")
@@ -137,28 +137,30 @@ trait WriteHelpers {
           }
           result
         }
-        def signature = producer.signature
+
+        override def signature = producer.signature
       }
     }
 
     object PersistCollection {
-      def text[T: StringSerializable](producer: Producer[Iterable[T]] with HasSignature) =
+      def text[T: StringSerializable](producer: Producer[Iterable[T]] ) =
         persist(producer, LineCollectionIo.text[T])(sig => flatArtifact(sig, "txt"))
-      def json[T: JsonFormat](producer: Producer[Iterable[T]] with HasSignature) =
+
+      def json[T: JsonFormat](producer: Producer[Iterable[T]] ) =
         persist(producer, LineCollectionIo.json[T])(sig => flatArtifact(sig, "json"))
     }
 
     def path(signature: Signature, suffix: String): Seq[String] = {
-      List(codeVersionOf(this),
+      List(rootPath,
         signature.name,
-        signature.codeVersion,
         s"${signature.id}.$suffix"
       )
     }
 
-    def run[T](output: Producer[T] with HasSignature) = {
+    def run[T](output: Producer[T] ) = {
       output.get
     }
 
   }
+
 }

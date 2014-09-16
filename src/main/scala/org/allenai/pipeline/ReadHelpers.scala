@@ -8,12 +8,15 @@ trait ReadHelpers extends ColumnFormats {
   /** General deserialization method. */
   def readFromArtifact[T, A <: Artifact](io: ArtifactIo[T, A], artifact: A): Producer[T] = {
     require(artifact.exists, s"$artifact does not exist")
-    new PersistedProducer(null, io, artifact)
+    new PersistedProducer(null, io, artifact) {
+      override def signature = Signature.fromParameters(io, "src" -> artifact.path)
+    }
   }
 
   /** General deserialization method. */
   def readFromArtifactProducer[T, A <: Artifact](io: ArtifactIo[T, A], src: Producer[A]): Producer[T] = new Producer[T] {
     def create = io.read(src.get)
+    def signature = Signature.fromParameters(io, "src" -> src)
   }
 
   /** Read single object from flat file */

@@ -32,6 +32,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       val testSize = math.round(testSizeRatio * data.size).toInt
       (data.drop(testSize), data.take(testSize))
     }
+    def signature = Signature.fromObject((features,labels,testSizeRatio))
   }
 
   class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
@@ -40,6 +41,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
     }
+
+    def signature = Signature.fromConstructor(this)
 
     def train(data: Iterable[(Boolean, Array[Double])]): TrainedModel =
       TrainedModel(s"Trained model with ${data.size} rows")
@@ -65,6 +68,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
         r
       }
     }
+    def signature = Signature.fromConstructor(this)
   }
 
   val outputDir = new File("pipeline/test-output")
@@ -128,6 +132,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       }
       features.toList
     }
+    def signature = Signature.fromConstructor(this)
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact] {
@@ -177,6 +182,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       val model = TrainedModel(stdout)
       model
     }
+    def signature = Signature.fromConstructor(this)
   }
 
   "Sample Pipeline 3" should "complete" in {

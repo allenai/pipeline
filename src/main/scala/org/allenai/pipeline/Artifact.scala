@@ -5,9 +5,13 @@ import org.allenai.common.Resource
 import java.io.{ PrintStream, InputStream, OutputStream }
 
 /** Represents data in a persistent store. */
-trait Artifact {
+trait Artifact extends HasPath {
   /** Return true if this data has been written to the persistent store. */
   def exists: Boolean
+}
+
+trait HasPath {
+  def path: String
 }
 
 /** Generic data blob.  */
