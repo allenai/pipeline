@@ -30,7 +30,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def signature = Signature.fromConstructor(this)
+    def signature = Signature.fromFields(this)
   }
 
   val cachedRandomNumbers = new Producer[Iterable[Double]] with CachingEnabled {
@@ -38,7 +38,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def signature = Signature.fromConstructor(this)
+    def signature = Signature.fromFields(this)
   }
 
   "Uncached random numbers" should "regenerate on each invocation" in {
@@ -80,7 +80,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20).iterator) yield rand.nextDouble
     }
 
-    def signature = Signature.fromConstructor(this)
+    def signature = Signature.fromFields(this)
   }
 
   "Random iterator" should "never cache" in {
@@ -104,25 +104,25 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     import spray.json.DefaultJsonProtocol._
     import Signature._
 
-    implicit val runner = new PipelineRunner(new RelativeFileSystem(outputDir), "test-output")
+    implicit val runner = new SingleOutputDirPipelineRunner(new RelativeFileSystem(outputDir),
+      "test-output")
 
-    case class RNGConfig(seed: Int, length: Int)
-    class RNG(seed: Int, length: Int) extends Producer[Iterable[Double]]
-    with HasSignature {
-      val signature = Signature.fromObject(RNGConfig(seed, length))
+    class RNG(val seed: Int, val length: Int) extends Producer[Iterable[Double]] {
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
+
+      override def signature = Signature.fromFields(this, "seed", "length")
     }
 
-    val rng1 = runner.PersistCollection.json(new RNG(42, 100))
-    val rng2 = runner.PersistCollection.json(new RNG(117, 100))
+    val rng1 = Persist.collection.asJson(new RNG(42, 100))
+    val rng2 = Persist.collection.asJson(new RNG(117, 100))
 
     rng1.signature should not equal (rng2.signature)
 
     rng2.signature.toJson.convertTo[Signature] should equal(rng2.signature)
 
-    val rng3 = runner.PersistCollection.json(new RNG(42, 100))
+    val rng3 = Persist.collection.asJson(new RNG(42, 100))
     rng1.get should equal(rng3.get)
   }
 
@@ -132,16 +132,12 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def signature: Signature = ???
+      override def signature: Signature = Signature.fromFields(this, "seed", "length")
     }
 
-    val rngWithSignature = new RNG(42, 100) {
-      override def signature: Signature = Signature.fromParameters(this,
-        "seed" -> seed,
-        "length" -> length)
-    }
+    val rng = new RNG(42, 100)
 
-    rngWithSignature.signature should not equal (null)
+    rng.signature should not equal (null)
 
   }
 
@@ -151,6 +147,6 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   override def afterAll: Unit = {
-    //FileUtils.deleteDirectory(outputDir)
+    FileUtils.deleteDirectory(outputDir)
   }
 }

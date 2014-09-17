@@ -11,7 +11,7 @@ object IoHelpers extends ReadHelpers with WriteHelpers {
   object FromMemory {
     def apply[T](data: T): Producer[T] = new Producer[T] {
       def create = data
-      def signature=Signature.fromParameters(data, "instance" -> data.hashCode)
+      def signature=Signature(data.getClass.getSimpleName, "instance" -> data.hashCode)
     }
   }
 

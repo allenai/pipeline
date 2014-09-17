@@ -111,56 +111,106 @@ trait WriteHelpers {
     }
   }
 
-  class PipelineRunner(persistence: FlatArtifactFactory[String] with
-    StructuredArtifactFactory[String], rootPath: String) {
+  object Persist {
 
-    def flatArtifact(signature: Signature, suffix: String): FlatArtifact = {
-      persistence.flatArtifact(path(signature, suffix).mkString("/"))
-    }
+    object iterator {
+      def asText[T: StringSerializable](step: Producer[Iterator[T]])(
+        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterator[T],
+        FlatArtifact] = {
+        step.persisted(LineIteratorIo.text[T],
+          factory.flatArtifact((step.signature, "txt")))
+      }
 
-    def structuredArtifact(signature: Signature, suffix: String): StructuredArtifact = {
-      persistence.structuredArtifact(path(signature, suffix).mkString("/"))
-    }
-
-    def persist[T, A <: Artifact](producer: Producer[T],
-                                  io: ArtifactIo[T, A])
-                                 (artifactSource: Signature => A)
-    : PersistedProducer[T, A]  = {
-      new PersistedProducer[T, A](producer,
-        io,
-        artifactSource(producer.signature))  {
-        override def create = {
-          val result = super.create
-          val infoArtifact = flatArtifact(producer.signature, "info.json")
-          if (!infoArtifact.exists) {
-            infoArtifact.write(_.write(producer.signature.infoString))
-          }
-          result
-        }
-
-        override def signature = producer.signature
+      def asJson[T: JsonFormat](step: Producer[Iterator[T]])(
+        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterator[T],
+        FlatArtifact] = {
+        step.persisted(LineIteratorIo.json[T],
+          factory.flatArtifact((step.signature, "json")))
       }
     }
 
-    object PersistCollection {
-      def text[T: StringSerializable](producer: Producer[Iterable[T]] ) =
-        persist(producer, LineCollectionIo.text[T])(sig => flatArtifact(sig, "txt"))
+    object collection {
+      def asText[T: StringSerializable](step: Producer[Iterable[T]])(
+        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterable[T],
+        FlatArtifact] = {
+        step.persisted(LineCollectionIo.text[T],
+          factory.flatArtifact((step.signature, "txt")))
+      }
 
-      def json[T: JsonFormat](producer: Producer[Iterable[T]] ) =
-        persist(producer, LineCollectionIo.json[T])(sig => flatArtifact(sig, "json"))
+      def asJson[T: JsonFormat](step: Producer[Iterable[T]])(
+        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterable[T],
+        FlatArtifact] = {
+        step.persisted(LineCollectionIo.json[T],
+          factory.flatArtifact((step.signature, "json")))
+      }
+
     }
 
-    def path(signature: Signature, suffix: String): Seq[String] = {
-      List(rootPath,
-        signature.name,
-        s"${signature.id}.$suffix"
-      )
+    object singleton {
+      def asText[T: StringSerializable](step: Producer[T])(
+        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[T,
+        FlatArtifact] = {
+        step.persisted(SingletonIo.text[T],
+          factory.flatArtifact((step.signature, "txt")))
+      }
+
+      def asJson[T: JsonFormat](step: Producer[T])(
+        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[T,
+        FlatArtifact] = {
+        step.persisted(SingletonIo.json[T],
+          factory.flatArtifact((step.signature, "json")))
+      }
+
     }
 
-    def run[T](output: Producer[T] ) = {
-      output.get
+  }
+
+  abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
+    StructuredArtifactFactory[String])
+    extends FlatArtifactFactory[(Signature, String)]
+    with StructuredArtifactFactory[(Signature, String)] {
+
+    def flatArtifact(signatureSuffix: (Signature, String)): FlatArtifact = {
+      val (signature, suffix) = signatureSuffix
+      persistence.flatArtifact(path(signature, suffix))
     }
 
+    def structuredArtifact(signatureSuffix: (Signature, String)): StructuredArtifact = {
+      val (signature, suffix) = signatureSuffix
+      persistence.structuredArtifact(path(signature, suffix))
+    }
+
+//    def persist[T, A <: Artifact](producer: Producer[T],
+//                                  io: ArtifactIo[T, A])
+//                                 (artifactSource: Signature => A)
+//    : PersistedProducer[T, A] = {
+//      new PersistedProducer[T, A](producer,
+//        io,
+//        artifactSource(producer.signature)) {
+//        override def create = {
+//          val result = super.create
+//          val infoArtifact = flatArtifact((producer.signature, "info.json"))
+//          if (!infoArtifact.exists) {
+//            infoArtifact.write(_.write(producer.signature.infoString))
+//          }
+//          result
+//        }
+//
+//        override def signature = producer.signature
+//      }
+//    }
+
+    def path(signature: Signature, suffix: String): String
+
+    def run[T](outputs: Producer[Any]*) = {
+      outputs.foreach(_.get)
+    }
+
+  }
+
+  class SingleOutputDirPipelineRunner(persistence: FlatArtifactFactory[String] with
+    StructuredArtifactFactory[String], rootDir: String) extends PipelineRunner(persistence) {
+    def path(signature: Signature, suffix: String) =s"$rootDir/${signature.name}.$suffix"
   }
 
 }

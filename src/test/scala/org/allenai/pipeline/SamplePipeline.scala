@@ -3,11 +3,11 @@ package org.allenai.pipeline
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
-import java.io.{ InputStream, File }
+import java.io.{InputStream, File}
 
 import org.allenai.common.testkit.UnitSpec
 import org.apache.commons.io.FileUtils
-import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
 import scala.util.Random
 
@@ -22,27 +22,28 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val jsonFormat = jsonFormat1(apply)
   }
 
-  class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
-    labels: Producer[Iterable[Boolean]],
-    testSizeRatio: Double)
-      extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
+  case class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
+                              labels: Producer[Iterable[Boolean]],
+                              testSizeRatio: Double)
+    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
     def create = {
       val rand = new Random
       val data = labels.get.zip(features.get)
       val testSize = math.round(testSizeRatio * data.size).toInt
       (data.drop(testSize), data.take(testSize))
     }
-    def signature = Signature.fromObject((features,labels,testSizeRatio))
+
+    def signature = Signature.fromObject(this)
   }
 
-  class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
-      extends Producer[TrainedModel] {
+  case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
+    extends Producer[TrainedModel] {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
     }
 
-    def signature = Signature.fromConstructor(this)
+    def signature = Signature.fromObject(this)
 
     def train(data: Iterable[(Boolean, Array[Double])]): TrainedModel =
       TrainedModel(s"Trained model with ${data.size} rows")
@@ -51,9 +52,9 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   type PRMeasurement = Iterable[(Double, Double, Double)]
 
   // Threshold, precision, recall
-  class MeasureModel(model: Producer[TrainedModel],
-    testData: Producer[Iterable[(Boolean, Array[Double])]])
-      extends Producer[PRMeasurement] {
+  class MeasureModel(val model: Producer[TrainedModel],
+                     val testData: Producer[Iterable[(Boolean, Array[Double])]])
+    extends Producer[PRMeasurement] {
     def create = {
       model.get
       // Just generate some dummy data
@@ -68,7 +69,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
         r
       }
     }
-    def signature = Signature.fromConstructor(this)
+
+    def signature = Signature.fromFields(this, "model", "testData")
   }
 
   val outputDir = new File("pipeline/test-output")
@@ -88,6 +90,9 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   val input = new RelativeFileSystem(inputDir)
   val output = new RelativeFileSystem(outputDir)
+  implicit val runner = new SingleOutputDirPipelineRunner(
+    AbsoluteFileSystem.usingPaths,
+    outputDir.getCanonicalPath)
 
   //    This also works:
   //      val s3Config = S3Config("ai2-pipeline-sample")
@@ -106,13 +111,13 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
-      testData: Producer[Iterable[(Boolean, Array[Double])]]) =
+    testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(featureData, labelData, 0.2)
     val x = implicitly[FlatArtifactFactory[String]]
     val model: Producer[TrainedModel] =
-      PersistedSingleton.json("model.json")(new TrainModel(trainData))
+      Persist.singleton.asJson(new TrainModel(trainData))
     val measure: Producer[PRMeasurement] =
-      PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
+      Persist.collection.asText(new MeasureModel(model, testData))
 
     // Run pipeline
     measure.get
@@ -123,8 +128,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   case class ParsedDocument(info: String)
 
-  class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-      extends Producer[Iterable[Array[Double]]] {
+  case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
+    extends Producer[Iterable[Array[Double]]] {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -132,7 +137,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       }
       features.toList
     }
-    def signature = Signature.fromConstructor(this)
+
+    def signature = Signature.fromObject(this)
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact] {
@@ -156,20 +162,21 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
-      testData: Producer[Iterable[(Boolean, Array[Double])]]) =
+    testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(docFeatures, labelData, 0.2)
     val model: Producer[TrainedModel] =
-      PersistedSingleton.json("model.json")(new TrainModel(trainData))
+      Persist.singleton.asJson(new TrainModel(trainData))
     val measure: Producer[PRMeasurement] =
-      PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
+      Persist.collection.asText(new MeasureModel(model, testData))
     measure.get
 
     assert(new File(outputDir, "model.json").exists, "Json file created")
     assert(new File(outputDir, "PR.txt").exists, "P/R file created")
   }
 
-  class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel, FileArtifact])
-      extends Producer[TrainedModel] {
+  case class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel,
+    FileArtifact])
+    extends Producer[TrainedModel] {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
@@ -182,7 +189,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       val model = TrainedModel(stdout)
       model
     }
-    def signature = Signature.fromConstructor(this)
+
+    def signature = Signature.fromObject(this)
   }
 
   "Sample Pipeline 3" should "complete" in {
@@ -198,10 +206,11 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
-    val trainingDataFile = PersistedCollection.text("trainData.tsv")(trainData).asArtifact
-    val model = PersistedSingleton.json("model.json")(new TrainModelPython(trainingDataFile,
+    val trainingDataFile = Persist.collection.asText(trainData).asArtifact
+    val model = Persist.singleton.asJson(new TrainModelPython(trainingDataFile,
       SingletonIo.json[TrainedModel]))
-    val measure: Producer[PRMeasurement] = PersistedCollection.text("PR.txt")(new MeasureModel(model,
+    val measure: Producer[PRMeasurement] = Persist.collection.asText(new MeasureModel
+    (model,
       testData))
     measure.get
 
