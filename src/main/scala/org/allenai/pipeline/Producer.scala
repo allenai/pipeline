@@ -89,7 +89,7 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
 // Allow un-zipping of Producer instances
 // e.g.:
 //   val tupleProducer: Producer[List[Int], List[String]]
-//   Producer2(test, train) = tupleProducer
+//   val Producer2(intList, stringList) = tupleProducer
 //
 object Producer2 {
   def unapply[T1, T2](p: Producer[(T1, T2)]): Option[(Producer[T1], Producer[T2])] = {

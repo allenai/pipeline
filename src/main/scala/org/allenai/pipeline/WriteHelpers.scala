@@ -180,37 +180,44 @@ trait WriteHelpers {
       persistence.structuredArtifact(path(signature, suffix))
     }
 
-//    def persist[T, A <: Artifact](producer: Producer[T],
-//                                  io: ArtifactIo[T, A])
-//                                 (artifactSource: Signature => A)
-//    : PersistedProducer[T, A] = {
-//      new PersistedProducer[T, A](producer,
-//        io,
-//        artifactSource(producer.signature)) {
-//        override def create = {
-//          val result = super.create
-//          val infoArtifact = flatArtifact((producer.signature, "info.json"))
-//          if (!infoArtifact.exists) {
-//            infoArtifact.write(_.write(producer.signature.infoString))
-//          }
-//          result
-//        }
-//
-//        override def signature = producer.signature
-//      }
-//    }
+    //    def persist[T, A <: Artifact](producer: Producer[T],
+    //                                  io: ArtifactIo[T, A])
+    //                                 (artifactSource: Signature => A)
+    //    : PersistedProducer[T, A] = {
+    //      new PersistedProducer[T, A](producer,
+    //        io,
+    //        artifactSource(producer.signature)) {
+    //        override def create = {
+    //          val result = super.create
+    //          val infoArtifact = flatArtifact((producer.signature, "info.json"))
+    //          if (!infoArtifact.exists) {
+    //            infoArtifact.write(_.write(producer.signature.infoString))
+    //          }
+    //          result
+    //        }
+    //
+    //        override def signature = producer.signature
+    //      }
+    //    }
 
     def path(signature: Signature, suffix: String): String
 
-    def run[T](outputs: Producer[Any]*) = {
+    def run[T](outputs: Producer[_]*) = {
       outputs.foreach(_.get)
+      val workflow = Workflow.forPipeline(outputs: _*)
+      val sig = Signature("experiment")
+      new ColumnFormats {
+        SingletonIo.text[String].write(Workflow.renderHtml(workflow),
+          persistence.flatArtifact(path(sig, "html")))
+      }
+      SingletonIo.json[Workflow].write(workflow, persistence.flatArtifact(path(sig, "json")))
     }
 
   }
 
   class SingleOutputDirPipelineRunner(persistence: FlatArtifactFactory[String] with
     StructuredArtifactFactory[String], rootDir: String) extends PipelineRunner(persistence) {
-    def path(signature: Signature, suffix: String) =s"$rootDir/${signature.name}.$suffix"
+    def path(signature: Signature, suffix: String) = s"$rootDir/${signature.name}.$suffix"
   }
 
 }

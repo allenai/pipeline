@@ -110,10 +110,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val labelData: Producer[Iterable[Boolean]] =
       ReadCollection.text[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
-    val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
-    testData: Producer[Iterable[(Boolean, Array[Double])]]) =
-      new JoinAndSplitData(featureData, labelData, 0.2)
-    val x = implicitly[FlatArtifactFactory[String]]
+    val Producer2(trainData, testData) = new JoinAndSplitData(featureData, labelData, 0.2)
     val model: Producer[TrainedModel] =
       Persist.singleton.asJson(new TrainModel(trainData))
     val measure: Producer[PRMeasurement] =
@@ -122,8 +119,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     // Run pipeline
     measure.get
 
-    assert(new File(outputDir, "model.json").exists, "Json file created")
-    assert(new File(outputDir, "PR.txt").exists, "P/R file created")
+    assert(new File(outputDir, "TrainModel.json").exists, "Json file created")
+    assert(new File(outputDir, "MeasureModel.txt").exists, "P/R file created")
   }
 
   case class ParsedDocument(info: String)
@@ -170,8 +167,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       Persist.collection.asText(new MeasureModel(model, testData))
     measure.get
 
-    assert(new File(outputDir, "model.json").exists, "Json file created")
-    assert(new File(outputDir, "PR.txt").exists, "P/R file created")
+    assert(new File(outputDir, "TrainModel.json").exists, "Json file created")
+    assert(new File(outputDir, "MeasureModel.txt").exists, "P/R file created")
   }
 
   case class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel,
@@ -209,14 +206,13 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val trainingDataFile = Persist.collection.asText(trainData).asArtifact
     val model = Persist.singleton.asJson(new TrainModelPython(trainingDataFile,
       SingletonIo.json[TrainedModel]))
-    val measure: Producer[PRMeasurement] = Persist.collection.asText(new MeasureModel
-    (model,
-      testData))
-    measure.get
+    val measure: Producer[PRMeasurement] = Persist.collection.asText(
+      new MeasureModel(model, testData))
+    runner.run(measure)
 
-    assert(new File(outputDir, "trainData.tsv").exists, "Training data file created")
-    assert(new File(outputDir, "model.json").exists, "Json file created")
-    assert(new File(outputDir, "PR.txt").exists, "P/R file created")
+    assert(new File(outputDir, "JoinAndSplitData_1.txt").exists, "Training data file created")
+    assert(new File(outputDir, "TrainModelPython.json").exists, "Json file created")
+    assert(new File(outputDir, "MeasureModel.txt").exists, "P/R file created")
   }
 
   override def beforeEach: Unit = {

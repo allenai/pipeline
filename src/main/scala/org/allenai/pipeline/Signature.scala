@@ -67,7 +67,7 @@ object Signature {
   def apply(name: String, params: (String, Any)*): Signature = {
     val (deps, pars) = params.partition(_._2.isInstanceOf[HasSignature])
     Signature(name = name,
-      dependencies = deps.map { case (name, p: HasSignature) => (name, p.signature)}.toMap,
+      dependencies = deps.map { case (name, p: HasSignature) => (name, p)}.toMap,
       parameters = pars.map { case (name, value) => (name, String.valueOf(value))}.toMap
     )
   }
