@@ -70,7 +70,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       }
     }
 
-    def signature = Signature.fromFields(this, "model", "testData")
+    def signature = Signature.fromFields(this)("model", "testData")
   }
 
   val outputDir = new File("pipeline/test-output")

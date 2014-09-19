@@ -1,15 +1,14 @@
 package org.allenai.pipeline
 
-import sun.management.FileSystem
-
-import java.io.File
-import java.lang.reflect.Field
-
 import org.allenai.common.testkit.UnitSpec
+
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfterAll
+import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
+
+import java.io.File
 
 /** Created by rodneykinney on 8/19/14.
   */
@@ -30,7 +29,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def signature = Signature.fromFields(this)
+    def signature = Signature.fromFields(this)().copy(name="RNG")
   }
 
   val cachedRandomNumbers = new Producer[Iterable[Double]] with CachingEnabled {
@@ -38,7 +37,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def signature = Signature.fromFields(this)
+    def signature = Signature.fromFields(this)().copy(name="CachedRNG")
   }
 
   "Uncached random numbers" should "regenerate on each invocation" in {
@@ -80,7 +79,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20).iterator) yield rand.nextDouble
     }
 
-    def signature = Signature.fromFields(this)
+    def signature = Signature.fromFields(this)().copy(name="RNG")
   }
 
   "Random iterator" should "never cache" in {
@@ -100,9 +99,9 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Signatures" should "determine unique paths" in {
-    import spray.json._
-    import spray.json.DefaultJsonProtocol._
-    import Signature._
+    import org.allenai.pipeline.Signature._
+
+import spray.json._
 
     implicit val runner = new SingleOutputDirPipelineRunner(new RelativeFileSystem(outputDir),
       "test-output")
@@ -112,7 +111,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def signature = Signature.fromFields(this, "seed", "length")
+      override def signature = Signature.fromFields(this)("seed", "length")
     }
 
     val rng1 = Persist.collection.asJson(new RNG(42, 100))
@@ -132,7 +131,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def signature: Signature = Signature.fromFields(this, "seed", "length")
+      override def signature: Signature = Signature.fromFields(this)("seed", "length")
     }
 
     val rng = new RNG(42, 100)

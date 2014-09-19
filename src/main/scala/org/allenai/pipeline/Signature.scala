@@ -11,6 +11,7 @@ import scala.reflect.ClassTag
  * Created by rodneykinney on 9/3/14.
  */
 case class Signature(name: String,
+                     codeVersionId: String,
                      dependencies: Map[String, HasSignature],
                      parameters: Map[String, String]) extends HasSignature {
   def id: String = this.toJson.compactPrint.hashCode.toHexString
@@ -29,6 +30,7 @@ object Signature {
 
   implicit val jsonFormat: JsonFormat[Signature] = new JsonFormat[Signature] {
     private val NAME = "name"
+    private val CODE_VERSION_ID = "codeVersionId"
     private val DEPENDENCIES = "dependencies"
     private val PARAMETERS = "parameters"
 
@@ -38,6 +40,7 @@ object Signature {
         sortBy(_._1).toJson
       val params = s.parameters.toList.sortBy(_._1).toJson
       JsObject((NAME, JsString(s.name)),
+        (CODE_VERSION_ID, JsString(s.codeVersionId)),
         (DEPENDENCIES, deps),
         (PARAMETERS, params))
     }
@@ -45,15 +48,18 @@ object Signature {
     def read(value: JsValue): Signature = value match {
       case JsObject(fields) => {
         (fields.get(NAME),
+          fields.get(CODE_VERSION_ID),
           fields.get(DEPENDENCIES),
           fields.get(PARAMETERS)) match {
           case (Some(JsString(_name)),
+          Some(JsString(_codeVersionId)),
           Some(deps),
           Some(params)) => {
             val _dependencies = deps.convertTo[List[(String, JsValue)]].
               map { case (n, v) => (n, jsonFormat.read(v))}.toMap
             val _parameters = params.convertTo[List[(String, String)]].toMap
             Signature(name = _name,
+              codeVersionId = _codeVersionId,
               dependencies = _dependencies,
               parameters = _parameters)
           }
@@ -64,9 +70,10 @@ object Signature {
     }
   }
 
-  def apply(name: String, params: (String, Any)*): Signature = {
+  def apply(name: String, codeVersionId: String, params: (String, Any)*): Signature = {
     val (deps, pars) = params.partition(_._2.isInstanceOf[HasSignature])
     Signature(name = name,
+      codeVersionId = codeVersionId,
       dependencies = deps.map { case (name, p: HasSignature) => (name, p)}.toMap,
       parameters = pars.map { case (name, value) => (name, String.valueOf(value))}.toMap
     )
@@ -74,16 +81,19 @@ object Signature {
 
   import scala.reflect.runtime.universe._
 
-  def fromFields(base: Any, fieldNames: String*): Signature = {
+  def fromFields(base: Any,
+                 versionFinder: Any => String = VersionHistory.latestEquivalentVersion)(
+                  fieldNames: String*): Signature = {
     val params = for (field <- fieldNames) yield {
       val f = base.getClass.getDeclaredField(field)
       f.setAccessible(true)
       (field, f.get(base))
     }
-    apply(base.getClass.getSimpleName, params: _*)
+    apply(base.getClass.getSimpleName, versionFinder(base), params: _*)
   }
 
-  def fromObject[T <: Product : TypeTag : ClassTag](obj: T): Signature = {
+  def fromObject[T <: Product : TypeTag : ClassTag](obj: T,
+                                                    versionFinder: Any => String = VersionHistory.latestEquivalentVersion): Signature = {
     val objType = typeTag[T].tpe
     val constructor = objType.member(nme.CONSTRUCTOR).asMethod
     val constructorParams = constructor.paramss.head
@@ -93,6 +103,7 @@ object Signature {
     val paramValues = declarations.map(d => (d.name.toString, reflect.reflectField(d).get))
     val (deps, params) = paramValues.partition(_._2.isInstanceOf[HasSignature])
     Signature(objType.typeSymbol.name.toString,
+      versionFinder(obj),
       deps.map(t => (t._1, t._2.asInstanceOf[HasSignature])).toMap,
       params.map(t => (t._1, t._2.toString)).toMap)
   }
