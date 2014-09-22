@@ -7,10 +7,9 @@ import spray.json.JsonFormat
 
 import scala.io.Source
 import scala.reflect.ClassTag
-import scala.reflect.runtime.{universe => ru}
 
 /** Interface for defining how to persist a data type.  */
-trait ArtifactIo[T, -A <: Artifact] {
+trait ArtifactIo[T, -A <: Artifact] extends HasCodeInfo {
   def read(artifact: A): T
 
   def write(data: T, artifact: A): Unit
@@ -28,7 +27,8 @@ trait StringSerializable[T] {
 }
 
 /** Persist a single object to a flat file.  */
-class SingletonIo[T: StringSerializable : ClassTag] extends ArtifactIo[T, FlatArtifact] {
+class SingletonIo[T: StringSerializable : ClassTag]
+  extends ArtifactIo[T, FlatArtifact] with Ai2CodeInfo {
   override def read(artifact: FlatArtifact): T = {
     Resource.using(Source.fromInputStream(artifact.read)) { src =>
       implicitly[StringSerializable[T]].fromString(src.mkString)
@@ -52,7 +52,8 @@ object SingletonIo {
 }
 
 /** Persist a collection of string-serializable objects to a flat file, one line per object.  */
-class LineCollectionIo[T: StringSerializable : ClassTag] extends ArtifactIo[Iterable[T], FlatArtifact] {
+class LineCollectionIo[T: StringSerializable : ClassTag]
+  extends ArtifactIo[Iterable[T], FlatArtifact] with Ai2CodeInfo {
   private val delegate = new LineIteratorIo[T]
 
   override def read(artifact: FlatArtifact): Iterable[T] = delegate.read(artifact).toList
@@ -76,7 +77,7 @@ object LineCollectionIo {
 
 /** Persist an iterator of string-serializable objects to a flat file, one line per object.  */
 class LineIteratorIo[T: StringSerializable : ClassTag]
-  extends ArtifactIo[Iterator[T], FlatArtifact] {
+  extends ArtifactIo[Iterator[T], FlatArtifact] with Ai2CodeInfo {
   val format = implicitly[StringSerializable[T]]
 
   override def read(artifact: FlatArtifact): Iterator[T] =

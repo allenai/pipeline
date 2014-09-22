@@ -24,20 +24,20 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   implicit val output = new RelativeFileSystem(outputDir)
 
-  val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled {
+  val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled with UnknownCodeInfo {
     def create = {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def signature = Signature.fromFields(this)().copy(name="RNG")
+    def signature = Signature.fromFields(this).copy(name = "RNG")
   }
 
-  val cachedRandomNumbers = new Producer[Iterable[Double]] with CachingEnabled {
+  val cachedRandomNumbers = new Producer[Iterable[Double]] with CachingEnabled with UnknownCodeInfo {
     def create = {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def signature = Signature.fromFields(this)().copy(name="CachedRNG")
+    def signature = Signature.fromFields(this).copy(name = "CachedRNG")
   }
 
   "Uncached random numbers" should "regenerate on each invocation" in {
@@ -74,12 +74,12 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     otherStep.get should equal(pStep.get)
   }
 
-  val randomIterator = new Producer[Iterator[Double]] {
+  val randomIterator = new Producer[Iterator[Double]] with UnknownCodeInfo {
     def create = {
       for (i <- (0 until 20).iterator) yield rand.nextDouble
     }
 
-    def signature = Signature.fromFields(this)().copy(name="RNG")
+    def signature = Signature.fromFields(this).copy(name = "RNG")
   }
 
   "Random iterator" should "never cache" in {
@@ -101,17 +101,18 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   "Signatures" should "determine unique paths" in {
     import org.allenai.pipeline.Signature._
 
-import spray.json._
+    import spray.json._
 
     implicit val runner = new SingleOutputDirPipelineRunner(new RelativeFileSystem(outputDir),
       "test-output")
 
-    class RNG(val seed: Int, val length: Int) extends Producer[Iterable[Double]] {
+    class RNG(val seed: Int, val length: Int)
+      extends Producer[Iterable[Double]] with UnknownCodeInfo {
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def signature = Signature.fromFields(this)("seed", "length")
+      override def signature = Signature.fromFields(this, "seed", "length").copy(name="RNG")
     }
 
     val rng1 = Persist.collection.asJson(new RNG(42, 100))
@@ -126,12 +127,13 @@ import spray.json._
   }
 
   "PipelineRunner" should "run a pipeline" in {
-    class RNG(val seed: Int, val length: Int) extends Producer[Iterable[Double]] {
+    class RNG(val seed: Int, val length: Int)
+      extends Producer[Iterable[Double]] with UnknownCodeInfo {
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def signature: Signature = Signature.fromFields(this)("seed", "length")
+      override def signature: Signature = Signature.fromFields(this, "seed", "length")
     }
 
     val rng = new RNG(42, 100)

@@ -9,8 +9,8 @@ trait ReadHelpers extends ColumnFormats {
   def readFromArtifact[T, A <: Artifact](io: ArtifactIo[T, A], artifact: A): Producer[T] = {
     require(artifact.exists, s"$artifact does not exist")
     new PersistedProducer(null, io, artifact) {
-      override def signature = Signature(io.getClass.getSimpleName,
-        VersionHistory.latestEquivalentVersion(io), "src" -> artifact.path)
+      override def signature = Signature(io.toString,
+        io.codeInfo.unchangedSince, "src" -> artifact.path)
     }
   }
 
@@ -18,8 +18,8 @@ trait ReadHelpers extends ColumnFormats {
   def readFromArtifactProducer[T, A <: Artifact](io: ArtifactIo[T, A], src: Producer[A]): Producer[T] = new Producer[T] {
     def create = io.read(src.get)
 
-    def signature = Signature(io.getClass.getSimpleName,
-      VersionHistory.latestEquivalentVersion(io), "src" -> src)
+    def signature = Signature(io.toString,
+      io.codeInfo.unchangedSince, "src" -> src)
   }
 
   /** Read single object from flat file */

@@ -7,9 +7,6 @@ import spray.json._
 
 import scala.reflect.ClassTag
 
-/**
- * Created by rodneykinney on 9/3/14.
- */
 case class Signature(name: String,
                      codeVersionId: String,
                      dependencies: Map[String, HasSignature],
@@ -46,7 +43,7 @@ object Signature {
     }
 
     def read(value: JsValue): Signature = value match {
-      case JsObject(fields) => {
+      case JsObject(fields) =>
         (fields.get(NAME),
           fields.get(CODE_VERSION_ID),
           fields.get(DEPENDENCIES),
@@ -54,7 +51,7 @@ object Signature {
           case (Some(JsString(_name)),
           Some(JsString(_codeVersionId)),
           Some(deps),
-          Some(params)) => {
+          Some(params)) =>
             val _dependencies = deps.convertTo[List[(String, JsValue)]].
               map { case (n, v) => (n, jsonFormat.read(v))}.toMap
             val _parameters = params.convertTo[List[(String, String)]].toMap
@@ -62,10 +59,8 @@ object Signature {
               codeVersionId = _codeVersionId,
               dependencies = _dependencies,
               parameters = _parameters)
-          }
           case _ => deserializationError(s"Invalid format for Signature: $value")
         }
-      }
       case _ => deserializationError(s"Invalid format for Signature: $value")
     }
   }
@@ -74,26 +69,24 @@ object Signature {
     val (deps, pars) = params.partition(_._2.isInstanceOf[HasSignature])
     Signature(name = name,
       codeVersionId = codeVersionId,
-      dependencies = deps.map { case (name, p: HasSignature) => (name, p)}.toMap,
-      parameters = pars.map { case (name, value) => (name, String.valueOf(value))}.toMap
+      dependencies = deps.map { case (n, p: HasSignature) => (n, p)}.toMap,
+      parameters = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
     )
   }
 
   import scala.reflect.runtime.universe._
 
-  def fromFields(base: Any,
-                 versionFinder: Any => String = VersionHistory.latestEquivalentVersion)(
-                  fieldNames: String*): Signature = {
+  def fromFields(base: HasCodeInfo,
+                 fieldNames: String*): Signature = {
     val params = for (field <- fieldNames) yield {
       val f = base.getClass.getDeclaredField(field)
       f.setAccessible(true)
       (field, f.get(base))
     }
-    apply(base.getClass.getSimpleName, versionFinder(base), params: _*)
+    apply(base.getClass.getSimpleName, base.codeInfo.unchangedSince, params: _*)
   }
 
-  def fromObject[T <: Product : TypeTag : ClassTag](obj: T,
-                                                    versionFinder: Any => String = VersionHistory.latestEquivalentVersion): Signature = {
+  def fromObject[T <: Product with HasCodeInfo : TypeTag : ClassTag](obj: T): Signature = {
     val objType = typeTag[T].tpe
     val constructor = objType.member(nme.CONSTRUCTOR).asMethod
     val constructorParams = constructor.paramss.head
@@ -103,7 +96,7 @@ object Signature {
     val paramValues = declarations.map(d => (d.name.toString, reflect.reflectField(d).get))
     val (deps, params) = paramValues.partition(_._2.isInstanceOf[HasSignature])
     Signature(objType.typeSymbol.name.toString,
-      versionFinder(obj),
+      obj.codeInfo.unchangedSince,
       deps.map(t => (t._1, t._2.asInstanceOf[HasSignature])).toMap,
       params.map(t => (t._1, t._2.toString)).toMap)
   }

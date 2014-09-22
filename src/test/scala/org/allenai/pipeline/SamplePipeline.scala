@@ -25,7 +25,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   case class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
                               labels: Producer[Iterable[Boolean]],
                               testSizeRatio: Double)
-    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
+    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])]
+    with UnknownCodeInfo {
     def create = {
       val rand = new Random
       val data = labels.get.zip(features.get)
@@ -37,7 +38,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   }
 
   case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[TrainedModel] {
+    extends Producer[TrainedModel] with UnknownCodeInfo {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -54,7 +55,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   // Threshold, precision, recall
   class MeasureModel(val model: Producer[TrainedModel],
                      val testData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[PRMeasurement] {
+    extends Producer[PRMeasurement] with UnknownCodeInfo {
     def create = {
       model.get
       // Just generate some dummy data
@@ -70,7 +71,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       }
     }
 
-    def signature = Signature.fromFields(this)("model", "testData")
+    def signature = Signature.fromFields(this, "model", "testData")
   }
 
   val outputDir = new File("pipeline/test-output")
@@ -126,7 +127,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   case class ParsedDocument(info: String)
 
   case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-    extends Producer[Iterable[Array[Double]]] {
+    extends Producer[Iterable[Array[Double]]] with UnknownCodeInfo {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -138,7 +139,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     def signature = Signature.fromObject(this)
   }
 
-  object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact] {
+  object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
+  with UnknownCodeInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
     }
@@ -173,7 +175,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   case class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel,
     FileArtifact])
-    extends Producer[TrainedModel] {
+    extends Producer[TrainedModel] with UnknownCodeInfo {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")

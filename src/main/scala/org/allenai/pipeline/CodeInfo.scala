@@ -1,40 +1,48 @@
 package org.allenai.pipeline
 
-import java.net.{URI, URL}
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.net.URI
+import java.util.UUID
 
-case class CodeInfo(latestEquivalentVersionId: String, srcUrl: Option[URI], binaryUrl: Option[URI])
+case class CodeInfo(buildId: String,
+                    unchangedSince: String,
+                    srcUrl: Option[URI],
+                    binaryUrl: Option[URI])
 
-trait HasVersionHistory {
-  def versionIds: Seq[String]
+trait HasCodeInfo {
+  def codeInfo: CodeInfo
 }
 
-object VersionHistory {
-  def latestEquivalentVersion(obj: Any): String = obj match {
-    case hv: HasVersionHistory => {
-      obj.getClass.getPackage.getImplementationVersion match {
-        case null => null
-        case objVersion => {
-          val versionIds = hv.versionIds
-          require(objVersion != null, "Cannot store data in repository when running from " +
-            "locally-compiled code.  Please run 'sbt package' and execute from packaged jar files.")
-          val previousVersions =
-            Some(MavenVersionId(0, None, None, None, None)) +: versionIds.map(MavenVersionId.apply)
-          MavenVersionId(objVersion) match {
-            case Some(v) => {
-              require(previousVersions.forall(_.isDefined), s"Current version $v cannot be compared " +
-                s"with past version ${previousVersions.zip(versionIds).find(!_._1.isDefined).get._2}")
-              val sortedVersions = previousVersions.flatten.sorted.reverse
-              val latestEquivalentVersion = sortedVersions.find(_.compareTo(v) <= 0).get.versionId
-              latestEquivalentVersion
-            }
-            case None => sys.error(s"Cannot parse current version number $objVersion")
-          }
-        }
-      }
+trait UnknownCodeInfo extends HasCodeInfo {
+  private lazy val uuid = UUID.randomUUID.toString
+
+  override def codeInfo = CodeInfo(uuid, uuid, None, None)
+}
+
+trait Ai2CodeInfo extends HasCodeInfo {
+  private lazy val uuid = UUID.randomUUID.toString
+
+  override def codeInfo: CodeInfo = {
+    this.getClass.getPackage.getImplementationVersion match {
+      case null => CodeInfo(uuid, uuid, None, None)
+      case buildId => CodeInfo(buildId, lastPrecedingChangeId(buildId), None, None)
     }
-    case _ => "0"
+  }
+
+  def versionHistory: Seq[String] = List()
+
+  def lastPrecedingChangeId(buildId: String): String = {
+    MavenVersionId(buildId) match {
+      case Some(myVersion) =>
+        val previousVersions = ("0" +: versionHistory).distinct.map(MavenVersionId.apply)
+        require(previousVersions.forall(_.isDefined), s"Current version $myVersion cannot be compared " +
+          s"with past version ${previousVersions.zip(versionHistory).find(!_._1.isDefined).get._2}")
+        val sortedVersions = previousVersions.flatten.sorted.reverse
+        val latestEquivalentVersion = sortedVersions.find(
+          v => v.compareTo(myVersion) <= 0 || v.equalsIgnoreQualifier(myVersion)).get
+          .versionId
+        latestEquivalentVersion
+      case None => buildId
+    }
   }
 }
 
@@ -77,6 +85,10 @@ case class MavenVersionId(major: Int,
       case i => i
     }
   }
+
+  def equalsIgnoreQualifier(other: MavenVersionId) =
+    major == other.major && minor == other.minor &&
+      incremental == other.incremental && build == other.build
 }
 
 object MavenVersionId {

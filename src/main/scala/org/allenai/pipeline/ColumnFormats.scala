@@ -154,15 +154,15 @@ trait ColumnFormats {
   }
 
   implicit def tuple2ColumnFormat[T1: SS, T2: SS](sep: Char = '\t') =
-    columnFormat2(Tuple2.apply[T1, T2] _, sep)
+    columnFormat2(Tuple2.apply[T1, T2] , sep)
 
   implicit def tuple3ColumnFormat[T1: SS, T2: SS, T3: SS](sep: Char = '\t') =
-    columnFormat3(Tuple3.apply[T1, T2, T3] _, sep)
+    columnFormat3(Tuple3.apply[T1, T2, T3], sep)
 
   implicit def tuple4ColumnFormat[T1: SS, T2: SS, T3: SS, T4: SS](sep: Char = '\t') =
-    columnFormat4(Tuple4.apply[T1, T2, T3, T4] _, sep)
+    columnFormat4(Tuple4.apply[T1, T2, T3, T4], sep)
 
   implicit def tuple5ColumnFormat[T1: SS, T2: SS, T3: SS, T4: SS, T5: SS](sep: Char = '\t') =
-    columnFormat5(Tuple5.apply[T1, T2, T3, T4, T5] _, sep)
+    columnFormat5(Tuple5.apply[T1, T2, T3, T4, T5], sep)
 
 }
