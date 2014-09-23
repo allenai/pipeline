@@ -77,42 +77,6 @@ trait WriteHelpers {
     override def structuredArtifact(path: String) = new S3ZipArtifact(toPath(path), config)
   }
 
-  object PersistedSingleton {
-    def text[T: StringSerializable : ClassTag, I: FlatArtifactFactory](input: I)(step: Producer[T]): PersistedProducer[T, FlatArtifact] = {
-      step.persisted(SingletonIo.text[T],
-        implicitly[FlatArtifactFactory[I]].flatArtifact(input))
-    }
-
-    def json[T: JsonFormat : ClassTag, I: FlatArtifactFactory](input: I)(step: Producer[T]): PersistedProducer[T, FlatArtifact] = {
-      step.persisted(SingletonIo.json[T],
-        implicitly[FlatArtifactFactory[I]].flatArtifact(input))
-    }
-  }
-
-  object PersistedCollection {
-    def text[T: StringSerializable : ClassTag, I: FlatArtifactFactory](input: I)(step: Producer[Iterable[T]]): PersistedProducer[Iterable[T], FlatArtifact] = {
-      step.persisted(LineCollectionIo.text[T],
-        implicitly[FlatArtifactFactory[I]].flatArtifact(input))
-    }
-
-    def json[T: JsonFormat : ClassTag, I: FlatArtifactFactory](input: I)(step: Producer[Iterable[T]]): PersistedProducer[Iterable[T], FlatArtifact] = {
-      step.persisted(LineCollectionIo.json[T],
-        implicitly[FlatArtifactFactory[I]].flatArtifact(input))
-    }
-  }
-
-  object PersistedIterator {
-    def text[T: StringSerializable : ClassTag, I: FlatArtifactFactory](input: I)(step: Producer[Iterator[T]]): PersistedProducer[Iterator[T], FlatArtifact] = {
-      step.persisted(LineIteratorIo.text[T],
-        implicitly[FlatArtifactFactory[I]].flatArtifact(input))
-    }
-
-    def json[T: JsonFormat : ClassTag, I: FlatArtifactFactory](input: I)(step: Producer[Iterator[T]]): PersistedProducer[Iterator[T], FlatArtifact] = {
-      step.persisted(LineIteratorIo.json[T],
-        implicitly[FlatArtifactFactory[I]].flatArtifact(input))
-    }
-  }
-
   object Persist {
 
     object iterator {

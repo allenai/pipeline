@@ -91,25 +91,19 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   val input = new RelativeFileSystem(inputDir)
   val output = new RelativeFileSystem(outputDir)
-  implicit val runner = new SingleOutputDirPipelineRunner(
-    AbsoluteFileSystem.usingPaths,
-    outputDir.getCanonicalPath)
+  implicit val runner = PipelineRunner.writeToDirectory(outputDir)
 
   //    This also works:
   //      val s3Config = S3Config("ai2-pipeline-sample")
   //      val input = new RelativeFileSystem(inputDir)
   //      val output = new S3(s3Config, Some("test-output"))
 
-  implicit val location = output
-
-  import scala.language.implicitConversions
-
   "Sample Pipeline 1" should "complete" in {
     // Read input data
     val featureData: Producer[Iterable[Array[Double]]] =
-      ReadArrayCollection.text[Double](input.flatArtifact(featureFile))
+      Read.arrayCollection.fromText[Double](input.flatArtifact(featureFile))
     val labelData: Producer[Iterable[Boolean]] =
-      ReadCollection.text[Boolean](input.flatArtifact(labelFile))
+      Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(featureData, labelData, 0.2)
     val model: Producer[TrainedModel] =
@@ -120,8 +114,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     // Run pipeline
     measure.get
 
-    assert(new File(outputDir, "TrainModel.json").exists, "Json file created")
-    assert(new File(outputDir, "MeasureModel.txt").exists, "P/R file created")
+    assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   case class ParsedDocument(info: String)
@@ -149,6 +143,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
     // Writing back to XML not supported
     def write(data: Iterator[ParsedDocument], artifact: StructuredArtifact) = ???
+
+    override def toString = this.getClass.getSimpleName
   }
 
   "Sample Pipeline 2" should "complete" in {
@@ -158,7 +154,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      ReadCollection.text[Boolean](input.flatArtifact(labelFile))
+      Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
     testData: Producer[Iterable[(Boolean, Array[Double])]]) =
@@ -169,8 +165,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       Persist.collection.asText(new MeasureModel(model, testData))
     measure.get
 
-    assert(new File(outputDir, "TrainModel.json").exists, "Json file created")
-    assert(new File(outputDir, "MeasureModel.txt").exists, "P/R file created")
+    assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   case class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel,
@@ -202,7 +198,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      ReadCollection.text[Boolean](input.flatArtifact(labelFile))
+      Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainingDataFile = Persist.collection.asText(trainData).asArtifact
@@ -212,9 +208,9 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       new MeasureModel(model, testData))
     runner.run(measure)
 
-    assert(new File(outputDir, "JoinAndSplitData_1.txt").exists, "Training data file created")
-    assert(new File(outputDir, "TrainModelPython.json").exists, "Json file created")
-    assert(new File(outputDir, "MeasureModel.txt").exists, "P/R file created")
+    assert(findFile(outputDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
+    assert(findFile(outputDir, "TrainModelPython", ".json"), "Json file created")
+    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   override def beforeEach: Unit = {
@@ -229,4 +225,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   override def afterAll: Unit = {
     FileUtils.deleteDirectory(outputDir)
   }
+
+  def findFile(dir: File, prefix: String, suffix: String): Boolean =
+    dir.listFiles.map(_.getName).exists(s => s.startsWith(prefix) && s.endsWith(suffix))
 }

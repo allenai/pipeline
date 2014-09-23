@@ -39,7 +39,7 @@ class SingletonIo[T: StringSerializable : ClassTag]
     _.write(implicitly[StringSerializable[T]].toString(data))
   }
 
-  override def toString = s"SingletonIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}}]"
+  override def toString = s"SingletonIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]"
 }
 
 object SingletonIo {
@@ -60,7 +60,7 @@ class LineCollectionIo[T: StringSerializable : ClassTag]
 
   override def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(data.iterator, artifact)
 
-  override def toString = s"LineCollectionIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}}]"
+  override def toString = s"LineCollectionIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]"
 
 }
 
@@ -92,7 +92,7 @@ class LineIteratorIo[T: StringSerializable : ClassTag]
     }
   }
 
-  override def toString = s"LineIteratorIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}}]"
+  override def toString = s"LineIteratorIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]"
 }
 
 object LineIteratorIo {

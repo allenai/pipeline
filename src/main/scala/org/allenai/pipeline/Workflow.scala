@@ -2,10 +2,19 @@ package org.allenai.pipeline
 
 import spray.json.DefaultJsonProtocol._
 
+import java.net.URI
+
 /**
  * DAG representation of the execution of a set of Producers
  */
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link])
+
+case class Node(name: String,
+                params: Map[String, String],
+                outputPath: Option[String],
+                codePath: Option[String])
+
+case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
   def forPipeline(steps: HasSignature*): Workflow = {
@@ -16,10 +25,17 @@ object Workflow {
       step <- steps
       hs <- findNodes(step)
       sig = hs.signature
-    } yield hs match {
-        case p: HasPath => (sig.id, Node(sig.name, sig.parameters, Some(p.path)))
-        case _ => (sig.id, Node(sig.name, sig.parameters, None))
+    } yield {
+      val outputPath = hs match {
+        case p: HasPath => Some(p.path)
+        case _ => None
       }
+      val codePath = hs match {
+        case c: HasCodeInfo => c.codeInfo.srcUrl.map(_.toString)
+        case _ => None
+      }
+      (sig.id, Node(sig.name, sig.parameters, outputPath, codePath))
+    }
 
     def findLinks(s: HasSignature): Iterable[(HasSignature, HasSignature, String)] =
       s.signature.dependencies.map { case (name, dep) => (dep, s, name)} ++
@@ -35,15 +51,15 @@ object Workflow {
   }
 
   implicit val jsFormat = {
-    implicit val nodeFormat = jsonFormat3(Node)
+    implicit val nodeFormat = jsonFormat4(Node)
     implicit val linkFormat = jsonFormat3(Link)
     jsonFormat2(Workflow.apply _)
   }
 
   def renderHtml(w: Workflow) = {
-    val addNodeCode = (for ((id, Node(name, params, path)) <- w.nodes) yield {
+    val addNodeCode = (for ((id, Node(name, params, outputPath, codePath)) <- w.nodes) yield {
       val text = (name +: params.toList.map(t => s"${t._1}=${t._2}")).mkString("""\n""")
-      val href = path.map(p => s""", href:"$p"""").getOrElse("")
+      val href = outputPath.map(p => s""", href:"$p"""").getOrElse("")
       s"""g.addNode("$id", {label: "$text" $href});"""
     }).mkString("\n")
     val addEdgeCode = (for (Link(from, to, name) <- w.links) yield {
@@ -115,7 +131,3 @@ object Workflow {
      """.stripMargin
   }
 }
-
-case class Node(name: String, params: Map[String, String], path: Option[String])
-
-case class Link(fromId: String, toId: String, name: String)

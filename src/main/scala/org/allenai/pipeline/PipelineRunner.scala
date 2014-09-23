@@ -3,7 +3,8 @@ package org.allenai.pipeline
 import java.io.File
 import org.allenai.pipeline.IoHelpers._
 
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.{Date, UUID}
 
 abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
   StructuredArtifactFactory[String])
@@ -25,7 +26,9 @@ abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
   def run[T](outputs: Producer[_]*): String = {
     outputs.foreach(_.get)
     val workflow = Workflow.forPipeline(outputs: _*)
-    val sig = Signature("experiment", UUID.randomUUID.toString)
+    val version = s"${System.getProperty("user.name")}-${new SimpleDateFormat
+      ("YYYY-MM-dd:HH:mm:ss").format(new Date())}"
+    val sig = Signature("experiment", version)
     val outputPath = path(sig, "html")
     SingletonIo.text[String].write(Workflow.renderHtml(workflow),
       persistence.flatArtifact(outputPath))
@@ -36,18 +39,18 @@ abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
 }
 
 object PipelineRunner {
-  def sandbox(dir: File) = {
+  def writeToDirectory(dir: File) = {
     val persistence = new RelativeFileSystem(dir)
-    val rootDirPath = dir.getCanonicalPath
     new PipelineRunner(persistence) {
-      def path(signature: Signature, suffix: String) = s"$rootDirPath/${signature.name}.$suffix"
+      def path(signature: Signature, suffix: String) = s"${signature.name}" +
+        s".${signature.id}.$suffix"
     }
   }
 
-  def s3(config: S3Config, rootPath: String) = {
+  def writeToS3(config: S3Config, rootPath: String) = {
     val persistence = new S3(config, Some(rootPath))
     new PipelineRunner(persistence) {
-      def path(signature: Signature, suffix: String) = s"$rootPath/${
+      def path(signature: Signature, suffix: String) = s"${
         signature
           .name
       }/${signature.name}.${signature.id}.$suffix"

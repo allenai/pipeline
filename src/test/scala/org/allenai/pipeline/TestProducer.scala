@@ -49,11 +49,13 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistedProducer" should "read from file if exists" in {
-    val pStep = PersistedCollection.text("savedNumbers.txt")(randomNumbers)
+    val pStep = randomNumbers.persisted(LineCollectionIo.text[Double],
+      output.flatArtifact("savedNumbers.txt"))
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = PersistedCollection.text("savedNumbers.txt")(cachedRandomNumbers)
+    val otherStep = cachedRandomNumbers.persisted(LineCollectionIo.text[Double],
+      new FileArtifact(new File(outputDir, "savedNumbers.txt")))
     otherStep.get should equal(pStep.get)
   }
 
@@ -66,11 +68,13 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistentCachedProducer" should "read from file if exists" in {
-    val pStep = PersistedCollection.text("savedCachedNumbers.txt")(cachedRandomNumbers)
+    val pStep = cachedRandomNumbers.persisted(LineCollectionIo.text[Double],
+      output.flatArtifact("savedCachedNumbers.txt"))
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = PersistedCollection.text("savedCachedNumbers.txt")(randomNumbers)
+    val otherStep = randomNumbers.persisted(LineCollectionIo.text[Double],
+      output.flatArtifact("savedCachedNumbers.txt"))
     otherStep.get should equal(pStep.get)
   }
 
@@ -87,15 +91,16 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Persisted iterator" should "re-use value" in {
-    val persisted = PersistedIterator.text("randomIterator.txt")(randomIterator)
+    val persisted = randomIterator.persisted(LineIteratorIo.text[Double],
+      output.flatArtifact("randomIterator.txt"))
     persisted.get.toList should equal(persisted.get.toList)
   }
 
   "Persisted iterator" should "read from file if exists" in {
-    val persisted = PersistedIterator.text("savedCachedIterator.txt")(
-      randomIterator.enableCaching)
-    val otherStep = PersistedIterator.text("savedCachedIterator.txt")(
-      randomIterator.disableCaching)
+    val persisted = randomIterator.enableCaching.persisted(LineIteratorIo.text[Double],
+      output.flatArtifact("savedCachedIterator.txt"))
+    val otherStep = randomIterator.disableCaching.persisted(LineIteratorIo.text[Double],
+      output.flatArtifact("savedCachedIterator.txt"))
   }
 
   "Signatures" should "determine unique paths" in {
@@ -103,8 +108,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
     import spray.json._
 
-    implicit val runner = new SingleOutputDirPipelineRunner(new RelativeFileSystem(outputDir),
-      "test-output")
+    implicit val runner = PipelineRunner.writeToDirectory(outputDir)
 
     class RNG(val seed: Int, val length: Int)
       extends Producer[Iterable[Double]] with UnknownCodeInfo {
@@ -112,7 +116,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def signature = Signature.fromFields(this, "seed", "length").copy(name="RNG")
+      override def signature = Signature.fromFields(this, "seed", "length").copy(name = "RNG")
     }
 
     val rng1 = Persist.collection.asJson(new RNG(42, 100))
