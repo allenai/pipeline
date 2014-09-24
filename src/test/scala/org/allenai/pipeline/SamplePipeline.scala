@@ -150,7 +150,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   "Sample Pipeline 2" should "complete" in {
     // Read input data
     val docDir = new File(inputDir, "xml")
-    val docs = readFromArtifact(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
+    val docs = Read.fromArtifact(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
@@ -194,7 +194,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
-    val docs = readFromArtifact(ParseDocumentsFromXML, docDir)
+    val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =

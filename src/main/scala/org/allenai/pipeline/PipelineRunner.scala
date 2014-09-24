@@ -26,8 +26,10 @@ abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
   def run[T](outputs: Producer[_]*): String = {
     outputs.foreach(_.get)
     val workflow = Workflow.forPipeline(outputs: _*)
-    val version = s"${System.getProperty("user.name")}-${new SimpleDateFormat
-      ("YYYY-MM-dd:HH:mm:ss").format(new Date())}"
+    val version = s"${System.getProperty("user.name")}-${
+      new SimpleDateFormat
+      ("YYYY-MM-dd:HH:mm:ss").format(new Date())
+    }"
     val sig = Signature("experiment", version)
     val outputPath = path(sig, "html")
     SingletonIo.text[String].write(Workflow.renderHtml(workflow),

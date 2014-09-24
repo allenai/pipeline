@@ -31,27 +31,48 @@ trait Producer[T] extends Logging with CachingEnabled with HasSignature with Has
     if (cachingEnabled) {
       this
     } else {
-      new Producer[T] with CachingEnabled {
-        def create = self.create
-
-        def signature = self.signature
-
-        def codeInfo = self.codeInfo
-      }
+      copy(cachingEnabled = () => true)
     }
   }
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.  */
   def disableCaching: Producer[T] = {
     if (cachingEnabled) {
-      new Producer[T] with CachingDisabled {
-        def create = self.create
-
-        def signature = self.signature
-
-        def codeInfo = self.codeInfo
-      }
+      copy(cachingEnabled = () => false)
     } else this
+  }
+
+  def copy[NT](create: () => NT = self.create _,
+               signature: () => Signature = self.signature _,
+               codeInfo: () => CodeInfo = self.codeInfo _,
+               cachingEnabled: () => Boolean = self.cachingEnabled _) = {
+    val _create = create
+    val _signature = signature
+    val _codeInfo = codeInfo
+    val _cachingEnabled = cachingEnabled
+    self match {
+      case p: HasPath => new Producer[NT] with HasPath {
+        override def create = _create()
+
+        override def signature = _signature()
+
+        override def codeInfo = _codeInfo()
+
+        override def cachingEnabled = _cachingEnabled()
+
+        override def path = p.path
+      }
+      case _ => new Producer[NT] {
+        override def create = _create()
+
+        override def signature = _signature()
+
+        override def codeInfo = _codeInfo()
+
+        override def cachingEnabled = _cachingEnabled()
+      }
+
+    }
   }
 }
 
@@ -65,6 +86,7 @@ trait CachingDisabled extends CachingEnabled {
 
 class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A],
                                           artifactSource: => A) extends Producer[T] with HasPath {
+  self =>
   lazy val artifact = artifactSource
 
   override def path = artifact.path
@@ -79,18 +101,11 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
     io.read(artifact)
   }
 
-  def asArtifact = new Producer[A] {
-    def create = {
-      if (!artifact.exists)
-        io.write(step.get, artifact)
-      artifact
-    }
-
-    def signature = step.signature
-
-    def codeInfo = step.codeInfo
-
-  }
+  def asArtifact = copy(create = () => {
+    if (!artifact.exists)
+      io.write(step.get, artifact)
+    artifact
+  })
 
   def signature = step.signature
 
@@ -106,123 +121,53 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
 //
 object Producer2 {
   def unapply[T1, T2](p: Producer[(T1, T2)]): Option[(Producer[T1], Producer[T2])] = {
-    val p1 = new Producer[T1] {
-      def create = p.get._1
+    val p1 = p.copy(create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
 
-      def signature = p.signature.copy(name = p.signature.name + "_1")
-
-      def codeInfo = p.codeInfo
-
-    }
-    val p2 = new Producer[T2] {
-      def create = p.get._2
-
-      def signature = p.signature.copy(name = p.signature.name + "_2")
-
-      def codeInfo = p.codeInfo
-    }
+    val p2 = p.copy(create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
     Some((p1, p2))
   }
 }
 
 object Producer3 {
   def unapply[T1, T2, T3](p: Producer[(T1, T2, T3)]): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
-    val p1 = new Producer[T1] {
-      def create = p.get._1
-
-      def signature = p.signature.copy(name = p.signature.name + "_1")
-
-      def codeInfo = p.codeInfo
-    }
-    val p2 = new Producer[T2] {
-      def create = p.get._2
-
-      def signature = p.signature.copy(name = p.signature.name + "_2")
-
-      def codeInfo = p.codeInfo
-    }
-    val p3 = new Producer[T3] {
-      def create = p.get._3
-
-      def signature = p.signature.copy(name = p.signature.name + "_3")
-
-      def codeInfo = p.codeInfo
-    }
+    val p1 = p.copy(create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
+    val p2 = p.copy(create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
+    val p3 = p.copy(create = () => p.get._3,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
     Some((p1, p2, p3))
   }
 }
 
 object Producer4 {
   def unapply[T1, T2, T3, T4](p: Producer[(T1, T2, T3, T4)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4])] = {
-    val p1 = new Producer[T1] {
-      def create = p.get._1
-
-      def signature = p.signature.copy(name = p.signature.name + "_1")
-
-      def codeInfo = p.codeInfo
-    }
-    val p2 = new Producer[T2] {
-      def create = p.get._2
-
-      def signature = p.signature.copy(name = p.signature.name + "_2")
-
-      def codeInfo = p.codeInfo
-    }
-    val p3 = new Producer[T3] {
-      def create = p.get._3
-
-      def signature = p.signature.copy(name = p.signature.name + "_3")
-
-      def codeInfo = p.codeInfo
-    }
-    val p4 = new Producer[T4] {
-      def create = p.get._4
-
-      def signature = p.signature.copy(name = p.signature.name + "_4")
-
-      def codeInfo = p.codeInfo
-    }
+    val p1 = p.copy(create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
+    val p2 = p.copy(create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
+    val p3 = p.copy(create = () => p.get._3,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
+    val p4 = p.copy(create = () => p.get._4,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
     Some((p1, p2, p3, p4))
   }
 }
 
 object Producer5 {
   def unapply[T1, T2, T3, T4, T5](p: Producer[(T1, T2, T3, T4, T5)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4], Producer[T5])] = {
-    val p1 = new Producer[T1] {
-      def create = p.get._1
-
-      def signature = p.signature.copy(name = p.signature.name + "_1")
-
-      def codeInfo = p.codeInfo
-    }
-    val p2 = new Producer[T2] {
-      def create = p.get._2
-
-      def signature = p.signature.copy(name = p.signature.name + "_2")
-
-      def codeInfo = p.codeInfo
-    }
-    val p3 = new Producer[T3] {
-      def create = p.get._3
-
-      def signature = p.signature.copy(name = p.signature.name + "_3")
-
-      def codeInfo = p.codeInfo
-    }
-    val p4 = new Producer[T4] {
-      def create = p.get._4
-
-      def signature = p.signature.copy(name = p.signature.name + "_4")
-
-      def codeInfo = p.codeInfo
-    }
-    val p5 = new Producer[T5] {
-      def create = p.get._5
-
-      def signature = p.signature.copy(name = p.signature.name + "_5")
-
-      def codeInfo = p.codeInfo
-    }
+    val p1 = p.copy(create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
+    val p2 = p.copy(create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
+    val p3 = p.copy(create = () => p.get._3,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
+    val p4 = p.copy(create = () => p.get._4,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
+    val p5 = p.copy(create = () => p.get._5,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_5"))
     Some((p1, p2, p3, p4, p5))
   }
 }

@@ -19,11 +19,11 @@ trait UnknownCodeInfo extends HasCodeInfo {
 }
 
 trait Ai2CodeInfo extends HasCodeInfo {
-  private lazy val uuid = UUID.randomUUID.toString
-
   override def codeInfo: CodeInfo = {
     this.getClass.getPackage.getImplementationVersion match {
-      case null => CodeInfo(uuid, uuid, None, None)
+      case null =>
+        val lastChange = ("0" +: versionHistory).last
+        CodeInfo(lastChange, lastChange, None, None)
       case buildId => CodeInfo(buildId, lastPrecedingChangeId(buildId), None, None)
     }
   }
