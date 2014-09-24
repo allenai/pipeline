@@ -5,7 +5,7 @@ import org.allenai.common.Logging
 /** An individual step in a data processing pipeline.
   * A lazily evaluated calculation, with support for in-memory caching and persistence.
   */
-trait Producer[T] extends Logging with CachingEnabled with HasSignature with HasCodeInfo {
+trait Producer[T] extends Logging with CachingEnabled {
   self =>
   /** Return the computed value. */
   def create: T
@@ -42,38 +42,54 @@ trait Producer[T] extends Logging with CachingEnabled with HasSignature with Has
     } else this
   }
 
-  def copy[NT](create: () => NT = self.create _,
-               signature: () => Signature = self.signature _,
-               codeInfo: () => CodeInfo = self.codeInfo _,
-               cachingEnabled: () => Boolean = self.cachingEnabled _) = {
+  def copy[T2](create: () => T2 = self.create _,
+               cachingEnabled: () => Boolean = self.cachingEnabled _): Producer[T2] = {
     val _create = create
-    val _signature = signature
-    val _codeInfo = codeInfo
     val _cachingEnabled = cachingEnabled
     self match {
-      case p: HasPath => new Producer[NT] with HasPath {
+      case p: HasPath => new Producer[T2] with HasPath {
         override def create = _create()
-
-        override def signature = _signature()
-
-        override def codeInfo = _codeInfo()
 
         override def cachingEnabled = _cachingEnabled()
 
         override def path = p.path
       }
-      case _ => new Producer[NT] {
+      case _ => new Producer[T2] {
         override def create = _create()
-
-        override def signature = _signature()
-
-        override def codeInfo = _codeInfo()
 
         override def cachingEnabled = _cachingEnabled()
       }
 
     }
   }
+}
+
+trait PipelineStep[T] extends Producer[T] with HasSignature with HasCodeInfo with HasPathOption {
+  self =>
+  override def persisted[A <: Artifact](io: ArtifactIo[T, A],
+                                        artifactSource: => A): PersistedPipelineStep[T, A] =
+    new PersistedPipelineStep(this, io, artifactSource)
+
+  def copyStep[T2](create: () => T2 = self.create _,
+                   signature: () => Signature = self.signature _,
+                   codeInfo: () => CodeInfo = self.codeInfo _,
+                   cachingEnabled: () => Boolean = self.cachingEnabled _): PipelineStep[T2] = {
+    val _create = create
+    val _signature = signature
+    val _codeInfo = codeInfo
+    val _cachingEnabled = cachingEnabled
+    new PipelineStep[T2] {
+      override def create = _create()
+
+      override def signature = _signature()
+
+      override def codeInfo = _codeInfo()
+
+      override def cachingEnabled = _cachingEnabled()
+    }
+  }
+
+  override def pathOption: Option[String] = None
 }
 
 trait CachingEnabled {
@@ -106,11 +122,16 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
       io.write(step.get, artifact)
     artifact
   })
+}
 
-  def signature = step.signature
+class PersistedPipelineStep[T, A <: Artifact](step: PipelineStep[T], io: ArtifactIo[T, A],
+                                              artifactSource: => A)
+  extends PersistedProducer(step, io, artifactSource) with PipelineStep[T] {
+  override def signature = step.signature
 
-  def codeInfo = step.codeInfo
+  override def codeInfo = step.codeInfo
 
+  override def pathOption = Some(path)
 }
 
 //
@@ -121,53 +142,85 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
 //
 object Producer2 {
   def unapply[T1, T2](p: Producer[(T1, T2)]): Option[(Producer[T1], Producer[T2])] = {
-    val p1 = p.copy(create = () => p.get._1,
+    val p1 = p.copy(create = () => p.get._1)
+
+    val p2 = p.copy(create = () => p.get._2)
+    Some((p1, p2))
+  }
+
+  def unapply[T1, T2](p: PipelineStep[(T1, T2)]): Option[(PipelineStep[T1], PipelineStep[T2])] = {
+    val p1 = p.copyStep(create = () => p.get._1,
       signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
 
-    val p2 = p.copy(create = () => p.get._2,
+    val p2 = p.copyStep(create = () => p.get._2,
       signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
     Some((p1, p2))
   }
-}
 
-object Producer3 {
-  def unapply[T1, T2, T3](p: Producer[(T1, T2, T3)]): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
-    val p1 = p.copy(create = () => p.get._1,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
-    val p2 = p.copy(create = () => p.get._2,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
-    val p3 = p.copy(create = () => p.get._3,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
-    Some((p1, p2, p3))
-  }
-}
+  object Producer3 {
+    def unapply[T1, T2, T3](p: Producer[(T1, T2, T3)]): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
+      val p1 = p.copy(create = () => p.get._1)
+      val p2 = p.copy(create = () => p.get._2)
+      val p3 = p.copy(create = () => p.get._3)
+      Some((p1, p2, p3))
+    }
 
-object Producer4 {
-  def unapply[T1, T2, T3, T4](p: Producer[(T1, T2, T3, T4)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4])] = {
-    val p1 = p.copy(create = () => p.get._1,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
-    val p2 = p.copy(create = () => p.get._2,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
-    val p3 = p.copy(create = () => p.get._3,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
-    val p4 = p.copy(create = () => p.get._4,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
-    Some((p1, p2, p3, p4))
+    def unapply[T1, T2, T3](p: PipelineStep[(T1, T2, T3)]): Option[(PipelineStep[T1], PipelineStep[T2], PipelineStep[T3])] = {
+      val p1 = p.copyStep(create = () => p.get._1,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
+      val p2 = p.copyStep(create = () => p.get._2,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
+      val p3 = p.copyStep(create = () => p.get._3,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
+      Some((p1, p2, p3))
+    }
   }
-}
 
-object Producer5 {
-  def unapply[T1, T2, T3, T4, T5](p: Producer[(T1, T2, T3, T4, T5)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4], Producer[T5])] = {
-    val p1 = p.copy(create = () => p.get._1,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
-    val p2 = p.copy(create = () => p.get._2,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
-    val p3 = p.copy(create = () => p.get._3,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
-    val p4 = p.copy(create = () => p.get._4,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
-    val p5 = p.copy(create = () => p.get._5,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_5"))
-    Some((p1, p2, p3, p4, p5))
+  object Producer4 {
+    def unapply[T1, T2, T3, T4](p: Producer[(T1, T2, T3, T4)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4])] = {
+      val p1 = p.copy(create = () => p.get._1)
+      val p2 = p.copy(create = () => p.get._2)
+      val p3 = p.copy(create = () => p.get._3)
+      val p4 = p.copy(create = () => p.get._4)
+      Some((p1, p2, p3, p4))
+    }
+
+    def unapply[T1, T2, T3, T4](p: PipelineStep[(T1, T2, T3, T4)]): Option[(PipelineStep[T1], PipelineStep[T2], PipelineStep[T3], PipelineStep[T4])] = {
+      val p1 = p.copyStep(create = () => p.get._1,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
+      val p2 = p.copyStep(create = () => p.get._2,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
+      val p3 = p.copyStep(create = () => p.get._3,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
+      val p4 = p.copyStep(create = () => p.get._4,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
+      Some((p1, p2, p3, p4))
+    }
   }
+
+  object Producer5 {
+    def unapply[T1, T2, T3, T4, T5](p: Producer[(T1, T2, T3, T4, T5)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4], Producer[T5])] = {
+      val p1 = p.copy(create = () => p.get._1)
+      val p2 = p.copy(create = () => p.get._2)
+      val p3 = p.copy(create = () => p.get._3)
+      val p4 = p.copy(create = () => p.get._4)
+      val p5 = p.copy(create = () => p.get._5)
+      Some((p1, p2, p3, p4, p5))
+    }
+
+    def unapply[T1, T2, T3, T4, T5](p: PipelineStep[(T1, T2, T3, T4, T5)]): Option[(PipelineStep[T1], PipelineStep[T2], PipelineStep[T3], PipelineStep[T4], PipelineStep[T5])] = {
+      val p1 = p.copyStep(create = () => p.get._1,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
+      val p2 = p.copyStep(create = () => p.get._2,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
+      val p3 = p.copyStep(create = () => p.get._3,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
+      val p4 = p.copyStep(create = () => p.get._4,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
+      val p5 = p.copyStep(create = () => p.get._5,
+        signature = () => p.signature.copy(name = s"${p.signature.name}_5"))
+      Some((p1, p2, p3, p4, p5))
+    }
+  }
+
 }

@@ -14,6 +14,10 @@ trait HasPath {
   def path: String
 }
 
+trait HasPathOption {
+  def pathOption: Option[String]
+}
+
 /** Generic data blob.  */
 trait FlatArtifact extends Artifact {
   /** Reading from a flat file gives an InputStream.

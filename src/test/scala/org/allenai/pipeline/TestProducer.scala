@@ -24,6 +24,8 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   implicit val output = new RelativeFileSystem(outputDir)
 
+  implicit val runner =  PipelineRunner.writeToDirectory(outputDir)
+
   val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled with UnknownCodeInfo {
     def create = {
       for (i <- (0 until 20)) yield rand.nextDouble
@@ -108,31 +110,30 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
     import spray.json._
 
-    implicit val runner = PipelineRunner.writeToDirectory(outputDir)
-
     class RNG(val seed: Int, val length: Int)
-      extends Producer[Iterable[Double]] with UnknownCodeInfo {
+      extends PipelineStep[Iterable[Double]] with UnknownCodeInfo {
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
 
       override def signature = Signature.fromFields(this, "seed", "length").copy(name = "RNG")
+
     }
 
-    val rng1 = Persist.collection.asJson(new RNG(42, 100))
-    val rng2 = Persist.collection.asJson(new RNG(117, 100))
+    val rng1 = Persist.Collection.asJson(new RNG(42, 100))
+    val rng2 = Persist.Collection.asJson(new RNG(117, 100))
 
     rng1.signature should not equal (rng2.signature)
 
     rng2.signature.toJson.convertTo[Signature] should equal(rng2.signature)
 
-    val rng3 = Persist.collection.asJson(new RNG(42, 100))
+    val rng3 = Persist.Collection.asJson(new RNG(42, 100))
     rng1.get should equal(rng3.get)
   }
 
   "PipelineRunner" should "run a pipeline" in {
     class RNG(val seed: Int, val length: Int)
-      extends Producer[Iterable[Double]] with UnknownCodeInfo {
+      extends PipelineStep[Iterable[Double]] with UnknownCodeInfo {
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)

@@ -90,8 +90,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   // Define our persistence implementation
 
   val input = new RelativeFileSystem(inputDir)
-  val output = new RelativeFileSystem(outputDir)
-  implicit val runner = PipelineRunner.writeToDirectory(outputDir)
+  implicit val output = new RelativeFileSystem(outputDir)
 
   //    This also works:
   //      val s3Config = S3Config("ai2-pipeline-sample")
@@ -107,9 +106,9 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(featureData, labelData, 0.2)
     val model: Producer[TrainedModel] =
-      Persist.singleton.asJson(new TrainModel(trainData))
+      Persist.Singleton.asJson(new TrainModel(trainData), "TrainModel.json")
     val measure: Producer[PRMeasurement] =
-      Persist.collection.asText(new MeasureModel(model, testData))
+      Persist.Collection.asText(new MeasureModel(model, testData), "MeasureModel.txt")
 
     // Run pipeline
     measure.get
@@ -160,9 +159,9 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(docFeatures, labelData, 0.2)
     val model: Producer[TrainedModel] =
-      Persist.singleton.asJson(new TrainModel(trainData))
+      Persist.Singleton.asJson(new TrainModel(trainData), "TrainModel.json")
     val measure: Producer[PRMeasurement] =
-      Persist.collection.asText(new MeasureModel(model, testData))
+      Persist.Collection.asText(new MeasureModel(model, testData), "MeasureModel.txt")
     measure.get
 
     assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
@@ -201,14 +200,14 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
-    val trainingDataFile = Persist.collection.asText(trainData).asArtifact
-    val model = Persist.singleton.asJson(new TrainModelPython(trainingDataFile,
-      SingletonIo.json[TrainedModel]))
-    val measure: Producer[PRMeasurement] = Persist.collection.asText(
-      new MeasureModel(model, testData))
-    runner.run(measure)
+    val trainingDataFile = Persist.Collection.asText(trainData, "TrainingData.txt").asArtifact
+    val model = Persist.Singleton.asJson(new TrainModelPython(trainingDataFile,
+      SingletonIo.json[TrainedModel]), "TrainModelPython.json")
+    val measure: Producer[PRMeasurement] = Persist.Collection.asText(
+      new MeasureModel(model, testData), "MeasureModel.txt")
+    measure.get
 
-    assert(findFile(outputDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
+    assert(findFile(outputDir, "TrainingData", ".txt"), "Training data file created")
     assert(findFile(outputDir, "TrainModelPython", ".json"), "Json file created")
     assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
   }

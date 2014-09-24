@@ -8,9 +8,9 @@ trait ReadHelpers extends ColumnFormats {
 
   object Read {
     /** General deserialization method. */
-    def fromArtifact[T, A <: Artifact](io: ArtifactIo[T, A], artifact: A): Producer[T] = {
+    def fromArtifact[T, A <: Artifact](io: ArtifactIo[T, A], artifact: A): PipelineStep[T] = {
       require(artifact.exists, s"$artifact does not exist")
-      new PersistedProducer(null, io, artifact) {
+      new PersistedPipelineStep(null, io, artifact) {
         override def signature = Signature(io.toString,
           io.codeInfo.unchangedSince, "src" -> artifact.path)
 
@@ -20,10 +20,16 @@ trait ReadHelpers extends ColumnFormats {
 
     /** General deserialization method. */
     def fromArtifactProducer[T, A <: Artifact](io: ArtifactIo[T, A],
-                                               src: Producer[A]): Producer[T] =
-      src.copy(create = () => io.read(src.get),
-        signature = () => Signature(io.toString, io.codeInfo.unchangedSince, "src" -> src),
-        codeInfo = () => io.codeInfo)
+                                               src: Producer[A]): PipelineStep[T] =
+      new PipelineStep[T] {
+        def create = io.read(src.get)
+
+        def signature = Signature(io.toString, io.codeInfo.unchangedSince, "src" -> src)
+
+        def codeInfo = io.codeInfo
+
+        override def pathOption = Some(src.get.path)
+      }
 
     /** Read single object from flat file */
     object singleton {
