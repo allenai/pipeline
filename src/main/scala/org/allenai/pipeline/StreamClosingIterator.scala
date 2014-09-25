@@ -11,8 +11,8 @@ object StreamClosingIterator {
     new Iterator[T] {
       private var stillReading = it.hasNext
 
-      def next = {
-        val result = it.next
+      def next() = {
+        val result = it.next()
         stillReading = it.hasNext
         if (!stillReading) is.close()
         result

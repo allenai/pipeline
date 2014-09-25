@@ -111,13 +111,12 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     import spray.json._
 
     class RNG(val seed: Int, val length: Int)
-      extends PipelineStep[Iterable[Double]] with UnknownCodeInfo {
+      extends Producer[Iterable[Double]] with UnknownCodeInfo {
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def signature = Signature.fromFields(this, "seed", "length").copy(name = "RNG")
-
+      override def signature = Signature.fromFields(this, "seed", "length")
     }
 
     val rng1 = Persist.Collection.asJson(new RNG(42, 100))
@@ -127,22 +126,6 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
     val rng3 = Persist.Collection.asJson(new RNG(42, 100))
     rng1.get should equal(rng3.get)
-  }
-
-  "PipelineRunner" should "run a pipeline" in {
-    class RNG(val seed: Int, val length: Int)
-      extends PipelineStep[Iterable[Double]] with UnknownCodeInfo {
-      private val rand = new Random(seed)
-
-      def create = (0 until length).map(i => rand.nextDouble)
-
-      override def signature: Signature = Signature.fromFields(this, "seed", "length")
-    }
-
-    val rng = new RNG(42, 100)
-
-    rng.signature should not equal (null)
-
   }
 
   override def beforeAll: Unit = {

@@ -1,15 +1,14 @@
 package org.allenai.pipeline
 
-import spray.json.DefaultJsonProtocol._
-import spray.json.JsonFormat
-
-import java.io.{InputStream, File}
-
 import org.allenai.common.testkit.UnitSpec
+
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
+
+import java.io.{File, InputStream}
 
 /** See README.md for explanatory documentation of this example,
   * which runs a mocked-up pipeline to train and cross-validate a model.
@@ -25,7 +24,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
                          labels: Producer[Iterable[Boolean]],
                          testSizeRatio: Double)
-    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])] {
+    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])]
+    with NoPipelineRunnerSupport {
     def create = {
       val rand = new Random
       val data = labels.get.zip(features.get)
@@ -35,7 +35,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   }
 
   case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[TrainedModel] {
+    extends Producer[TrainedModel] with NoPipelineRunnerSupport {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -50,15 +50,15 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   // Threshold, precision, recall
   class MeasureModel(val model: Producer[TrainedModel],
                      val testData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[PRMeasurement] {
+    extends Producer[PRMeasurement] with NoPipelineRunnerSupport {
     def create = {
       model.get
       // Just generate some dummy data
       val rand = new Random
-      import math.exp
+      import scala.math.exp
       var a = 0.0
       var b = 0.0
-      for (i <- (0 until testData.get.size)) yield {
+      for (i <- 0 until testData.get.size) yield {
         val r = (exp(-a), 1 - exp(-b), exp(-b))
         a += rand.nextDouble * .03
         b += rand.nextDouble * .03
@@ -113,17 +113,18 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   case class ParsedDocument(info: String)
 
   case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-    extends Producer[Iterable[Array[Double]]] {
+    extends Producer[Iterable[Array[Double]]] with NoPipelineRunnerSupport {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
-        Array.fill(8)(rand.nextDouble)
+        Array.fill(8)(rand.nextDouble())
       }
       features.toList
     }
   }
 
-  object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact] {
+  object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
+  with UnknownCodeInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
     }
@@ -160,13 +161,13 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel,
     FileArtifact])
-    extends Producer[TrainedModel] {
+    extends Producer[TrainedModel] with NoPipelineRunnerSupport {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
       data.get.copyTo(new FileArtifact(inputFile))
-      import sys.process._
       import scala.language.postfixOps
+      import scala.sys.process._
       // In real world, omit "echo"
       val stdout: String = s"echo train.py -input $inputFile -output $outputFile" !!
       // val model = io.read(new FileArtifact(outputFile)) // In real world, return this
@@ -200,16 +201,16 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
-  override def beforeEach: Unit = {
+  override def beforeEach(): Unit = {
     require((outputDir.exists && outputDir.isDirectory) ||
       outputDir.mkdirs, s"Unable to create test output directory $outputDir")
   }
 
-  override def afterEach: Unit = {
+  override def afterEach(): Unit = {
     FileUtils.cleanDirectory(outputDir)
   }
 
-  override def afterAll: Unit = {
+  override def afterAll(): Unit = {
     FileUtils.deleteDirectory(outputDir)
   }
 

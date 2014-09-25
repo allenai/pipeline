@@ -10,16 +10,18 @@ import java.net.URI
  */
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link])
 
+/** Represents a Producer instance with PipelineRunnerSupport */
 case class Node(name: String,
                 params: Map[String, String],
                 outputPath: Option[URI],
                 codePath: Option[URI])
 
+/** Represents dependency between Producer instances */
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: PipelineStepInfo*): Workflow = {
-    def findNodes(s: PipelineStepInfo): Iterable[PipelineStepInfo] =
+  def forPipeline(steps: PipelineRunnerSupport*): Workflow = {
+    def findNodes(s: PipelineRunnerSupport): Iterable[PipelineRunnerSupport] =
       Seq(s) ++ s.signature.dependencies.flatMap(t => findNodes(t._2))
 
     val nodeList = for {
@@ -27,10 +29,10 @@ object Workflow {
       stepInfo <- findNodes(step)
       sig = stepInfo.signature
     } yield {
-      (sig.id, Node(sig.name, sig.parameters, stepInfo.pathOption, stepInfo.codeInfo.srcUrl))
+      (sig.id, Node(sig.name, sig.parameters, stepInfo.outputLocation, stepInfo.codeInfo.srcUrl))
     }
 
-    def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
+    def findLinks(s: PipelineRunnerSupport): Iterable[(PipelineRunnerSupport, PipelineRunnerSupport, String)] =
       s.signature.dependencies.map { case (name, dep) => (dep, s, name)} ++
         s.signature.dependencies.flatMap(t => findLinks(t._2))
 
@@ -54,7 +56,7 @@ object Workflow {
     }
     implicit val nodeFormat = jsonFormat4(Node)
     implicit val linkFormat = jsonFormat3(Link)
-    jsonFormat2(Workflow.apply _)
+    jsonFormat2(Workflow.apply)
   }
 
   def link(uri: URI) = uri.getScheme match {
@@ -68,7 +70,7 @@ object Workflow {
       s
     else {
       val leftSize = math.min(15, maxLength / 3)
-      val rightSize = (maxLength - leftSize)
+      val rightSize = maxLength - leftSize
       s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
     }
 

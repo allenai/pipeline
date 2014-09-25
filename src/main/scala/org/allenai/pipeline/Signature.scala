@@ -9,9 +9,13 @@ import scala.reflect.ClassTag
 
 case class Signature(name: String,
                      unchangedSinceVersion: String,
-                     dependencies: Map[String, PipelineStepInfo],
+                     dependencies: Map[String, PipelineRunnerSupport],
                      parameters: Map[String, String]) {
-  def id: String = this.toJson.compactPrint.hashCode.toHexString
+  def id: String = {
+    val hashString = this.toJson.compactPrint
+    val hashCodeLong = hashString.foldLeft(0L){(hash,  char) => hash * 31 + char}
+    hashCodeLong.toHexString
+  }
 
   def infoString: String = this.toJson.prettyPrint
 
@@ -38,11 +42,11 @@ object Signature {
   }
 
   def apply(name: String, unchangedSinceVersion: String, params: (String, Any)*): Signature = {
-    val (deps, pars) = params.partition(_._2.isInstanceOf[PipelineStepInfo])
+    val (deps, pars) = params.partition(_._2.isInstanceOf[PipelineRunnerSupport])
     checkPipeline(pars)
     Signature(name = name,
       unchangedSinceVersion = unchangedSinceVersion,
-      dependencies = deps.map { case (n, p: PipelineStepInfo) => (n, p)}.toMap,
+      dependencies = deps.map { case (n, p: PipelineRunnerSupport) => (n, p)}.toMap,
       parameters = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
     )
   }
@@ -79,11 +83,11 @@ object Signature {
       .toString)).asTerm)
     val reflect = typeTag[T].mirror.reflect(obj)
     val paramValues = declarations.map(d => (d.name.toString, reflect.reflectField(d).get))
-    val (deps, params) = paramValues.partition(_._2.isInstanceOf[PipelineStepInfo])
+    val (deps, params) = paramValues.partition(_._2.isInstanceOf[PipelineRunnerSupport])
     checkPipeline(params)
     Signature(objType.typeSymbol.name.toString,
       obj.codeInfo.unchangedSince,
-      deps.map(t => (t._1, t._2.asInstanceOf[PipelineStepInfo])).toMap,
+      deps.map(t => (t._1, t._2.asInstanceOf[PipelineRunnerSupport])).toMap,
       params.map(t => (t._1, t._2.toString)).toMap)
   }
 }

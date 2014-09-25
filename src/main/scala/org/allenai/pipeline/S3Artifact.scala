@@ -113,7 +113,7 @@ trait S3Artifact[A <: Artifact] extends Logging {
         is.close()
         os.close()
       }
-      tmpFile.deleteOnExit
+      tmpFile.deleteOnExit()
       cachedFile = Some(makeLocalArtifact(tmpFile))
       cachedFile.get
   }

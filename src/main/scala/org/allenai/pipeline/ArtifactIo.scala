@@ -9,7 +9,7 @@ import scala.io.Source
 import scala.reflect.ClassTag
 
 /** Interface for defining how to persist a data type.  */
-trait ArtifactIo[T, -A <: Artifact] {
+trait ArtifactIo[T, -A <: Artifact] extends HasCodeInfo {
   def read(artifact: A): T
 
   def write(data: T, artifact: A): Unit

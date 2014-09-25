@@ -24,7 +24,7 @@ class FileArtifact(val file: File) extends FlatArtifact {
   // completes successfully
   def write[T](writer: ArtifactStreamWriter => T): T = {
     val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
-    tmpFile.deleteOnExit
+    tmpFile.deleteOnExit()
     val fileOut = new FileOutputStream(tmpFile)
     val out = new ArtifactStreamWriter(fileOut)
     val result = writer(out)
@@ -69,7 +69,7 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
     }
     val tmpDir = createTempDirectory
     val dirWriter = new Writer {
-      def writeEntry[T](name: String)(writer: ArtifactStreamWriter => T): T = {
+      def writeEntry[T2](name: String)(writer: ArtifactStreamWriter => T2): T2 = {
         val out = new FileOutputStream(new File(tmpDir, name))
         val result = writer(new ArtifactStreamWriter(out))
         out.close()
@@ -134,7 +134,7 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
     require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
       s"Unable to find or create directory $parentDir")
     private val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
-    tmpFile.deleteOnExit
+    tmpFile.deleteOnExit()
     private val zipOut = new ZipOutputStream(new FileOutputStream(tmpFile))
     private val out = new ArtifactStreamWriter(zipOut)
 
@@ -147,7 +147,7 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
     }
 
     private[ZipFileArtifact] def close() = {
-      zipOut.close
+      zipOut.close()
       require(tmpFile.renameTo(file), s"Unable to create $file")
     }
   }

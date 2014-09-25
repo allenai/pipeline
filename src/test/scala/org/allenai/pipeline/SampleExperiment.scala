@@ -22,10 +22,10 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     val jsonFormat = jsonFormat1(apply)
   }
 
-  class JoinAndSplitData(features: PipelineStep[Iterable[Array[Double]]],
-                         labels: PipelineStep[Iterable[Boolean]],
+  class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
+                         labels: Producer[Iterable[Boolean]],
                          testSizeRatio: Double)
-    extends PipelineStep[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean,
+    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean,
       Array[Double])])] with Ai2CodeInfo {
     def create = {
       val rand = new Random
@@ -37,8 +37,8 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     override def signature = Signature.fromFields(this, "features", "labels", "testSizeRatio")
   }
 
-  case class TrainModel(trainingData: PipelineStep[Iterable[(Boolean, Array[Double])]])
-    extends PipelineStep[TrainedModel] with Ai2CodeInfo {
+  case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
+    extends Producer[TrainedModel] with Ai2CodeInfo {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -53,9 +53,9 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   type PRMeasurement = Iterable[(Double, Double, Double)]
 
   // Threshold, precision, recall
-  case class MeasureModel(val model: PipelineStep[TrainedModel],
-                          val testData: PipelineStep[Iterable[(Boolean, Array[Double])]])
-    extends PipelineStep[PRMeasurement] with Ai2CodeInfo {
+  case class MeasureModel(val model: Producer[TrainedModel],
+                          val testData: Producer[Iterable[(Boolean, Array[Double])]])
+    extends Producer[PRMeasurement] with Ai2CodeInfo {
     def create = {
       model.get
       // Just generate some dummy data
@@ -76,8 +76,8 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
   case class ParsedDocument(info: String)
 
-  case class FeaturizeDocuments(documents: PipelineStep[Iterator[ParsedDocument]])
-    extends PipelineStep[Iterable[Array[Double]]] with Ai2CodeInfo {
+  case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
+    extends Producer[Iterable[Array[Double]]] with Ai2CodeInfo {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -105,7 +105,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
   class TrainModelPython(val data: Producer[FlatArtifact], val io: ArtifactIo[TrainedModel,
     FileArtifact])
-    extends PipelineStep[TrainedModel] with Ai2CodeInfo {
+    extends Producer[TrainedModel] with Ai2CodeInfo {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
@@ -149,18 +149,18 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir).
-    asInstanceOf[PipelineStep[Iterator[ParsedDocument]]]
+    asInstanceOf[Producer[Iterator[ParsedDocument]]]
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
-    val labelData: PipelineStep[Iterable[Boolean]] =
+    val labelData: Producer[Iterable[Boolean]] =
       Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
-        .asInstanceOf[PipelineStep[Iterable[Boolean]]]
+        .asInstanceOf[Producer[Iterable[Boolean]]]
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainingDataFile = Persist.Collection.asText(trainData).asArtifact
     val model = Persist.Singleton.asJson(new TrainModelPython(trainingDataFile,
       SingletonIo.json[TrainedModel]))
-    val measure: PipelineStep[PRMeasurement] = Persist.Collection.asText(
+    val measure: Producer[PRMeasurement] = Persist.Collection.asText(
       new MeasureModel(model, testData))
     runner.run(measure)
 
