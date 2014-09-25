@@ -22,20 +22,20 @@ trait Ai2CodeInfo extends HasCodeInfo {
   override def codeInfo: CodeInfo = {
     this.getClass.getPackage.getImplementationVersion match {
       case null =>
-        val lastChange = ("0" +: versionHistory).last
+        val lastChange = ("0" +: updateVersionHistory).last
         CodeInfo(lastChange, lastChange, None, None)
       case buildId => CodeInfo(buildId, lastPrecedingChangeId(buildId), None, None)
     }
   }
 
-  def versionHistory: Seq[String] = List()
+  def updateVersionHistory: Seq[String] = List()
 
   def lastPrecedingChangeId(buildId: String): String = {
     MavenVersionId(buildId) match {
       case Some(myVersion) =>
-        val previousVersions = ("0" +: versionHistory).distinct.map(MavenVersionId.apply)
+        val previousVersions = ("0" +: updateVersionHistory).distinct.map(MavenVersionId.apply)
         require(previousVersions.forall(_.isDefined), s"Current version $myVersion cannot be compared " +
-          s"with past version ${previousVersions.zip(versionHistory).find(!_._1.isDefined).get._2}")
+          s"with past version ${previousVersions.zip(updateVersionHistory).find(!_._1.isDefined).get._2}")
         val sortedVersions = previousVersions.flatten.sorted.reverse
         val latestEquivalentVersion = sortedVersions.find(
           v => v.compareTo(myVersion) <= 0 || v.equalsIgnoreQualifier(myVersion)).get

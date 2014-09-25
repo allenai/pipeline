@@ -8,24 +8,18 @@ import spray.json._
 import scala.reflect.ClassTag
 
 case class Signature(name: String,
-                     codeVersionId: String,
-                     dependencies: Map[String, HasSignature],
-                     parameters: Map[String, String]) extends HasSignature {
+                     unchangedSinceVersion: String,
+                     dependencies: Map[String, PipelineStepInfo],
+                     parameters: Map[String, String]) {
   def id: String = this.toJson.compactPrint.hashCode.toHexString
 
   def infoString: String = this.toJson.prettyPrint
 
-  override def signature: Signature = this
-
-}
-
-trait HasSignature {
-  def signature: Signature
 }
 
 object Signature {
 
-  implicit val jsonFormat: JsonFormat[Signature] = new JsonFormat[Signature] {
+  implicit val jsonWriter: JsonWriter[Signature] = new JsonWriter[Signature] {
     private val NAME = "name"
     private val CODE_VERSION_ID = "codeVersionId"
     private val DEPENDENCIES = "dependencies"
@@ -33,43 +27,22 @@ object Signature {
 
     def write(s: Signature) = {
       // Sort keys in dependencies and parameters so that json format is identical for equal objects
-      val deps = s.dependencies.toList.map(t => (t._1, jsonFormat.write(t._2.signature))).
+      val deps = s.dependencies.toList.map(t => (t._1, jsonWriter.write(t._2.signature))).
         sortBy(_._1).toJson
       val params = s.parameters.toList.sortBy(_._1).toJson
       JsObject((NAME, JsString(s.name)),
-        (CODE_VERSION_ID, JsString(s.codeVersionId)),
+        (CODE_VERSION_ID, JsString(s.unchangedSinceVersion)),
         (DEPENDENCIES, deps),
         (PARAMETERS, params))
     }
-
-    def read(value: JsValue): Signature = value match {
-      case JsObject(fields) =>
-        (fields.get(NAME),
-          fields.get(CODE_VERSION_ID),
-          fields.get(DEPENDENCIES),
-          fields.get(PARAMETERS)) match {
-          case (Some(JsString(_name)),
-          Some(JsString(_codeVersionId)),
-          Some(deps),
-          Some(params)) =>
-            val _dependencies = deps.convertTo[List[(String, JsValue)]].
-              map { case (n, v) => (n, jsonFormat.read(v))}.toMap
-            val _parameters = params.convertTo[List[(String, String)]].toMap
-            Signature(name = _name,
-              codeVersionId = _codeVersionId,
-              dependencies = _dependencies,
-              parameters = _parameters)
-          case _ => deserializationError(s"Invalid format for Signature: $value")
-        }
-      case _ => deserializationError(s"Invalid format for Signature: $value")
-    }
   }
 
-  def apply(name: String, codeVersionId: String, params: (String, Any)*): Signature = {
-    val (deps, pars) = params.partition(_._2.isInstanceOf[HasSignature])
+  def apply(name: String, unchangedSinceVersion: String, params: (String, Any)*): Signature = {
+    val (deps, pars) = params.partition(_._2.isInstanceOf[PipelineStepInfo])
+    checkPipeline(pars)
     Signature(name = name,
-      codeVersionId = codeVersionId,
-      dependencies = deps.map { case (n, p: HasSignature) => (n, p)}.toMap,
+      unchangedSinceVersion = unchangedSinceVersion,
+      dependencies = deps.map { case (n, p: PipelineStepInfo) => (n, p)}.toMap,
       parameters = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
     )
   }
@@ -77,14 +50,26 @@ object Signature {
   import scala.reflect.runtime.universe._
 
   def fromFields(base: HasCodeInfo,
-                 fieldNames: String*): Signature = {
+                 fieldNames: String*): Signature =
+    fromInfoAndFields(base.codeInfo, base, fieldNames: _*)
+
+  def fromInfoAndFields(info: CodeInfo,
+                        base: Any,
+                        fieldNames: String*): Signature = {
     val params = for (field <- fieldNames) yield {
       val f = base.getClass.getDeclaredField(field)
       f.setAccessible(true)
       (field, f.get(base))
     }
-    apply(base.getClass.getSimpleName, base.codeInfo.unchangedSince, params: _*)
+    apply(base.getClass.getSimpleName, info.unchangedSince, params: _*)
   }
+
+  private def checkPipeline(params: Iterable[(String, Any)]) = require(params.forall(!_._2
+    .isInstanceOf[Producer[_]]),
+    s"Workflow components must all implement PipelineStep: ${
+      params.find(
+        _._2.isInstanceOf[Producer[_]]).get
+    }")
 
   def fromObject[T <: Product with HasCodeInfo : TypeTag : ClassTag](obj: T): Signature = {
     val objType = typeTag[T].tpe
@@ -94,10 +79,11 @@ object Signature {
       .toString)).asTerm)
     val reflect = typeTag[T].mirror.reflect(obj)
     val paramValues = declarations.map(d => (d.name.toString, reflect.reflectField(d).get))
-    val (deps, params) = paramValues.partition(_._2.isInstanceOf[HasSignature])
+    val (deps, params) = paramValues.partition(_._2.isInstanceOf[PipelineStepInfo])
+    checkPipeline(params)
     Signature(objType.typeSymbol.name.toString,
       obj.codeInfo.unchangedSince,
-      deps.map(t => (t._1, t._2.asInstanceOf[HasSignature])).toMap,
+      deps.map(t => (t._1, t._2.asInstanceOf[PipelineStepInfo])).toMap,
       params.map(t => (t._1, t._2.toString)).toMap)
   }
 }

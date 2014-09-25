@@ -125,8 +125,6 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
     rng1.signature should not equal (rng2.signature)
 
-    rng2.signature.toJson.convertTo[Signature] should equal(rng2.signature)
-
     val rng3 = Persist.Collection.asJson(new RNG(42, 100))
     rng1.get should equal(rng3.get)
   }

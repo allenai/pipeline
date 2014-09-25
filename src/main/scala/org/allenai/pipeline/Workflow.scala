@@ -1,5 +1,6 @@
 package org.allenai.pipeline
 
+import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 import java.net.URI
@@ -11,33 +12,25 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link])
 
 case class Node(name: String,
                 params: Map[String, String],
-                outputPath: Option[String],
-                codePath: Option[String])
+                outputPath: Option[URI],
+                codePath: Option[URI])
 
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: HasSignature*): Workflow = {
-    def findNodes(s: HasSignature): Iterable[HasSignature] =
+  def forPipeline(steps: PipelineStepInfo*): Workflow = {
+    def findNodes(s: PipelineStepInfo): Iterable[PipelineStepInfo] =
       Seq(s) ++ s.signature.dependencies.flatMap(t => findNodes(t._2))
 
     val nodeList = for {
       step <- steps
-      hs <- findNodes(step)
-      sig = hs.signature
+      stepInfo <- findNodes(step)
+      sig = stepInfo.signature
     } yield {
-      val outputPath = hs match {
-        case p: HasPath => Some(p.path)
-        case _ => None
-      }
-      val codePath = hs match {
-        case c: HasCodeInfo => c.codeInfo.srcUrl.map(_.toString)
-        case _ => None
-      }
-      (sig.id, Node(sig.name, sig.parameters, outputPath, codePath))
+      (sig.id, Node(sig.name, sig.parameters, stepInfo.pathOption, stepInfo.codeInfo.srcUrl))
     }
 
-    def findLinks(s: HasSignature): Iterable[(HasSignature, HasSignature, String)] =
+    def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
       s.signature.dependencies.map { case (name, dep) => (dep, s, name)} ++
         s.signature.dependencies.flatMap(t => findLinks(t._2))
 
@@ -51,6 +44,13 @@ object Workflow {
   }
 
   implicit val jsFormat = {
+    implicit val uriFormat = new JsonFormat[URI] {
+      def write(uri: URI) = JsString(uri.toString)
+      def read(value: JsValue): URI = value match {
+        case JsString(uri) => new URI(uri)
+        case _ => sys.error("Invalid format for URI")
+      }
+    }
     implicit val nodeFormat = jsonFormat4(Node)
     implicit val linkFormat = jsonFormat3(Link)
     jsonFormat2(Workflow.apply _)

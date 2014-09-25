@@ -3,19 +3,13 @@ package org.allenai.pipeline
 import org.allenai.common.Resource
 
 import java.io.{InputStream, OutputStream}
+import java.net.URI
 
 /** Represents data in a persistent store. */
-trait Artifact extends HasPath {
+trait Artifact {
   /** Return true if this data has been written to the persistent store. */
   def exists: Boolean
-}
-
-trait HasPath {
-  def path: String
-}
-
-trait HasPathOption {
-  def pathOption: Option[String]
+  def url: URI
 }
 
 /** Generic data blob.  */

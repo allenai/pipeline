@@ -33,7 +33,7 @@ class TestVersionId extends UnitSpec {
     info2.unchangedSince should equal(info2.buildId)
 
     val obj3 = new Ai2CodeInfo {
-      override def versionHistory = List("1.1.0", "1.2.0-1", "1.6")
+      override def updateVersionHistory = List("1.1.0", "1.2.0-1", "1.6")
     }
     obj3.lastPrecedingChangeId("1.1.0") should equal("1.1.0")
     obj3.lastPrecedingChangeId("1.2.0") should equal("1.1.0")

@@ -9,9 +9,8 @@ object IoHelpers extends ReadHelpers with WriteHelpers {
 
   /** A Pipeline step wrapper for in-memory data. */
   object FromMemory {
-    def apply[T](data: T): Producer[T] = new Producer[T] with UnknownCodeInfo {
-      def create = data
-      def signature=Signature(data.getClass.getSimpleName, codeInfo.buildId)
+    def apply[T](data: T): Producer[T] = new Producer[T] {
+      override def create = data
     }
   }
 

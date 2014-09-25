@@ -3,6 +3,7 @@ package org.allenai.pipeline
 import java.io.File
 import org.allenai.pipeline.IoHelpers._
 
+import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.{Date, UUID}
 
@@ -23,17 +24,17 @@ abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
 
   def path(signature: Signature, suffix: String): String
 
-  def run[T](outputs: PipelineStep[_]*): String = {
-    outputs.foreach(_.get)
+  def run[T](outputs: PipelineStep[_]*): URI = {
     val workflow = Workflow.forPipeline(outputs: _*)
-    val today = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss").format(new Date())
+    outputs.foreach(_.get)
+    val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
     val version = s"${System.getProperty("user.name")}-$today"
     val sig = Signature("experiment", version)
     val htmlArtifact = persistence.flatArtifact(s"experiment-$version.html")
     SingletonIo.text[String].write(Workflow.renderHtml(workflow), htmlArtifact)
     val jsonArtifact = persistence.flatArtifact(s"experiment-$version.json")
     SingletonIo.json[Workflow].write(workflow, jsonArtifact)
-    htmlArtifact.path
+    htmlArtifact.url
   }
 
 }

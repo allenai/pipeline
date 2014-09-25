@@ -2,6 +2,8 @@ package org.allenai.pipeline
 
 import org.allenai.common.Logging
 
+import java.net.URI
+
 /** An individual step in a data processing pipeline.
   * A lazily evaluated calculation, with support for in-memory caching and persistence.
   */
@@ -46,25 +48,29 @@ trait Producer[T] extends Logging with CachingEnabled {
                cachingEnabled: () => Boolean = self.cachingEnabled _): Producer[T2] = {
     val _create = create
     val _cachingEnabled = cachingEnabled
-    self match {
-      case p: HasPath => new Producer[T2] with HasPath {
-        override def create = _create()
+    new Producer[T2] {
+      override def create = _create()
 
-        override def cachingEnabled = _cachingEnabled()
-
-        override def path = p.path
-      }
-      case _ => new Producer[T2] {
-        override def create = _create()
-
-        override def cachingEnabled = _cachingEnabled()
-      }
-
+      override def cachingEnabled = _cachingEnabled()
     }
+  }
+
+  def asPipelineStep(info: PipelineStepInfo) = new PipelineStep[T] {
+    override def create = self.create
+    override def cachingEnabled = self.cachingEnabled
+    override def signature = info.signature
+    override def codeInfo = info.codeInfo
+    override def pathOption = info.pathOption
   }
 }
 
-trait PipelineStep[T] extends Producer[T] with HasSignature with HasCodeInfo with HasPathOption {
+trait PipelineStepInfo extends HasCodeInfo {
+  def signature: Signature
+
+  def pathOption: Option[URI]
+}
+
+trait PipelineStep[T] extends Producer[T] with PipelineStepInfo {
   self =>
   override def persisted[A <: Artifact](io: ArtifactIo[T, A],
                                         artifactSource: => A): PersistedPipelineStep[T, A] =
@@ -86,10 +92,12 @@ trait PipelineStep[T] extends Producer[T] with HasSignature with HasCodeInfo wit
       override def codeInfo = _codeInfo()
 
       override def cachingEnabled = _cachingEnabled()
+
+      override def pathOption = self.pathOption
     }
   }
 
-  override def pathOption: Option[String] = None
+  override def pathOption: Option[URI] = None
 }
 
 trait CachingEnabled {
@@ -101,11 +109,9 @@ trait CachingDisabled extends CachingEnabled {
 }
 
 class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A],
-                                          artifactSource: => A) extends Producer[T] with HasPath {
+                                          artifactSource: => A) extends Producer[T] {
   self =>
   lazy val artifact = artifactSource
-
-  override def path = artifact.path
 
   def create = {
     if (!artifact.exists) {
@@ -131,7 +137,13 @@ class PersistedPipelineStep[T, A <: Artifact](step: PipelineStep[T], io: Artifac
 
   override def codeInfo = step.codeInfo
 
-  override def pathOption = Some(path)
+  override def pathOption = Some(artifact.url)
+
+  override def asArtifact = copyStep(create = () => {
+    if (!artifact.exists)
+      io.write(step.get, artifact)
+    artifact
+  })
 }
 
 //

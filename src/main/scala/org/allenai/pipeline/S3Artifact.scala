@@ -6,7 +6,8 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
 
-import java.io.{ File, FileOutputStream }
+import java.io.{File, FileOutputStream}
+import java.net.URI
 
 case class S3Config(service: AmazonS3Client, bucket: String)
 
@@ -66,6 +67,8 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   def path: String
 
+  override def url = new URI("s3", bucket, s"/$path", null)
+
   protected val S3Config(service, bucket) = config
 
   def exists = {
@@ -84,7 +87,7 @@ trait S3Artifact[A <: Artifact] extends Logging {
   protected def getCachedArtifact: A = cachedFile match {
     case Some(f) => f
     case None =>
-      val tmpFile = File.createTempFile(path.replaceAll("""/""", """\$"""), "tmp")
+      val tmpFile = File.createTempFile(path.replaceAll( """/""", """\$"""), "tmp")
       if (exists) {
         logger.debug(s"Downloading $bucket/$path to $tmpFile")
         val os = new FileOutputStream(tmpFile)

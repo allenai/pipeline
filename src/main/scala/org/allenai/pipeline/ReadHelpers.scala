@@ -8,27 +8,36 @@ trait ReadHelpers extends ColumnFormats {
 
   object Read {
     /** General deserialization method. */
-    def fromArtifact[T, A <: Artifact](io: ArtifactIo[T, A], artifact: A): PipelineStep[T] = {
+    def fromArtifact[T, A <: Artifact](io: ArtifactIo[T, A], artifact: A): Producer[T] = {
       require(artifact.exists, s"$artifact does not exist")
-      new PersistedPipelineStep(null, io, artifact) {
-        override def signature = Signature(io.toString,
-          io.codeInfo.unchangedSince, "src" -> artifact.path)
+      io match {
+        case hasInfo: HasCodeInfo => new PersistedPipelineStep(null, io, artifact) {
+          override def signature = Signature(io.toString,
+            hasInfo.codeInfo.unchangedSince, "src" -> artifact.url)
 
-        override def codeInfo = io.codeInfo
+          override def codeInfo = hasInfo.codeInfo
+        }
+        case _ => new PersistedProducer(null, io, artifact)
       }
     }
 
     /** General deserialization method. */
     def fromArtifactProducer[T, A <: Artifact](io: ArtifactIo[T, A],
-                                               src: Producer[A]): PipelineStep[T] =
-      new PipelineStep[T] {
-        def create = io.read(src.get)
+                                               src: Producer[A]): Producer[T] =
+      io match {
+        case hasInfo: HasCodeInfo => new PipelineStep[T] {
+          override def create = io.read(src.get)
 
-        def signature = Signature(io.toString, io.codeInfo.unchangedSince, "src" -> src)
+          override def signature = Signature(io.toString, hasInfo.codeInfo.unchangedSince,
+            "src" -> src)
 
-        def codeInfo = io.codeInfo
+          override def codeInfo = hasInfo.codeInfo
 
-        override def pathOption = Some(src.get.path)
+          override def pathOption = Some(src.get.url)
+        }
+        case _ => new Producer[T] {
+          override def create = io.read(src.get)
+        }
       }
 
     /** Read single object from flat file */

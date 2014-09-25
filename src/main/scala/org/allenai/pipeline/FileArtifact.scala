@@ -8,13 +8,13 @@ import java.io._
 import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
 
 /** Flat file.  */
-class FileArtifact(val file: File) extends FlatArtifact with HasPath {
+class FileArtifact(val file: File) extends FlatArtifact {
   private val parentDir = file.getCanonicalFile.getParentFile
   require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
     s"Unable to find or create directory $parentDir")
   override def exists = file.exists
 
-  override def path = file.getCanonicalPath
+  override def url = file.getCanonicalFile.toURI
 
   // Caller is responsible for closing the InputStream.
   // Unfortunately necessary to support streaming
@@ -41,7 +41,7 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
 
   import org.allenai.pipeline.StructuredArtifact._
 
-  override def path = dir.getCanonicalPath
+  override def url = dir.getCanonicalFile.toURI
 
   private val parentDir = dir.getCanonicalFile.getParentFile
   require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
@@ -100,7 +100,7 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
 
   override def exists = file.exists
 
-  override def path = file.getCanonicalPath
+  override def url = file.getCanonicalFile.toURI
 
   override def reader: Reader = {
     require(exists, s"Cannot read from non-existent file $file")
