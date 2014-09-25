@@ -46,6 +46,7 @@ object Workflow {
   implicit val jsFormat = {
     implicit val uriFormat = new JsonFormat[URI] {
       def write(uri: URI) = JsString(uri.toString)
+
       def read(value: JsValue): URI = value match {
         case JsString(uri) => new URI(uri)
         case _ => sys.error("Invalid format for URI")
@@ -56,10 +57,26 @@ object Workflow {
     jsonFormat2(Workflow.apply _)
   }
 
+  def link(uri: URI) = uri.getScheme match {
+    case "s3" => new java.net.URI("http", s"${uri.getHost}.s3.amazonaws.com", uri.getPath,
+      null).toString
+    case _ => uri.toString
+  }
+
+  def limitLength(s: String, maxLength: Int = 40) =
+    if (s.size < maxLength)
+      s
+    else {
+      val leftSize = math.min(15, maxLength / 3)
+      val rightSize = (maxLength - leftSize)
+      s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
+    }
+
   def renderHtml(w: Workflow) = {
     val addNodeCode = (for ((id, Node(name, params, outputPath, codePath)) <- w.nodes) yield {
-      val text = (name +: params.toList.map(t => s"${t._1}=${t._2}")).mkString("""\n""")
-      val href = outputPath.map(p => s""", href:"$p"""").getOrElse("")
+      val text = (name +: params.toList.map(t => s"${t._1}=${limitLength(t._2)}")).mkString(
+        """\n""")
+      val href = outputPath.map(p => s""", href:"${link(p)}"""").getOrElse("")
       s"""g.addNode("$id", {label: "$text" $href});"""
     }).mkString("\n")
     val addEdgeCode = (for (Link(from, to, name) <- w.links) yield {
@@ -114,8 +131,7 @@ object Workflow {
        |
        |var renderer = new dagreD3.Renderer();
        |var svg = d3.select('svg'), svgGroup = svg.append('g');
-       |
-       |renderer.run(g, svgGroup);
+       |var layout = renderer.run(g, svgGroup);
        |
        |// Center the graph
        |var xCenterOffset = (svg.attr('width') - layout.graph().width) / 2;

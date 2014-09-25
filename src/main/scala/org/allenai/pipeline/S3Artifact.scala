@@ -5,6 +5,7 @@ import org.allenai.common.Logging
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.s3.model.{CannedAccessControlList, PutObjectRequest, ObjectMetadata}
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
@@ -29,8 +30,7 @@ class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifac
 
   override def write[T](writer: ArtifactStreamWriter => T): T = {
     val result = getCachedArtifact.write(writer)
-    logger.debug(s"Uploading ${cachedFile.get.file} to $bucket/$path")
-    service.putObject(bucket, path, cachedFile.get.file)
+    upload(cachedFile.get.file)
     result
   }
 
@@ -51,8 +51,7 @@ class S3ZipArtifact(val path: String, val config: S3Config) extends StructuredAr
 
   override def write[T](writer: Writer => T): T = {
     val result = getCachedArtifact.write(writer)
-    logger.debug(s"Uploading ${cachedFile.get.file} to $bucket/$path")
-    service.putObject(bucket, path, cachedFile.get.file)
+    upload(cachedFile.get.file)
     result
   }
 
@@ -80,6 +79,22 @@ trait S3Artifact[A <: Artifact] extends Logging {
       case ex: Exception => throw ex
     }
     result
+  }
+
+  protected def contentType = path match {
+    case s if s.endsWith(".html") => "text/html"
+    case s if s.endsWith(".txt") => "text/plain"
+    case s if s.endsWith(".json") => "application/json"
+    case _ => "application/octet-stream"
+  }
+
+  protected def upload(file: File): Unit = {
+    logger.debug(s"Uploading $file to $bucket/$path")
+    val metadata = new ObjectMetadata()
+    metadata.setContentType(contentType)
+    val request = new PutObjectRequest(bucket, path, file).withMetadata(metadata)
+    request.setCannedAcl(CannedAccessControlList.PublicRead)
+    service.putObject(request)
   }
 
   protected var cachedFile: Option[A] = None
