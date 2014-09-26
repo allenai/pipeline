@@ -5,9 +5,9 @@ import org.allenai.common.Logging
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.services.s3.model.{CannedAccessControlList, PutObjectRequest, ObjectMetadata}
+import com.amazonaws.services.s3.model.{ CannedAccessControlList, PutObjectRequest, ObjectMetadata }
 
-import java.io.{File, FileOutputStream}
+import java.io.{ InputStream, File, FileOutputStream }
 import java.net.URI
 
 case class S3Config(service: AmazonS3Client, bucket: String)
@@ -20,10 +20,11 @@ object S3Config {
 }
 
 /** Artifact implementations using S3 storage. */
-class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifact with S3Artifact[FileArtifact] {
-  def makeLocalArtifact(f: File) = new FileArtifact(f)
+class S3FlatArtifact(val path: String, val config: S3Config)
+    extends FlatArtifact with S3Artifact[FileArtifact] {
+  protected def makeLocalArtifact(f: File) = new FileArtifact(f)
 
-  override def read = {
+  override def read: InputStream = {
     require(exists, s"Attempt to read from non-existent S3 location: $path")
     getCachedArtifact.read
   }
@@ -34,15 +35,16 @@ class S3FlatArtifact(val path: String, val config: S3Config) extends FlatArtifac
     result
   }
 
-  override def toString = s"S3Artifact[${config.bucket}, $path}]"
+  override def toString: String = s"S3Artifact[${config.bucket}, $path}]"
 }
 
 /** Zip file stored in S3.  */
-class S3ZipArtifact(val path: String, val config: S3Config) extends StructuredArtifact with S3Artifact[ZipFileArtifact] {
+class S3ZipArtifact(val path: String, val config: S3Config)
+    extends StructuredArtifact with S3Artifact[ZipFileArtifact] {
 
   import org.allenai.pipeline.StructuredArtifact._
 
-  def makeLocalArtifact(f: File) = new ZipFileArtifact(f)
+  protected def makeLocalArtifact(f: File) = new ZipFileArtifact(f)
 
   override def reader: Reader = {
     require(exists, s"Attempt to read from non-existent S3 location: $path")
@@ -55,7 +57,7 @@ class S3ZipArtifact(val path: String, val config: S3Config) extends StructuredAr
     result
   }
 
-  override def toString = s"S3ZipArtifact[${config.bucket}, $path}]"
+  override def toString: String = s"S3ZipArtifact[${config.bucket}, $path}]"
 }
 
 trait S3Artifact[A <: Artifact] extends Logging {
@@ -66,11 +68,11 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   def path: String
 
-  override def url = new URI("s3", bucket, s"/$path", null)
+  override def url: URI = new URI("s3", bucket, s"/$path", null)
 
   protected val S3Config(service, bucket) = config
 
-  def exists = {
+  override def exists: Boolean = {
     val result = try {
       val resp = service.getObjectMetadata(bucket, path)
       true
@@ -99,15 +101,16 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   protected var cachedFile: Option[A] = None
 
+  private val BUFFER_SIZE = 1048576 // 1 MB buffer
   protected def getCachedArtifact: A = cachedFile match {
     case Some(f) => f
     case None =>
-      val tmpFile = File.createTempFile(path.replaceAll( """/""", """\$"""), "tmp")
+      val tmpFile = File.createTempFile(path.replaceAll("""/""", """\$"""), "tmp")
       if (exists) {
         logger.debug(s"Downloading $bucket/$path to $tmpFile")
         val os = new FileOutputStream(tmpFile)
         val is = service.getObject(bucket, path).getObjectContent
-        val buffer = new Array[Byte](math.pow(2, 20).toInt) // 1 MB buffer
+        val buffer = new Array[Byte](BUFFER_SIZE)
         Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
           os.write(buffer, 0, n))
         is.close()

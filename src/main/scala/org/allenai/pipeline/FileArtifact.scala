@@ -5,6 +5,7 @@ import org.apache.commons.io.FileUtils
 import scala.collection.JavaConverters._
 
 import java.io._
+import java.net.URI
 import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
 
 /** Flat file.  */
@@ -12,9 +13,9 @@ class FileArtifact(val file: File) extends FlatArtifact {
   private val parentDir = file.getCanonicalFile.getParentFile
   require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
     s"Unable to find or create directory $parentDir")
-  override def exists = file.exists
+  override def exists: Boolean = file.exists
 
-  override def url = file.getCanonicalFile.toURI
+  override def url: URI = file.getCanonicalFile.toURI
 
   // Caller is responsible for closing the InputStream.
   // Unfortunately necessary to support streaming
@@ -33,7 +34,7 @@ class FileArtifact(val file: File) extends FlatArtifact {
     result
   }
 
-  override def toString = s"FileArtifact[${file.getCanonicalPath}]"
+  override def toString: String = s"FileArtifact[${file.getCanonicalPath}]"
 }
 
 /** Directory of files.  */
@@ -41,13 +42,13 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
 
   import org.allenai.pipeline.StructuredArtifact._
 
-  override def url = dir.getCanonicalFile.toURI
+  override def url: URI = dir.getCanonicalFile.toURI
 
   private val parentDir = dir.getCanonicalFile.getParentFile
   require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
     s"Unable to find or create directory $dir")
 
-  override def exists = dir.exists && dir.isDirectory
+  override def exists: Boolean = dir.exists && dir.isDirectory
 
   override def reader: Reader = new Reader {
     require(exists, s"Attempt to read for non-existent directory $dir")
@@ -90,7 +91,7 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
     tmpDir
   }
 
-  override def toString = s"DirectoryArtifact[$dir]"
+  override def toString: String = s"DirectoryArtifact[$dir]"
 }
 
 /** Zip file.  */
@@ -98,9 +99,9 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
 
   import org.allenai.pipeline.StructuredArtifact._
 
-  override def exists = file.exists
+  override def exists: Boolean = file.exists
 
-  override def url = file.getCanonicalFile.toURI
+  override def url: URI = file.getCanonicalFile.toURI
 
   override def reader: Reader = {
     require(exists, s"Cannot read from non-existent file $file")
@@ -115,7 +116,7 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
     result
   }
 
-  override def toString = s"ZipFileArtifact[$file]"
+  override def toString: String = s"ZipFileArtifact[$file]"
 
   class ZipFileReader(file: File) extends Reader {
     private val zipFile = new ZipFile(file)

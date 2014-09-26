@@ -6,19 +6,19 @@ import java.io.InputStream
   * this closes the InputStream when the Iterator has been fully consumed.
   */
 object StreamClosingIterator {
-  def apply[T](is: InputStream)(makeIterator: InputStream => Iterator[T]) = {
+  def apply[T](is: InputStream)(makeIterator: InputStream => Iterator[T]): Iterator[T] = {
     val it = makeIterator(is)
     new Iterator[T] {
       private var stillReading = it.hasNext
 
-      def next() = {
+      override def next(): T = {
         val result = it.next()
         stillReading = it.hasNext
         if (!stillReading) is.close()
         result
       }
 
-      def hasNext = stillReading
+      override def hasNext: Boolean = stillReading
     }
   }
 }

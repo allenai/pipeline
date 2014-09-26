@@ -5,16 +5,15 @@ import spray.json.DefaultJsonProtocol._
 
 import java.net.URI
 
-/**
- * DAG representation of the execution of a set of Producers
- */
+/** DAG representation of the execution of a set of Producers
+  */
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link])
 
 /** Represents a Producer instance with PipelineRunnerSupport */
 case class Node(name: String,
-                params: Map[String, String],
-                outputPath: Option[URI],
-                codePath: Option[URI])
+  params: Map[String, String],
+  outputPath: Option[URI],
+  codePath: Option[URI])
 
 /** Represents dependency between Producer instances */
 case class Link(fromId: String, toId: String, name: String)
@@ -33,7 +32,7 @@ object Workflow {
     }
 
     def findLinks(s: PipelineRunnerSupport): Iterable[(PipelineRunnerSupport, PipelineRunnerSupport, String)] =
-      s.signature.dependencies.map { case (name, dep) => (dep, s, name)} ++
+      s.signature.dependencies.map { case (name, dep) => (dep, s, name) } ++
         s.signature.dependencies.flatMap(t => findLinks(t._2))
 
     val nodes = nodeList.toMap
@@ -47,9 +46,9 @@ object Workflow {
 
   implicit val jsFormat = {
     implicit val uriFormat = new JsonFormat[URI] {
-      def write(uri: URI) = JsString(uri.toString)
+      override def write(uri: URI): JsValue = JsString(uri.toString)
 
-      def read(value: JsValue): URI = value match {
+      override def read(value: JsValue): URI = value match {
         case JsString(uri) => new URI(uri)
         case _ => sys.error("Invalid format for URI")
       }
@@ -59,25 +58,28 @@ object Workflow {
     jsonFormat2(Workflow.apply)
   }
 
-  def link(uri: URI) = uri.getScheme match {
+  private def link(uri: URI) = uri.getScheme match {
     case "s3" => new java.net.URI("http", s"${uri.getHost}.s3.amazonaws.com", uri.getPath,
       null).toString
     case _ => uri.toString
   }
 
-  def limitLength(s: String, maxLength: Int = 40) =
-    if (s.size < maxLength)
+  private val DEFAULT_MAX_SIZE = 40
+  private val LHS_MAX_SIZE = 15
+  private def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) =
+    if (s.size < maxLength) {
       s
-    else {
-      val leftSize = math.min(15, maxLength / 3)
+    } else {
+      val leftSize = math.min(LHS_MAX_SIZE, maxLength / 3)
       val rightSize = maxLength - leftSize
       s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
     }
 
-  def renderHtml(w: Workflow) = {
+  def renderHtml(w: Workflow): String = {
     val addNodeCode = (for ((id, Node(name, params, outputPath, codePath)) <- w.nodes) yield {
-      val paramsText = params.toList.map { case (key, value) =>
-        s""""$key=${limitLength(value)}""""
+      val paramsText = params.toList.map {
+        case (key, value) =>
+          s""""$key=${limitLength(value)}""""
       }.mkString(",")
       val linksText = (codePath.map(uri => s"""new Link("${link(uri)}","code")""") ++
         outputPath.map(uri => s"""new Link("${link(uri)}","output")""")).mkString(",")
@@ -90,6 +92,7 @@ object Workflow {
     val addEdgeCode = (for (Link(from, to, name) <- w.links) yield {
       s"""g.addEdge(null, "$from", "$to", {label: "$name"}); """
     }).mkString("\n")
+    // scalastyle:off
     s"""<!DOCTYPE html><html>
       |  <head>
       |    <meta charset="utf-8">
@@ -175,5 +178,6 @@ object Workflow {
       |  </body>
       |</html>
       |""".stripMargin
+    // scalastyle:on
   }
 }

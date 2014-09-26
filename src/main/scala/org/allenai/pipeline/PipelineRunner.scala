@@ -17,10 +17,9 @@ import java.util.Date
   * steps in their DAGs to re-use past calculations.
   * @param persistence
   */
-abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
-  StructuredArtifactFactory[String])
-  extends FlatArtifactFactory[(Signature, String)]
-  with StructuredArtifactFactory[(Signature, String)] {
+abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with StructuredArtifactFactory[String])
+    extends FlatArtifactFactory[(Signature, String)]
+    with StructuredArtifactFactory[(Signature, String)] {
 
   def flatArtifact(signatureSuffix: (Signature, String)): FlatArtifact = {
     val (signature, suffix) = signatureSuffix
@@ -52,19 +51,19 @@ abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with
 
 object PipelineRunner {
   /** Store results in a single directory */
-  def writeToDirectory(dir: File) = {
+  def writeToDirectory(dir: File): PipelineRunner = {
     val persistence = new RelativeFileSystem(dir)
     new PipelineRunner(persistence) {
-      def path(signature: Signature, suffix: String) = s"${signature.name}" +
+      override def path(signature: Signature, suffix: String): String = s"${signature.name}" +
         s".${signature.id}.$suffix"
     }
   }
 
   /** Store results in S3 */
-  def writeToS3(config: S3Config, rootPath: String) = {
+  def writeToS3(config: S3Config, rootPath: String): PipelineRunner = {
     val persistence = new S3(config, Some(rootPath))
     new PipelineRunner(persistence) {
-      def path(signature: Signature, suffix: String) = s"${
+      override def path(signature: Signature, suffix: String): String = s"${
         signature
           .name
       }/${signature.name}.${signature.id}.$suffix"

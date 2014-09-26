@@ -27,8 +27,8 @@ trait StringSerializable[T] {
 }
 
 /** Persist a single object to a flat file.  */
-class SingletonIo[T: StringSerializable : ClassTag]
-  extends ArtifactIo[T, FlatArtifact] with Ai2CodeInfo {
+class SingletonIo[T: StringSerializable: ClassTag]
+    extends ArtifactIo[T, FlatArtifact] with Ai2CodeInfo {
   override def read(artifact: FlatArtifact): T = {
     Resource.using(Source.fromInputStream(artifact.read)) { src =>
       implicitly[StringSerializable[T]].fromString(src.mkString)
@@ -39,36 +39,44 @@ class SingletonIo[T: StringSerializable : ClassTag]
     _.write(implicitly[StringSerializable[T]].toString(data))
   }
 
-  override def toString = s"SingletonIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]"
+  override def toString: String = s"SingletonIo[${
+    scala.reflect.classTag[T].runtimeClass
+      .getSimpleName
+  }]"
 }
 
 object SingletonIo {
-  def text[T: StringSerializable : ClassTag]: ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
+  def text[T: StringSerializable: ClassTag]: ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
 
-  def json[T: JsonFormat : ClassTag]: ArtifactIo[T, FlatArtifact] = {
+  def json[T: JsonFormat: ClassTag]: ArtifactIo[T, FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new SingletonIo[T]
   }
 }
 
 /** Persist a collection of string-serializable objects to a flat file, one line per object.  */
-class LineCollectionIo[T: StringSerializable : ClassTag]
-  extends ArtifactIo[Iterable[T], FlatArtifact] with Ai2CodeInfo {
+class LineCollectionIo[T: StringSerializable: ClassTag]
+    extends ArtifactIo[Iterable[T], FlatArtifact] with Ai2CodeInfo {
   private val delegate = new LineIteratorIo[T]
 
   override def read(artifact: FlatArtifact): Iterable[T] = delegate.read(artifact).toList
 
-  override def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(data.iterator, artifact)
+  override def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(data
+    .iterator,
+    artifact)
 
-  override def toString = s"LineCollectionIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]"
+  override def toString: String = s"LineCollectionIo[${
+    scala.reflect.
+      classTag[T].runtimeClass.getSimpleName
+  }]"
 
 }
 
 object LineCollectionIo {
-  def text[T: StringSerializable : ClassTag]: ArtifactIo[Iterable[T],
-    FlatArtifact] = new LineCollectionIo[T]
+  def text[T: StringSerializable: ClassTag]: ArtifactIo[Iterable[T], FlatArtifact] =
+    new LineCollectionIo[T]
 
-  def json[T: JsonFormat : ClassTag]: ArtifactIo[Iterable[T], FlatArtifact] = {
+  def json[T: JsonFormat: ClassTag]: ArtifactIo[Iterable[T], FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new LineCollectionIo[T]
   }
@@ -76,8 +84,8 @@ object LineCollectionIo {
 }
 
 /** Persist an iterator of string-serializable objects to a flat file, one line per object.  */
-class LineIteratorIo[T: StringSerializable : ClassTag]
-  extends ArtifactIo[Iterator[T], FlatArtifact] with Ai2CodeInfo {
+class LineIteratorIo[T: StringSerializable: ClassTag]
+    extends ArtifactIo[Iterator[T], FlatArtifact] with Ai2CodeInfo {
   val format = implicitly[StringSerializable[T]]
 
   override def read(artifact: FlatArtifact): Iterator[T] =
@@ -92,13 +100,17 @@ class LineIteratorIo[T: StringSerializable : ClassTag]
     }
   }
 
-  override def toString = s"LineIteratorIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]"
+  override def toString: String = s"LineIteratorIo[${
+    scala.reflect.
+      classTag[T].runtimeClass.getSimpleName
+  }]"
 }
 
 object LineIteratorIo {
-  def text[T: StringSerializable : ClassTag]: ArtifactIo[Iterator[T], FlatArtifact] = new LineIteratorIo[T]
+  def text[T: StringSerializable: ClassTag]: ArtifactIo[Iterator[T], FlatArtifact] =
+    new LineIteratorIo[T]
 
-  def json[T: JsonFormat : ClassTag]: ArtifactIo[Iterator[T], FlatArtifact] = {
+  def json[T: JsonFormat: ClassTag]: ArtifactIo[Iterator[T], FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new LineIteratorIo[T]
   }

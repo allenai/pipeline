@@ -8,12 +8,12 @@ import spray.json._
 import scala.reflect.ClassTag
 
 case class Signature(name: String,
-                     unchangedSinceVersion: String,
-                     dependencies: Map[String, PipelineRunnerSupport],
-                     parameters: Map[String, String]) {
+    unchangedSinceVersion: String,
+    dependencies: Map[String, PipelineRunnerSupport],
+    parameters: Map[String, String]) {
   def id: String = {
     val hashString = this.toJson.compactPrint
-    val hashCodeLong = hashString.foldLeft(0L){(hash,  char) => hash * 31 + char}
+    val hashCodeLong = hashString.foldLeft(0L) { (hash, char) => hash * 31 + char }
     hashCodeLong.toHexString
   }
 
@@ -29,7 +29,7 @@ object Signature {
     private val DEPENDENCIES = "dependencies"
     private val PARAMETERS = "parameters"
 
-    def write(s: Signature) = {
+    def write(s: Signature): JsValue = {
       // Sort keys in dependencies and parameters so that json format is identical for equal objects
       val deps = s.dependencies.toList.map(t => (t._1, jsonWriter.write(t._2.signature))).
         sortBy(_._1).toJson
@@ -45,20 +45,19 @@ object Signature {
     val (deps, pars) = params.partition(_._2.isInstanceOf[PipelineRunnerSupport])
     Signature(name = name,
       unchangedSinceVersion = unchangedSinceVersion,
-      dependencies = deps.map { case (n, p: PipelineRunnerSupport) => (n, p)}.toMap,
-      parameters = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
-    )
+      dependencies = deps.map { case (n, p: PipelineRunnerSupport) => (n, p) }.toMap,
+      parameters = pars.map { case (n, value) => (n, String.valueOf(value)) }.toMap)
   }
 
   import scala.reflect.runtime.universe._
 
   def fromFields(base: HasCodeInfo,
-                 fieldNames: String*): Signature =
+    fieldNames: String*): Signature =
     fromInfoAndFields(base.codeInfo, base, fieldNames: _*)
 
   def fromInfoAndFields(info: CodeInfo,
-                        base: Any,
-                        fieldNames: String*): Signature = {
+    base: Any,
+    fieldNames: String*): Signature = {
     val params = for (field <- fieldNames) yield {
       val f = base.getClass.getDeclaredField(field)
       f.setAccessible(true)
@@ -67,7 +66,7 @@ object Signature {
     apply(base.getClass.getSimpleName, info.unchangedSince, params: _*)
   }
 
-  def fromObject[T <: Product with HasCodeInfo : TypeTag : ClassTag](obj: T): Signature = {
+  def fromObject[T <: Product with HasCodeInfo: TypeTag: ClassTag](obj: T): Signature = {
     val objType = typeTag[T].tpe
     val constructor = objType.member(nme.CONSTRUCTOR).asMethod
     val constructorParams = constructor.paramss.head

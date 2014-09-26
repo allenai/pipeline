@@ -3,38 +3,36 @@ package org.allenai.pipeline
 import java.net.URI
 import java.util.UUID
 
-/**
- * Contains information about the origin of the compiled class implementing a Producer
- * @param buildId A version number, e.g. git tag
- * @param unchangedSince The latest version number at which the logic for this class changed.
- *                       Classes in which the buildIds differ but the unchangedSince field is
- *                       the same are assumed to produce the same outputs when given the same
- *                       inputs
- * @param srcUrl Link to source (e.g. in GitHub)
- * @param binaryUrl Link to binaries (e.g. in Nexus)
- */
+/** Contains information about the origin of the compiled class implementing a Producer
+  * @param buildId A version number, e.g. git tag
+  * @param unchangedSince The latest version number at which the logic for this class changed.
+  *                     Classes in which the buildIds differ but the unchangedSince field is
+  *                     the same are assumed to produce the same outputs when given the same
+  *                     inputs
+  * @param srcUrl Link to source (e.g. in GitHub)
+  * @param binaryUrl Link to binaries (e.g. in Nexus)
+  */
 case class CodeInfo(buildId: String,
-                    unchangedSince: String,
-                    srcUrl: Option[URI],
-                    binaryUrl: Option[URI])
+  unchangedSince: String,
+  srcUrl: Option[URI],
+  binaryUrl: Option[URI])
 
 trait HasCodeInfo {
   def codeInfo: CodeInfo
 }
 
-/**
- * Represents undetermined code behavior.  Each invokation is assumed to behave differently
- */
+/** Represents undetermined code behavior.  Each invokation is assumed to behave differently
+  */
 trait UnknownCodeInfo extends HasCodeInfo {
   private lazy val uuid = UUID.randomUUID.toString
 
-  override def codeInfo = CodeInfo(uuid, uuid, None, None)
+  override def codeInfo: CodeInfo = CodeInfo(uuid, uuid, None, None)
 }
 
-/**
- * Reads the version number, nexus URL, and GitHub URL from configuration file bundled into the jar.
- * These are populated by the AI2 sbt-release plugin.
- */
+/** Reads the version number, nexus URL, and GitHub URL from
+  * configuration file bundled into the jar.
+  * These are populated by the AI2 sbt-release plugin.
+  */
 trait Ai2CodeInfo extends HasCodeInfo {
   override def codeInfo: CodeInfo = {
     this.getClass.getPackage.getImplementationVersion match {
@@ -45,20 +43,23 @@ trait Ai2CodeInfo extends HasCodeInfo {
     }
   }
 
-  /**
-   * Whenever the logic of this class is updated, the corresponding release number should
-   * be added to this list.  The unchangedSince field will be set to the latest version that is
-   * still earlier than the version in the jar file.
-   * @return
-   */
+  /** Whenever the logic of this class is updated, the corresponding release number should
+    * be added to this list.  The unchangedSince field will be set to the latest version that is
+    * still earlier than the version in the jar file.
+    * @return
+    */
   def updateVersionHistory: Seq[String] = List()
 
   def lastPrecedingChangeId(buildId: String): String = {
     MavenVersionId(buildId) match {
       case Some(myVersion) =>
         val previousVersions = ("0" +: updateVersionHistory).distinct.map(MavenVersionId.apply)
-        require(previousVersions.forall(_.isDefined), s"Current version $myVersion cannot be compared " +
-          s"with past version ${previousVersions.zip(updateVersionHistory).find(!_._1.isDefined).get._2}")
+        require(previousVersions.forall(_.isDefined),
+          s"Current version $myVersion cannot be compared " +
+            s"with past version ${
+              previousVersions.zip(updateVersionHistory).
+                find(!_._1.isDefined).get._2
+            }")
         val sortedVersions = previousVersions.flatten.sorted.reverse
         val latestEquivalentVersion = sortedVersions.find(
           v => v.compareTo(myVersion) <= 0 || v.equalsIgnoreQualifier(myVersion)).get
@@ -71,20 +72,20 @@ trait Ai2CodeInfo extends HasCodeInfo {
 
 /** Maven-style version id */
 case class MavenVersionId(major: Int,
-                          minor: Option[Int] = None,
-                          incremental: Option[Int] = None,
-                          build: Option[Int] = None,
-                          qualifier: Option[String] = None) extends Comparable[MavenVersionId] {
+    minor: Option[Int] = None,
+    incremental: Option[Int] = None,
+    build: Option[Int] = None,
+    qualifier: Option[String] = None) extends Comparable[MavenVersionId] {
   require(!incremental.isDefined || minor.isDefined, s"Invalid version $this")
 
-  def versionId = s"""$major""" +
+  def versionId: String = s"""$major""" +
     s"""${minor.map(i => s".$i").getOrElse("")}""" +
     s"""${incremental.map(i => s".$i").getOrElse("")}""" +
     s"""${build.map(i => s"-$i").getOrElse("")}""" +
     s"""${qualifier.map(q => s"-$q").getOrElse("")}"""
 
-  override def compareTo(other: MavenVersionId) = {
-    def compare(a: Option[Int], b: Option[Int]) = (a, b) match {
+  override def compareTo(other: MavenVersionId): Int = {
+    def compare(a: Option[Int], b: Option[Int]): Int = (a, b) match {
       case (Some(v), None) => 1
       case (None, Some(ov)) => -1 // Note:  version 1 < version 1.0
       case (None, None) => 0
@@ -110,7 +111,7 @@ case class MavenVersionId(major: Int,
     }
   }
 
-  def equalsIgnoreQualifier(other: MavenVersionId) =
+  def equalsIgnoreQualifier(other: MavenVersionId): Boolean =
     major == other.major && minor == other.minor &&
       incremental == other.incremental && build == other.build
 }
@@ -125,14 +126,12 @@ object MavenVersionId {
           case (null, null) => (None, None)
           case (s, null) => try {
             (Some(s.toInt), None)
-          }
-          catch {
+          } catch {
             case ex: NumberFormatException => (None, Some(s))
           }
           case (s1, s2) => try {
             (Some(s1.toInt), Some(s2))
-          }
-          catch {
+          } catch {
             case ex: NumberFormatException => (Some(s2.toInt), Some(s1))
           }
         }
@@ -141,8 +140,7 @@ object MavenVersionId {
           if (incremental == null) None else Some(incremental.toInt),
           build,
           qualifier))
-      }
-      catch {
+      } catch {
         case ex: NumberFormatException => None
       }
       case _ => None

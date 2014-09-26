@@ -2,7 +2,7 @@ package org.allenai.pipeline
 
 import org.allenai.common.Resource
 
-import java.io.{InputStream, OutputStream}
+import java.io.{ InputStream, OutputStream }
 import java.net.URI
 
 /** Represents data in a persistent store. */
@@ -26,9 +26,10 @@ trait FlatArtifact extends Artifact {
     */
   def write[T](writer: ArtifactStreamWriter => T): T
 
+  val BUFFER_SIZE = 16384
   def copyTo(other: FlatArtifact): Unit = {
     other.write { writer =>
-      val buffer = new Array[Byte](16384)
+      val buffer = new Array[Byte](BUFFER_SIZE)
       Resource.using(read) { is =>
         Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
           writer.write(buffer, 0, n))
@@ -59,7 +60,7 @@ object StructuredArtifact {
   */
 trait StructuredArtifact extends Artifact {
 
-  import org.allenai.pipeline.StructuredArtifact.{Reader, Writer}
+  import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
 
   def reader: Reader
 
@@ -71,7 +72,9 @@ trait StructuredArtifact extends Artifact {
   def copyTo(other: StructuredArtifact): Unit = {
     other.write { writer =>
       for ((name, is) <- reader.readAll) {
+        // scalastyle:off
         val buffer = new Array[Byte](16384)
+        // scalastyle:on
         writer.writeEntry(name) { entryWriter =>
           Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n => entryWriter.
             write(buffer, 0, n))

@@ -23,9 +23,12 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
 
   /** Persist the result of this step.
     * Once computed, write the result to the given artifact.
-    * If the artifact we are using for persistence exists, return the deserialized object rather than recomputing it.
+    * If the artifact we are using for persistence exists,
+    * return the deserialized object rather than recomputing it.
     */
-  def persisted[A <: Artifact](io: ArtifactIo[T, A], artifactSource: => A): PersistedProducer[T, A] = new PersistedProducer(this, io, artifactSource)
+  def persisted[A <: Artifact](io: ArtifactIo[T, A],
+    artifactSource: => A): PersistedProducer[T, A] =
+    new PersistedProducer(this, io, artifactSource)
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
     */
@@ -37,31 +40,33 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
     }
   }
 
-  /** Default caching policy is set by the implementing class but can be overridden dynamically.  */
+  /** Default caching policy is set by the implementing class but can be overridden dynamically. */
   def disableCaching: Producer[T] = {
     if (cachingEnabled) {
       copy(cachingEnabled = () => false)
-    } else this
+    } else {
+      this
+    }
   }
 
   def copy[T2](create: () => T2 = self.create _,
-               signature: () => Signature = self.signature _,
-               codeInfo: () => CodeInfo = self.codeInfo _,
-               cachingEnabled: () => Boolean = self.cachingEnabled _): Producer[T2] = {
+    signature: () => Signature = self.signature _,
+    codeInfo: () => CodeInfo = self.codeInfo _,
+    cachingEnabled: () => Boolean = self.cachingEnabled _): Producer[T2] = {
     val _create = create
     val _signature = signature
     val _codeInfo = codeInfo
     val _cachingEnabled = cachingEnabled
     new Producer[T2] {
-      override def create = _create()
+      override def create: T2 = _create()
 
-      override def signature = _signature()
+      override def signature: Signature = _signature()
 
-      override def codeInfo = _codeInfo()
+      override def codeInfo: CodeInfo = _codeInfo()
 
-      override def cachingEnabled = _cachingEnabled()
+      override def cachingEnabled: Boolean = _cachingEnabled()
 
-      override def outputLocation = self.outputLocation
+      override def outputLocation: Option[URI] = self.outputLocation
     }
   }
 
@@ -80,27 +85,27 @@ trait PipelineRunnerSupport extends HasCodeInfo {
   * calling Producer.get instead of PipelineRunner.run
   */
 trait NoPipelineRunnerSupport extends PipelineRunnerSupport {
-  override def codeInfo = ???
+  override def codeInfo: CodeInfo = ???
 
-  override def signature = ???
+  override def signature: Signature = ???
 
-  override def outputLocation = ???
+  override def outputLocation: Option[URI] = ???
 }
 
 trait CachingEnabled {
-  def cachingEnabled = true
+  def cachingEnabled: Boolean = true
 }
 
 trait CachingDisabled extends CachingEnabled {
-  override def cachingEnabled = false
+  override def cachingEnabled: Boolean = false
 }
 
 class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A],
-                                          artifactSource: => A) extends Producer[T] {
+    artifactSource: => A) extends Producer[T] {
   self =>
   lazy val artifact = artifactSource
 
-  def create = {
+  def create: T = {
     if (!artifact.exists) {
       val result = step.get
       logger.debug(s"Writing to $artifact using $io")
@@ -110,17 +115,18 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
     io.read(artifact)
   }
 
-  def asArtifact = copy(create = () => {
-    if (!artifact.exists)
+  def asArtifact: Producer[A] = copy(create = () => {
+    if (!artifact.exists) {
       io.write(step.get, artifact)
+    }
     artifact
   })
 
-  override def signature = step.signature
+  override def signature: Signature = step.signature
 
-  override def codeInfo = step.codeInfo
+  override def codeInfo: CodeInfo = step.codeInfo
 
-  override def outputLocation = Some(artifact.url)
+  override def outputLocation: Option[URI] = Some(artifact.url)
 }
 
 //
