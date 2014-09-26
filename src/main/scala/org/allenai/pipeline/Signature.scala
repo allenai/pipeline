@@ -43,7 +43,6 @@ object Signature {
 
   def apply(name: String, unchangedSinceVersion: String, params: (String, Any)*): Signature = {
     val (deps, pars) = params.partition(_._2.isInstanceOf[PipelineRunnerSupport])
-    checkPipeline(pars)
     Signature(name = name,
       unchangedSinceVersion = unchangedSinceVersion,
       dependencies = deps.map { case (n, p: PipelineRunnerSupport) => (n, p)}.toMap,
@@ -68,13 +67,6 @@ object Signature {
     apply(base.getClass.getSimpleName, info.unchangedSince, params: _*)
   }
 
-  private def checkPipeline(params: Iterable[(String, Any)]) = require(params.forall(!_._2
-    .isInstanceOf[Producer[_]]),
-    s"Workflow components must all implement PipelineStep: ${
-      params.find(
-        _._2.isInstanceOf[Producer[_]]).get
-    }")
-
   def fromObject[T <: Product with HasCodeInfo : TypeTag : ClassTag](obj: T): Signature = {
     val objType = typeTag[T].tpe
     val constructor = objType.member(nme.CONSTRUCTOR).asMethod
@@ -84,7 +76,6 @@ object Signature {
     val reflect = typeTag[T].mirror.reflect(obj)
     val paramValues = declarations.map(d => (d.name.toString, reflect.reflectField(d).get))
     val (deps, params) = paramValues.partition(_._2.isInstanceOf[PipelineRunnerSupport])
-    checkPipeline(params)
     Signature(objType.typeSymbol.name.toString,
       obj.codeInfo.unchangedSince,
       deps.map(t => (t._1, t._2.asInstanceOf[PipelineRunnerSupport])).toMap,

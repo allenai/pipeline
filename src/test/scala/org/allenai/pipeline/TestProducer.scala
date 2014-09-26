@@ -24,7 +24,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   implicit val output = new RelativeFileSystem(outputDir)
 
-  implicit val runner =  PipelineRunner.writeToDirectory(outputDir)
+  implicit val runner = PipelineRunner.writeToDirectory(outputDir)
 
   val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled with UnknownCodeInfo {
     def create = {
@@ -103,6 +103,58 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       output.flatArtifact("savedCachedIterator.txt"))
     val otherStep = randomIterator.disableCaching.persisted(LineIteratorIo.text[Double],
       output.flatArtifact("savedCachedIterator.txt"))
+  }
+
+  "Signature id" should "be order independent" in {
+    val s1 = Signature("name", "version", "first" -> 1, "second" -> 2)
+    val s2 = Signature("name", "version", "second" -> 2, "first" -> 1)
+    val s3 = Signature("name", "version2", "first" -> 1, "second" -> 2)
+
+    s1.id should equal(s2.id)
+
+    s1.id should not equal (s3.id)
+  }
+
+  "Signature id" should "change with dependencies" in {
+    val prs1 = new PipelineRunnerSupport with UnknownCodeInfo {
+      override def signature = Signature("name", "version", "param1" -> 1)
+
+      override def outputLocation = None
+    }
+    val prs1a = new PipelineRunnerSupport with UnknownCodeInfo {
+      override def signature = Signature("name", "version", "param1" -> 1)
+
+      override def outputLocation = None
+    }
+    val prs2 = new PipelineRunnerSupport with UnknownCodeInfo {
+      override def signature = Signature("name", "version", "param1" -> 2)
+
+      override def outputLocation = None
+    }
+    val prs3 = new PipelineRunnerSupport with UnknownCodeInfo {
+      override def signature = Signature("name", "version", "param1" -> 3, "upstream" -> prs1)
+
+      override def outputLocation = None
+    }
+    val prs4 = new PipelineRunnerSupport with UnknownCodeInfo {
+      override def signature = Signature("name", "version", "param1" -> 3, "upstream" -> prs2)
+
+      override def outputLocation = None
+    }
+    val prs5 = new PipelineRunnerSupport with UnknownCodeInfo {
+      override def signature = Signature("name", "version", "param1" -> 3, "upstream" -> prs1a)
+
+      override def outputLocation = None
+    }
+
+    // parameters are different
+    prs1.signature.id should not equal (prs2.signature.id)
+
+    // parameters same, dependencies different
+    prs3.signature.id should not equals (prs4.signature.id)
+
+    // dependencies different instances with same signature
+    prs5.signature.id should equal(prs3.signature.id)
   }
 
   "Signatures" should "determine unique paths" in {

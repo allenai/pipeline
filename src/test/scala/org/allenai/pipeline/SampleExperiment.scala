@@ -148,8 +148,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 //    implicit val runner = PipelineRunner.writeToS3(S3Config("ai2-s2"), "pipeline/unit-test")
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
-    val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir).
-    asInstanceOf[Producer[Iterator[ParsedDocument]]]
+    val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
