@@ -67,7 +67,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     }
   }
 
-  val outputDir = new File("pipeline/test-output")
+  val outputDir = new File("test-output-pipeline")
   val inputDir = new File("pipeline/src/test/resources/pipeline")
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
@@ -203,7 +203,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   override def beforeEach(): Unit = {
     require((outputDir.exists && outputDir.isDirectory) ||
-      outputDir.mkdirs, s"Unable to create test output directory $outputDir")
+      outputDir.mkdirs, s"Unable to create test output directory $outputDir: exists=${outputDir
+      .exists}, isDir=${outputDir.isDirectory}, mkdirs = ${outputDir.mkdirs}")
   }
 
   override def afterEach(): Unit = {

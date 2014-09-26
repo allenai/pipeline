@@ -20,7 +20,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   import org.allenai.pipeline.IoHelpers._
 
-  val outputDir = new File("test-output")
+  val outputDir = new File("test-output-producer")
 
   implicit val output = new RelativeFileSystem(outputDir)
 
