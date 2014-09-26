@@ -26,7 +26,7 @@ trait FlatArtifact extends Artifact {
     */
   def write[T](writer: ArtifactStreamWriter => T): T
 
-  val BUFFER_SIZE = 16384
+  private val BUFFER_SIZE = 16384
   def copyTo(other: FlatArtifact): Unit = {
     other.write { writer =>
       val buffer = new Array[Byte](BUFFER_SIZE)

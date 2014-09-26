@@ -17,7 +17,8 @@ import java.util.Date
   * steps in their DAGs to re-use past calculations.
   * @param persistence
   */
-abstract class PipelineRunner(persistence: FlatArtifactFactory[String] with StructuredArtifactFactory[String])
+abstract class PipelineRunner(
+  persistence: FlatArtifactFactory[String] with StructuredArtifactFactory[String])
     extends FlatArtifactFactory[(Signature, String)]
     with StructuredArtifactFactory[(Signature, String)] {
 

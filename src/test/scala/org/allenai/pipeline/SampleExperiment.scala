@@ -145,19 +145,44 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
 
     implicit val runner = PipelineRunner.writeToDirectory(outputDir)
-//    implicit val runner = PipelineRunner.writeToS3(S3Config("ai2-s2"), "pipeline/unit-test")
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
-        .asInstanceOf[Producer[Iterable[Boolean]]]
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
-    val trainingDataFile = Persist.Collection.asText(trainData).asArtifact
-    val model = Persist.Singleton.asJson(new TrainModelPython(trainingDataFile,
+    val trainDataPersisted = Persist.Collection.asText(trainData)
+    val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
+    val measure: Producer[PRMeasurement] = Persist.Collection.asText(
+      new MeasureModel(model, testData))
+    runner.run(measure)
+
+    assert(findFile(outputDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
+    assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
+    assert(findFile(outputDir, "experiment",".html"), "Experiment summary created")
+  }
+
+  "Subsequent Experiment" should "re-use existing data" in {
+    // TSV format for label+features is <label><tab><comma-separated feature values>
+    implicit val featureFormat = columnArrayFormat[Double](',')
+    implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
+
+    implicit val runner = PipelineRunner.writeToDirectory(outputDir)
+
+    val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
+    val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
+    val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
+
+    val labelData: Producer[Iterable[Boolean]] =
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+    // Define pipeline
+    val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
+    val trainDataPersisted = Persist.Collection.asText(trainData)
+    val model = Persist.Singleton.asJson(new TrainModelPython(trainDataPersisted.asArtifact,
       SingletonIo.json[TrainedModel]))
     val measure: Producer[PRMeasurement] = Persist.Collection.asText(
       new MeasureModel(model, testData))
@@ -170,13 +195,8 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   }
 
   override def beforeEach: Unit = {
-
     require((outputDir.exists && outputDir.isDirectory) ||
-      outputDir.mkdirs, s"Unable to create test output directory $outputDir: exists=${outputDir
-      .exists}, isDir=${outputDir.isDirectory}, mkdirs = ${outputDir.mkdirs}")
-//
-//    require((outputDir.exists && outputDir.isDirectory) ||
-//      outputDir.mkdirs, s"Unable to create test output directory $outputDir")
+      outputDir.mkdirs, s"Unable to create test output directory $outputDir")
   }
 
   override def afterEach: Unit = {

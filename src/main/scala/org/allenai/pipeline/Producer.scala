@@ -81,7 +81,7 @@ trait PipelineRunnerSupport extends HasCodeInfo {
 }
 
 /** Producer implementations that do not need to be executed by PipelineRunner can mix in this
-  * convenience trait.  These methods will not be invoked if the output retrieved by
+  * convenience trait.  These methods will not be invoked if the output is retrieved by
   * calling Producer.get instead of PipelineRunner.run
   */
 trait NoPipelineRunnerSupport extends PipelineRunnerSupport {
@@ -147,7 +147,8 @@ object Producer2 {
 }
 
 object Producer3 {
-  def unapply[T1, T2, T3](p: Producer[(T1, T2, T3)]): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
+  def unapply[T1, T2, T3](
+    p: Producer[(T1, T2, T3)]): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
     val p1 = p.copy(create = () => p.get._1,
       signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
     val p2 = p.copy(create = () => p.get._2,
@@ -159,7 +160,9 @@ object Producer3 {
 }
 
 object Producer4 {
-  def unapply[T1, T2, T3, T4](p: Producer[(T1, T2, T3, T4)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4])] = {
+  private type P[T] = Producer[T] // Reduce line length
+
+  def unapply[T1, T2, T3, T4](p: P[(T1, T2, T3, T4)]): Option[(P[T1], P[T2], P[T3], P[T4])] = {
     val p1 = p.copy(create = () => p.get._1,
       signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
     val p2 = p.copy(create = () => p.get._2,
@@ -173,7 +176,10 @@ object Producer4 {
 }
 
 object Producer5 {
-  def unapply[T1, T2, T3, T4, T5](p: Producer[(T1, T2, T3, T4, T5)]): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4], Producer[T5])] = {
+  private type P[T] = Producer[T] // Reduce line length
+
+  def unapply[T1, T2, T3, T4, T5](
+    p: P[(T1, T2, T3, T4, T5)]): Option[(P[T1], P[T2], P[T3], P[T4], P[T5])] = {
     val p1 = p.copy(create = () => p.get._1,
       signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
     val p2 = p.copy(create = () => p.get._2,

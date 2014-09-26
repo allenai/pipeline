@@ -38,9 +38,7 @@ trait ReadHelpers extends ColumnFormats {
       }
 
     /** Read single object from flat file */
-    // scalastyle:off
-    object singleton {
-      // scalastyle:on
+    object Singleton {
       def fromText[T: StringSerializable: ClassTag](artifact: FlatArtifact): Producer[T] =
         fromArtifact(SingletonIo.text[T], artifact)
 
@@ -49,9 +47,7 @@ trait ReadHelpers extends ColumnFormats {
     }
 
     /** Read collection of type T from flat file. */
-    // scalastyle:off
-    object collection {
-      // scalastyle:on
+    object Collection {
       def fromText[T: StringSerializable: ClassTag](artifact: FlatArtifact): Producer[Iterable[T]] =
         fromArtifact(LineCollectionIo.text[T], artifact)
 
@@ -60,9 +56,7 @@ trait ReadHelpers extends ColumnFormats {
     }
 
     /** Read iterator of type T from flat file. */
-    // scalastyle:off
-    object iterator {
-      // scalastyle:on
+    object Iterator {
       def fromText[T: StringSerializable: ClassTag](artifact: FlatArtifact): Producer[Iterator[T]] =
         fromArtifact(LineIteratorIo.text[T], artifact)
 
@@ -71,9 +65,7 @@ trait ReadHelpers extends ColumnFormats {
     }
 
     /** Read a collection of arrays of a single type from a flat file. */
-    // scalastyle:off
-    object arrayCollection {
-      // scalastyle:on
+    object ArrayCollection {
       def fromText[T: StringSerializable: ClassTag](artifact: FlatArtifact,
         sep: Char = '\t'): Producer[Iterable[Array[T]]] = {
         val io = LineCollectionIo.text[Array[T]](
@@ -83,9 +75,7 @@ trait ReadHelpers extends ColumnFormats {
     }
 
     /** Read an iterator of arrays of a single type from a flat file. */
-    // scalastyle:off
-    object arrayIterator {
-      // scalastyle:on
+    object ArrayIterator {
       def fromText[T: StringSerializable: ClassTag](artifact: FlatArtifact,
         sep: Char = '\t'): Producer[Iterator[Array[T]]] = {
         val io = LineIteratorIo.text[Array[T]](

@@ -93,9 +93,9 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   "Sample Pipeline 1" should "complete" in {
     // Read input data
     val featureData: Producer[Iterable[Array[Double]]] =
-      Read.arrayCollection.fromText[Double](input.flatArtifact(featureFile))
+      Read.ArrayCollection.fromText[Double](input.flatArtifact(featureFile))
     val labelData: Producer[Iterable[Boolean]] =
-      Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(featureData, labelData, 0.2)
     val model: Producer[TrainedModel] =
@@ -144,7 +144,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
     testData: Producer[Iterable[(Boolean, Array[Double])]]) =
@@ -186,7 +186,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainingDataFile = Persist.Collection.asText(trainData, "TrainingData.txt").asArtifact
@@ -203,8 +203,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
 
   override def beforeEach(): Unit = {
     require((outputDir.exists && outputDir.isDirectory) ||
-      outputDir.mkdirs, s"Unable to create test output directory $outputDir: exists=${outputDir
-      .exists}, isDir=${outputDir.isDirectory}, mkdirs = ${outputDir.mkdirs}")
+      outputDir.mkdirs, s"Unable to create test output directory $outputDir")
   }
 
   override def afterEach(): Unit = {

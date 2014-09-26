@@ -83,54 +83,57 @@ trait WriteHelpers {
   }
 
   object Persist {
+    // Reduce line length
+    private type PP[T, A <: Artifact] = PersistedProducer[T, A]
+    private type FAF[T] = FlatArtifactFactory[T]
 
     object Iterator {
-      def asText[T: StringSerializable: ClassTag](step: Producer[Iterator[T]],
-        path: String)(implicit factory: FlatArtifactFactory[String]): PersistedProducer[Iterator[T], FlatArtifact] = {
+      def asText[T: StringSerializable: ClassTag](step: Producer[Iterator[T]], path: String)(
+        implicit factory: FAF[String]): PP[Iterator[T], FlatArtifact] = {
         step.persisted(LineIteratorIo.text[T],
           factory.flatArtifact(path))
       }
 
-      def asJson[T: JsonFormat: ClassTag](step: Producer[Iterator[T]],
-        path: String)(implicit factory: FlatArtifactFactory[String]): PersistedProducer[Iterator[T], FlatArtifact] = {
+      def asJson[T: JsonFormat: ClassTag](step: Producer[Iterator[T]], path: String)(
+        implicit factory: FAF[String]): PP[Iterator[T], FlatArtifact] = {
         step.persisted(LineIteratorIo.json[T],
           factory.flatArtifact(path))
       }
 
       def asText[T: StringSerializable: ClassTag](step: Producer[Iterator[T]])(
-        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterator[T], FlatArtifact] = {
+        implicit factory: FAF[(Signature, String)]): PP[Iterator[T], FlatArtifact] = {
         step.persisted(LineIteratorIo.text[T],
           factory.flatArtifact((step.signature, "txt")))
       }
 
       def asJson[T: JsonFormat: ClassTag](step: Producer[Iterator[T]])(
-        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterator[T], FlatArtifact] = {
+        implicit factory: FAF[(Signature, String)]): PP[Iterator[T], FlatArtifact] = {
         step.persisted(LineIteratorIo.json[T],
           factory.flatArtifact((step.signature, "json")))
       }
     }
 
     object Collection {
-      def asText[T: StringSerializable: ClassTag](step: Producer[Iterable[T]],
-        path: String)(implicit factory: FlatArtifactFactory[String]): PersistedProducer[Iterable[T], FlatArtifact] = {
+      def asText[T: StringSerializable: ClassTag](step: Producer[Iterable[T]], path: String)(
+        implicit factory: FAF[String]): PP[Iterable[T], FlatArtifact] = {
         step.persisted(LineCollectionIo.text[T],
           factory.flatArtifact(path))
       }
 
-      def asJson[T: JsonFormat: ClassTag](step: Producer[Iterable[T]],
-        path: String)(implicit factory: FlatArtifactFactory[String]): PersistedProducer[Iterable[T], FlatArtifact] = {
+      def asJson[T: JsonFormat: ClassTag](step: Producer[Iterable[T]], path: String)(
+        implicit factory: FAF[String]): PP[Iterable[T], FlatArtifact] = {
         step.persisted(LineCollectionIo.json[T],
           factory.flatArtifact(path))
       }
 
       def asText[T: StringSerializable: ClassTag](step: Producer[Iterable[T]])(
-        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterable[T], FlatArtifact] = {
+        implicit factory: FAF[(Signature, String)]): PP[Iterable[T], FlatArtifact] = {
         step.persisted(LineCollectionIo.text[T],
           factory.flatArtifact((step.signature, "txt")))
       }
 
       def asJson[T: JsonFormat: ClassTag](step: Producer[Iterable[T]])(
-        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[Iterable[T], FlatArtifact] = {
+        implicit factory: FAF[(Signature, String)]): PP[Iterable[T], FlatArtifact] = {
         step.persisted(LineCollectionIo.json[T],
           factory.flatArtifact((step.signature, "json")))
       }
@@ -138,26 +141,26 @@ trait WriteHelpers {
     }
 
     object Singleton {
-      def asText[T: StringSerializable: ClassTag](step: Producer[T],
-        path: String)(implicit factory: FlatArtifactFactory[String]): PersistedProducer[T, FlatArtifact] = {
+      def asText[T: StringSerializable: ClassTag](step: Producer[T], path: String)(
+        implicit factory: FAF[String]): PP[T, FlatArtifact] = {
         step.persisted(SingletonIo.text[T],
           factory.flatArtifact(path))
       }
 
-      def asJson[T: JsonFormat: ClassTag](step: Producer[T],
-        path: String)(implicit factory: FlatArtifactFactory[String]): PersistedProducer[T, FlatArtifact] = {
+      def asJson[T: JsonFormat: ClassTag](step: Producer[T], path: String)(
+        implicit factory: FAF[String]): PP[T, FlatArtifact] = {
         step.persisted(SingletonIo.json[T],
           factory.flatArtifact(path))
       }
 
       def asText[T: StringSerializable: ClassTag](step: Producer[T])(
-        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[T, FlatArtifact] = {
+        implicit factory: FAF[(Signature, String)]): PP[T, FlatArtifact] = {
         step.persisted(SingletonIo.text[T],
           factory.flatArtifact((step.signature, "txt")))
       }
 
       def asJson[T: JsonFormat: ClassTag](step: Producer[T])(
-        implicit factory: FlatArtifactFactory[(Signature, String)]): PersistedProducer[T, FlatArtifact] = {
+        implicit factory: FAF[(Signature, String)]): PP[T, FlatArtifact] = {
         step.persisted(SingletonIo.json[T],
           factory.flatArtifact((step.signature, "json")))
       }

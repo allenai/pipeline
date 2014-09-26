@@ -19,8 +19,9 @@ case class Node(name: String,
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: PipelineRunnerSupport*): Workflow = {
-    def findNodes(s: PipelineRunnerSupport): Iterable[PipelineRunnerSupport] =
+  private type PRS = PipelineRunnerSupport // Reduce line length
+  def forPipeline(steps: PRS*): Workflow = {
+    def findNodes(s: PRS): Iterable[PRS] =
       Seq(s) ++ s.signature.dependencies.flatMap(t => findNodes(t._2))
 
     val nodeList = for {
@@ -31,7 +32,7 @@ object Workflow {
       (sig.id, Node(sig.name, sig.parameters, stepInfo.outputLocation, stepInfo.codeInfo.srcUrl))
     }
 
-    def findLinks(s: PipelineRunnerSupport): Iterable[(PipelineRunnerSupport, PipelineRunnerSupport, String)] =
+    def findLinks(s: PRS): Iterable[(PRS, PRS, String)] =
       s.signature.dependencies.map { case (name, dep) => (dep, s, name) } ++
         s.signature.dependencies.flatMap(t => findLinks(t._2))
 

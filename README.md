@@ -104,12 +104,12 @@ We read the labels using the framework’s built-in delimited-column parsing met
  
 
     val labelData: Producer[Iterable[Boolean]]
-        = ReadCollection.text[Boolean](input.flatArtifact(labelFile))
+        = Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
 
 Similarly for features
 
     val featureData: Producer[Iterable[Array[Double]]]
-    = ReadArrayCollection.text[Double](input.flatArtifact(featureFile))
+    = Read.arrayCollection.fromText[Double](input.flatArtifact(featureFile))
 
 Step 3 takes steps 1 and 2 as input, as well as a parameter determining
 the relative size of the test set.  It produces a pair of datasets with
@@ -164,9 +164,9 @@ persistence implementation.
 
     implicit val location = output
     val model: Producer[TrainedModel]
-            = PersistedSingleton.json("model.json")(new TrainModel(trainData))
+            = Persist.singleton.asJson(new TrainModel(trainData), "model.json")
     val measure: Producer[Iterable[(Double, Double, Double)]]
-            = PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
+            = Persist.collection.asText(new MeasureModel(model, testData), "PR.txt")
 
 We have opted not to persist the Iterable[(Boolean, Array[Double])] data, but we could
 do so in the same way.  Note that we have written no code that performs
@@ -271,17 +271,17 @@ type, so that a a downstream out-of-JVM step can consume it.  Otherwise,
 the structure of the pipeline is unchanged.
 
     val labelData: Producer[Labels]
-         = ReadCollection.text[Boolean](input.flatArtifact(labelFile))
+         = Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
     
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
                   testData: Producer[Iterable[(Boolean, Array[Double])]])
          = new JoinAndSplitData(docFeatures, labelData, 0.2)
     
-    val trainingDataFile = PersistedCollection.text("trainData.tsv")(trainData).asArtifact
-    val model = PersistedSingleton.json("model.json")(new TrainModelPython(trainingDataFile,
-          SingletonIo.json[TrainedModel]))
+    val trainingDataFile = Persist.collection.asText(trainData, "trainData.tsv").asArtifact
+    val model = Persist.singleton.asJson(new TrainModelPython(trainingDataFile,
+          SingletonIo.json[TrainedModel]), "model.json")
     val measure: Producer[PRMeasurement] 
-        = PersistedCollection.text("PR.txt")(new MeasureModel(model, testData))
+        = Persist.collection.asText(new MeasureModel(model, testData), "PR.txt")
 
 Summary
 =======
