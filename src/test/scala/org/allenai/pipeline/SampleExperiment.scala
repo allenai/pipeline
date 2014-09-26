@@ -11,9 +11,7 @@ import scala.util.Random
 
 import java.io.{InputStream, File}
 
-/**
- * Created by rodneykinney on 9/25/14.
- */
+/** Test PipelineRunner functionality */
 class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAfterAll {
 
   case class TrainedModel(info: String)
@@ -23,10 +21,10 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   }
 
   class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
-                         labels: Producer[Iterable[Boolean]],
-                         testSizeRatio: Double)
-    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean,
-      Array[Double])])] with Ai2CodeInfo {
+    labels: Producer[Iterable[Boolean]],
+    testSizeRatio: Double)
+      extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean,
+          Array[Double])])] with Ai2CodeInfo {
     def create = {
       val rand = new Random
       val data = labels.get.zip(features.get)
@@ -38,7 +36,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   }
 
   case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[TrainedModel] with Ai2CodeInfo {
+      extends Producer[TrainedModel] with Ai2CodeInfo {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -54,8 +52,8 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
   // Threshold, precision, recall
   case class MeasureModel(val model: Producer[TrainedModel],
-                          val testData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[PRMeasurement] with Ai2CodeInfo {
+    val testData: Producer[Iterable[(Boolean, Array[Double])]])
+      extends Producer[PRMeasurement] with Ai2CodeInfo {
     def create = {
       model.get
       // Just generate some dummy data
@@ -77,7 +75,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   case class ParsedDocument(info: String)
 
   case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-    extends Producer[Iterable[Array[Double]]] with Ai2CodeInfo {
+      extends Producer[Iterable[Array[Double]]] with Ai2CodeInfo {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -104,8 +102,8 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   }
 
   class TrainModelPython(val data: Producer[FlatArtifact], val io: ArtifactIo[TrainedModel,
-    FileArtifact])
-    extends Producer[TrainedModel] with Ai2CodeInfo {
+      FileArtifact])
+      extends Producer[TrainedModel] with Ai2CodeInfo {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
@@ -118,6 +116,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
       val model = TrainedModel(stdout)
       model
     }
+
     override def signature = Signature.fromFields(this, "data", "io")
   }
 
@@ -133,7 +132,8 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
   implicit val modelFormat = TrainedModel.jsonFormat
 
-  implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] = tuple3ColumnFormat[Double, Double, Double](',')
+  implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] =
+    tuple3ColumnFormat[Double, Double, Double](',')
 
   // Define our persistence implementation
 
@@ -148,11 +148,11 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
-    val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
+    val docFeatures = new FeaturizeDocuments(docs)
 
+    // Define pipeline
     val labelData: Producer[Iterable[Boolean]] =
       Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-    // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainDataPersisted = Persist.Collection.asText(trainData)
     val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
@@ -163,7 +163,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     assert(findFile(outputDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
     assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
     assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
-    assert(findFile(outputDir, "experiment",".html"), "Experiment summary created")
+    assert(findFile(outputDir, "experiment", ".html"), "Experiment summary created")
   }
 
   "Subsequent Experiment" should "re-use existing data" in {
@@ -179,24 +179,52 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
     val labelData: Producer[Iterable[Boolean]] =
       Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-    // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainDataPersisted = Persist.Collection.asText(trainData)
-    val model = Persist.Singleton.asJson(new TrainModelPython(trainDataPersisted.asArtifact,
-      SingletonIo.json[TrainedModel]))
-    val measure: Producer[PRMeasurement] = Persist.Collection.asText(
-      new MeasureModel(model, testData))
-    runner.run(measure)
+    val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
+    val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
+      Persist.Collection.asText(new MeasureModel(model, testData))
+    val experimentSummary = runner.run(measure)
 
-    assert(findFile(outputDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
-    assert(findFile(outputDir, "TrainModelPython", ".json"), "Json file created")
-    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
-    assert(findFile(outputDir, "experiment",".html"), "Experiment summary created")
+    val trainDataFile = new File(trainDataPersisted.artifact.url)
+    val measureFile = new File(measure.artifact.url)
+
+    val trainDataModifiedTime = trainDataFile.lastModified
+
+    // Pipeline using different instances, with some shared steps
+    val (trainDataFile2, measureFile2, experimentSummary2) =
+    {
+      val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
+      val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
+      val docFeatures = new FeaturizeDocuments(docs)
+
+      val labelData: Producer[Iterable[Boolean]] =
+        Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+      val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
+      val trainDataPersisted = Persist.Collection.asText(trainData)
+      val model = Persist.Singleton.asJson(new TrainModelPython(trainDataPersisted.asArtifact,
+        SingletonIo.json[TrainedModel]))
+      val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
+        Persist.Collection.asText(new MeasureModel(model, testData))
+      val experimentSummary = runner.run(measure)
+      (new File(trainDataPersisted.artifact.url), new File(measure.artifact.url),
+          new File(experimentSummary))
+    }
+
+    // Should use the same file to persist training data
+    trainDataFile2 should equal(trainDataFile)
+    // Should not recompute training data
+    trainDataFile2.lastModified should equal(trainDataFile.lastModified)
+    // Should store output in different location
+    measureFile2 should not equal(measureFile)
+    // Should store summary in different location
+    experimentSummary2 should not equal(experimentSummary)
+
   }
 
   override def beforeEach: Unit = {
     require((outputDir.exists && outputDir.isDirectory) ||
-      outputDir.mkdirs, s"Unable to create test output directory $outputDir")
+        outputDir.mkdirs, s"Unable to create test output directory $outputDir")
   }
 
   override def afterEach: Unit = {
