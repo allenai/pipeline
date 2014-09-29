@@ -192,8 +192,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     val trainDataModifiedTime = trainDataFile.lastModified
 
     // Pipeline using different instances, with some shared steps
-    val (trainDataFile2, measureFile2, experimentSummary2) =
-    {
+    val (trainDataFile2, measureFile2, experimentSummary2) = {
       val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
       val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
       val docFeatures = new FeaturizeDocuments(docs)
@@ -208,7 +207,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
         Persist.Collection.asText(new MeasureModel(model, testData))
       val experimentSummary = runner.run(measure)
       (new File(trainDataPersisted.artifact.url), new File(measure.artifact.url),
-          new File(experimentSummary))
+          experimentSummary)
     }
 
     // Should use the same file to persist training data
@@ -216,9 +215,9 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     // Should not recompute training data
     trainDataFile2.lastModified should equal(trainDataFile.lastModified)
     // Should store output in different location
-    measureFile2 should not equal(measureFile)
+    measureFile2 should not equal (measureFile)
     // Should store summary in different location
-    experimentSummary2 should not equal(experimentSummary)
+    experimentSummary2 should not equal (experimentSummary)
 
   }
 

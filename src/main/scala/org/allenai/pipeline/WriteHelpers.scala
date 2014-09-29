@@ -127,8 +127,7 @@ trait WriteHelpers {
       }
 
       def asText[T: StringSerializable: ClassTag](step: Producer[Iterable[T]])(
-        implicit factory: FAF[(Signature, String)]): PP[Iterable[T],
-          FlatArtifact] = {
+        implicit factory: FAF[(Signature, String)]): PP[Iterable[T], FlatArtifact] = {
         step.persisted(LineCollectionIo.text[T],
           factory.flatArtifact((step.signature, "txt")))
       }

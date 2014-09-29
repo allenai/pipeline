@@ -75,8 +75,18 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
 
 /** This information is used by PipelineRunner to construct and visualize the DAG for a pipeline */
 trait PipelineRunnerSupport extends HasCodeInfo {
+  /** Represents a digest of the logic that will uniquely determine the output of this Producer
+    * Includes the inputs (other Producer instances feeding into this one)
+    * and parameters (other static configuration)
+    * and code version (a release id that should only change when the internal class logic changes)
+    */
   def signature: Signature
 
+  /** If this Producer has been Persisted, this field will contain the URL of the Artifact
+    * where the data was written.  This field should not be specified in the Producer
+    * implementation class. Specifying a value will not cause the Producer to be persisted.
+    * Rather, when a PersistedProducer is created, it will populate this field appropriately.
+    */
   def outputLocation: Option[URI]
 }
 

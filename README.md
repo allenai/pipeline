@@ -164,9 +164,9 @@ persistence implementation.
 
     implicit val location = output
     val model: Producer[TrainedModel]
-            = Persist.singleton.asJson(new TrainModel(trainData), "model.json")
+            = Persist.Singleton.asJson(new TrainModel(trainData), "model.json")
     val measure: Producer[Iterable[(Double, Double, Double)]]
-            = Persist.collection.asText(new MeasureModel(model, testData), "PR.txt")
+            = Persist.Collection.asText(new MeasureModel(model, testData), "PR.txt")
 
 We have opted not to persist the Iterable[(Boolean, Array[Double])] data, but we could
 do so in the same way.  Note that we have written no code that performs
@@ -188,12 +188,8 @@ An important point is that when a Producer is persisted, its serialized
 output acts as a cached result.  That is, if the pipeline is rerun, even
 in a subsequent process, and that Producer’s output it found in the
 expected location, the result will be deserialized from the store rather
-than re-computed from its inputs.  This is an important behavior for
-efficiency, since it allows one pipeline to fork off another.  Both
-pipelines will define the entire end-to-end workflow, but if they share
-some intermediate outputs, then the second one to run will use the
-shared outputs from the first one, or construct them itself if they are
-not found.
+than re-computed from its inputs.  In the "Tracking Overlapping Pipelines" section we 
+will see how this is used for pipelines that have some shared computations.
 
 Out-of-Core Datasets 
 --------------------
@@ -265,10 +261,9 @@ shell command is
       }
     }
 
-Any upstream Producer that persists its results via the standard
-mechanism can be converted to a Producer of the appropriate Artifact
-type, so that a a downstream out-of-JVM step can consume it.  Otherwise,
-the structure of the pipeline is unchanged.
+Any upstream Producer that persists its results via the standard mechanism can be converted to a 
+Producer of the appropriate Artifact type, so that a a downstream out-of-JVM step can consume it.
+ Otherwise, the structure of the pipeline is unchanged.
 
     val labelData: Producer[Labels]
          = Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
@@ -277,11 +272,80 @@ the structure of the pipeline is unchanged.
                   testData: Producer[Iterable[(Boolean, Array[Double])]])
          = new JoinAndSplitData(docFeatures, labelData, 0.2)
     
-    val trainingDataFile = Persist.collection.asText(trainData, "trainData.tsv").asArtifact
-    val model = Persist.singleton.asJson(new TrainModelPython(trainingDataFile,
+    val trainingDataFile = Persist.Collection.asText(trainData, "trainData.tsv").asArtifact
+    val model = Persist.Singleton.asJson(new TrainModelPython(trainingDataFile,
           SingletonIo.json[TrainedModel]), "model.json")
     val measure: Producer[PRMeasurement] 
-        = Persist.collection.asText(new MeasureModel(model, testData), "PR.txt")
+        = Persist.Collection.asText(new MeasureModel(model, testData), "PR.txt")
+
+Tracking Overlapping Pipelines
+------------------------------
+The source code for this example is found in src/test/scala/org/allenai/pipeline/SampleExperiment.scala
+
+For most projects, we would expect to run many variants of a core pipeline, 
+specifying different parameters, different featurizations, etc., but all producing the same 
+final output, for example a trained model and measurement metrics. In the previous sections, 
+the location of stored output was specified explicitly.  It is possible
+to have multiple different pipelines storing data into the same directory, 
+but it becomes difficult to make sure that the names of the output files do not conflict.  
+Alternatively, one could specify a separate output directory for each variant, 
+but then the variants cannot share intermediate calculations they may have in common.  To help 
+with the management of many different but closely related pipelines, 
+the framework provides the PipelineRunner class and the PipelineRunnerSupport interface.
+
+The PipelineRunner automatically determines the location to which Producers will persist their 
+results.  If a PipelineRunner instance is implicitly in scope, no file name needs to be specified
+when persisting a Producer:
+
+    implicit val runner = PipelineRunner.writeToDirectory(outputDir)
+    val trainDataPersisted = Persist.Collection.asText(trainData)
+    val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
+
+If a second pipeline is defined using a PipelineRunner that saves to the same directory, 
+even in a separate project and run on different days, the second pipeline will look for 
+persisted data in the same location, such that it can re-use any calculations that are shared 
+with a previous run of a different pipeline.  In this example, the second pipeline produces its 
+training data in the same way as the first.  When the second pipeline is run, 
+it will read the training feature data from the persistent store, rather than duplicating the 
+(typically expensive) feature calculation.  By contrast, the second pipeline uses different 
+logic to train the model, so the output of the model training will be stored in a different location.
+
+    implicit val runner = PipelineRunner.writeToDirectory(outputDir)
+    val trainDataPersisted = Persist.Collection.asText(trainData)
+    val model = Persist.Singleton.asJson(new TrainModelPython(trainDataPersisted.asArtifact,
+      SingletonIo.json[TrainedModel]))
+
+The file name chosen by PipelineRunner is based on a hash of the parameters, inputs, 
+and code version of the Producer instance being persisted.  These are provided by the 
+PipelineRunnerSupport class and represented by an instance of the Signature class.  There are 
+various factory convenience methods for building Signature objects.  If the Producer instance is 
+a case class, one can declare
+ 
+    override def signature = Signature.fromObject(this)
+    
+Alternatively, one can declare the names of the publicly-accessible fields that contain the 
+parameters and inputs:
+
+    override def signature = Signature.fromFields(this, "features", "labels", "testSizeRatio")
+
+The code version is specified by an instance of the CodeInfo class.  This is most conveniently 
+done by mixing in the Ai2CodeInfo trait, which uses information created by the sbt release plugin.  
+The PipelineRunner assumes by default that the logic of a particular Producer class does not change
+between releases.  In case the logic does differ from a previous release, 
+the updateVersionHistory field can be updated so that it contains a history of all the release 
+ids in which the logic of the class differs.
+
+The second purpose of the PipelineRunner is to produce a summary of a pipeline run in the form of
+ an HTML page. The page will be written to the same directory as the output data and contains a
+ visualization of the pipeline workflow with URL links to where output data is  stored. The page is
+ produced automatically when using the PipelineRunner.run method instead of Producer.get
+ 
+    runner.run(measure)
+
+Using the PipelineRunner class writing to S3 is a convenient way of managing projects with 
+many different contributors.  Users running experiments can re-use data, even from calculations 
+run on different machines.  The HTML pages stored into S3 are visible in a browser and serve as
+a record of results of the group as a whole.
 
 Summary
 =======
@@ -322,6 +386,9 @@ for managing a pipeline.  Here is a summary:
     and reusable outside the framework.  While it is certainly possible
     to write reusable code without the framework, using the framework
     makes it impossible not to write modular code.
+-   Distinct users running different (but related) pipelines can gain efficiency by sharing data 
+    between pipelines and are automatically provided with a record of past pipeline runs and their 
+    outputs.   
 
 
 

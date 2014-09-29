@@ -41,9 +41,14 @@ abstract class PipelineRunner(
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
     val version = s"${System.getProperty("user.name")}-$today"
     val sig = Signature("experiment", version)
-    val htmlArtifact = persistence.flatArtifact(s"experiment-$version.html")
+    val (htmlArtifact, jsonArtifact) =
+      (for {
+        i <- (0 to 100).iterator
+        h = persistence.flatArtifact(s"experiment-$version.$i.html")
+        j = persistence.flatArtifact(s"experiment-$version.$i.json")
+        if (!h.exists && !j.exists)
+      } yield (h, j)).next
     SingletonIo.text[String].write(Workflow.renderHtml(workflow), htmlArtifact)
-    val jsonArtifact = persistence.flatArtifact(s"experiment-$version.json")
     SingletonIo.json[Workflow].write(workflow, jsonArtifact)
     htmlArtifact.url
   }
