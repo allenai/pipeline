@@ -104,7 +104,7 @@ We read the labels using the framework’s built-in delimited-column parsing met
  
 
     val labelData: Producer[Iterable[Boolean]]
-        = Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
+        = Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
 
 Similarly for features
 
@@ -266,7 +266,7 @@ Producer of the appropriate Artifact type, so that a a downstream out-of-JVM ste
  Otherwise, the structure of the pipeline is unchanged.
 
     val labelData: Producer[Labels]
-         = Read.collection.fromText[Boolean](input.flatArtifact(labelFile))
+         = Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
     
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
                   testData: Producer[Iterable[(Boolean, Array[Double])]])
@@ -284,8 +284,8 @@ The source code for this example is found in src/test/scala/org/allenai/pipeline
 
 For most projects, we would expect to run many variants of a core pipeline, 
 specifying different parameters, different featurizations, etc., but all producing the same 
-final output, for example a trained model and measurement metrics. In the previous sections, 
-the location of stored output was specified explicitly.  It is possible
+kind of final output, for example a trained model and measurement metrics. In the previous 
+sections, the location of stored output was specified explicitly.  It is possible
 to have multiple different pipelines storing data into the same directory, 
 but it becomes difficult to make sure that the names of the output files do not conflict.  
 Alternatively, one could specify a separate output directory for each variant, 
@@ -303,7 +303,7 @@ when persisting a Producer:
 
 If a second pipeline is defined using a PipelineRunner that saves to the same directory, 
 even in a separate project and run on different days, the second pipeline will look for 
-persisted data in the same location, such that it can re-use any calculations that are shared 
+persisted data in the same location, and it will re-use any calculations that are shared 
 with a previous run of a different pipeline.  In this example, the second pipeline produces its 
 training data in the same way as the first.  When the second pipeline is run, 
 it will read the training feature data from the persistent store, rather than duplicating the 
