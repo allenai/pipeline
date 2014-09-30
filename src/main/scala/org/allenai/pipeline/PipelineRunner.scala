@@ -69,10 +69,8 @@ object PipelineRunner {
   def writeToS3(config: S3Config, rootPath: String): PipelineRunner = {
     val persistence = new S3(config, Some(rootPath))
     new PipelineRunner(persistence) {
-      override def path(signature: Signature, suffix: String): String = s"${
-        signature
-          .name
-      }/${signature.name}.${signature.id}.$suffix"
+      override def path(signature: Signature, suffix: String): String =
+        s"${signature.name}/${signature.name}.${signature.id}.$suffix"
     }
   }
 }
