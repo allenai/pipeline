@@ -60,8 +60,8 @@ object PipelineRunner {
   def writeToDirectory(dir: File): PipelineRunner = {
     val persistence = new RelativeFileSystem(dir)
     new PipelineRunner(persistence) {
-      override def path(signature: Signature, suffix: String): String = s"${signature.name}" +
-        s".${signature.id}.$suffix"
+      override def path(signature: Signature, suffix: String): String =
+        s"${signature.name}.${signature.id}.$suffix"
     }
   }
 

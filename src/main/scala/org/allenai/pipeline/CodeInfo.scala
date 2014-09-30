@@ -48,3 +48,10 @@ trait Ai2CodeInfo extends HasCodeInfo {
     */
   def updateVersionHistory: Seq[String] = List()
 }
+
+/** For convenience, case classes can mix in this single trait to implement PipelineRunnerSupport
+  */
+trait Ai2Signature extends PipelineRunnerSupport with Ai2CodeInfo {
+  this: Product =>
+  override def signature: Signature = Signature.fromObject(this)
+}
