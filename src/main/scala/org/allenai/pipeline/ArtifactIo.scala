@@ -5,7 +5,7 @@ import org.allenai.pipeline.IoHelpers._
 
 import spray.json.JsonFormat
 
-import scala.io.{Codec, Source}
+import scala.io.{ Codec, Source }
 import scala.reflect.ClassTag
 
 /** Interface for defining how to persist a data type.  */
@@ -46,7 +46,8 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 }
 
 object SingletonIo {
-  def text[T: StringSerializable: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
+  def text[T: StringSerializable: ClassTag](
+    implicit codec: Codec): ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
 
   def json[T: JsonFormat: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
@@ -73,10 +74,12 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 }
 
 object LineCollectionIo {
-  def text[T: StringSerializable: ClassTag](implicit codec: Codec): ArtifactIo[Iterable[T], FlatArtifact] =
+  def text[T: StringSerializable: ClassTag](
+    implicit codec: Codec): ArtifactIo[Iterable[T], FlatArtifact] =
     new LineCollectionIo[T]
 
-  def json[T: JsonFormat: ClassTag](implicit codec: Codec): ArtifactIo[Iterable[T], FlatArtifact] = {
+  def json[T: JsonFormat: ClassTag](
+    implicit codec: Codec): ArtifactIo[Iterable[T], FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new LineCollectionIo[T]
   }
@@ -107,10 +110,12 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 }
 
 object LineIteratorIo {
-  def text[T: StringSerializable: ClassTag](implicit codec: Codec): ArtifactIo[Iterator[T], FlatArtifact] =
+  def text[T: StringSerializable: ClassTag](
+    implicit codec: Codec): ArtifactIo[Iterator[T], FlatArtifact] =
     new LineIteratorIo[T]
 
-  def json[T: JsonFormat: ClassTag](implicit codec: Codec): ArtifactIo[Iterator[T], FlatArtifact] = {
+  def json[T: JsonFormat: ClassTag](
+    implicit codec: Codec): ArtifactIo[Iterator[T], FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new LineIteratorIo[T]
   }

@@ -1,6 +1,7 @@
 package org.allenai.pipeline
 
 import org.allenai.common.Logging
+import org.allenai.pipeline
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.BasicAWSCredentials
@@ -20,7 +21,9 @@ object S3Config {
 }
 
 /** Artifact implementations using S3 storage. */
-class S3FlatArtifact(val path: String, val config: S3Config)
+class S3FlatArtifact(val path: String,
+  val config: S3Config,
+  val contentTypeOverride: Option[String] = None)
     extends FlatArtifact with S3Artifact[FileArtifact] {
   protected def makeLocalArtifact(f: File) = new FileArtifact(f)
 
@@ -39,7 +42,9 @@ class S3FlatArtifact(val path: String, val config: S3Config)
 }
 
 /** Zip file stored in S3.  */
-class S3ZipArtifact(val path: String, val config: S3Config)
+class S3ZipArtifact(val path: String,
+  val config: S3Config,
+  val contentTypeOverride: Option[String] = None)
     extends StructuredArtifact with S3Artifact[ZipFileArtifact] {
 
   import org.allenai.pipeline.StructuredArtifact._
@@ -66,6 +71,8 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   protected def makeLocalArtifact(f: File): A
 
+  protected def contentTypeOverride: Option[String]
+
   def path: String
 
   override def url: URI = new URI("s3", bucket, s"/$path", null)
@@ -83,7 +90,9 @@ trait S3Artifact[A <: Artifact] extends Logging {
     result
   }
 
-  protected def contentType = path match {
+  def contentType: String = contentTypeOverride.getOrElse(defaultContentType)
+
+  def defaultContentType: String = path match {
     case s if s.endsWith(".html") => "text/html"
     case s if s.endsWith(".txt") => "text/plain"
     case s if s.endsWith(".json") => "application/json"
