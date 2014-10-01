@@ -36,6 +36,11 @@ trait FlatArtifact extends Artifact {
       }
     }
   }
+
+  def asProducer: Producer[FlatArtifact] = new Producer[FlatArtifact] with Ai2CodeInfo {
+    override def signature = Signature("FlatArtifact", "0", "url" -> url)
+    override def create: FlatArtifact = FlatArtifact.this
+  }
 }
 
 object StructuredArtifact {
@@ -60,7 +65,7 @@ object StructuredArtifact {
   */
 trait StructuredArtifact extends Artifact {
 
-  import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
+  import org.allenai.pipeline.StructuredArtifact.{Reader, Writer}
 
   def reader: Reader
 
@@ -77,13 +82,17 @@ trait StructuredArtifact extends Artifact {
         // scalastyle:on
         writer.writeEntry(name) { entryWriter =>
           Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n => entryWriter.
-            write(buffer, 0, n))
+              write(buffer, 0, n))
           is.close()
         }
       }
     }
   }
+  def asProducer: Producer[StructuredArtifact] = new Producer[StructuredArtifact] with Ai2CodeInfo {
+    override def signature = Signature("StructuredArtifact", "0", "url" -> url)
 
+    override def create: StructuredArtifact = StructuredArtifact.this
+  }
 }
 
 /** Class for writing that exposes a more restrictive interface than OutputStream

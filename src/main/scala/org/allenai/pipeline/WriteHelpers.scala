@@ -18,8 +18,10 @@ trait WriteHelpers {
     def structuredArtifact(input: T): StructuredArtifact
   }
 
+  trait ArtifactFactory[T] extends FlatArtifactFactory[T] with StructuredArtifactFactory[T]
+
   class RelativeFileSystem(rootDir: File)
-      extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
+      extends ArtifactFactory[String] {
     private def toFile(path: String): File = new File(rootDir, path)
 
     override def flatArtifact(name: String): FlatArtifact = new FileArtifact(toFile(name))
@@ -34,7 +36,7 @@ trait WriteHelpers {
     }
   }
 
-  object AbsoluteFileSystem extends FlatArtifactFactory[File] with StructuredArtifactFactory[File] {
+  object AbsoluteFileSystem extends ArtifactFactory[File] {
     override def flatArtifact(file: File): FlatArtifact = new FileArtifact(file)
 
     override def structuredArtifact(file: File): StructuredArtifact = {
@@ -45,8 +47,8 @@ trait WriteHelpers {
       }
     }
 
-    def usingPaths: FlatArtifactFactory[String] with StructuredArtifactFactory[String] =
-      new FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
+    def usingPaths: ArtifactFactory[String] =
+      new ArtifactFactory[String] {
         override def flatArtifact(path: String): FlatArtifact =
           AbsoluteFileSystem.flatArtifact(new File(path))
 
@@ -66,7 +68,7 @@ trait WriteHelpers {
   }
 
   class S3(config: S3Config, rootPath: Option[String] = None)
-      extends FlatArtifactFactory[String] with StructuredArtifactFactory[String] {
+      extends ArtifactFactory[String] {
     // Drop leading and training slashes
     private def toPath(path: String): String = rootPath match {
       case None => path

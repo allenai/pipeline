@@ -15,12 +15,11 @@ import java.util.Date
   * pipeline.  Instead, each step's output location is determined by the PipelineRunner based on
   * the Signature of that step.  This allows independent processes for pipelines with overlapping
   * steps in their DAGs to re-use past calculations.
-  * @param persistence
+  * @param persistence factory for turning paths into Artifacts
   */
-abstract class PipelineRunner(
-  persistence: FlatArtifactFactory[String] with StructuredArtifactFactory[String])
-    extends FlatArtifactFactory[(Signature, String)]
-    with StructuredArtifactFactory[(Signature, String)] {
+class PipelineRunner(
+  persistence: ArtifactFactory[String])
+    extends ArtifactFactory[(Signature, String)] {
 
   def flatArtifact(signatureSuffix: (Signature, String)): FlatArtifact = {
     val (signature, suffix) = signatureSuffix
@@ -32,7 +31,8 @@ abstract class PipelineRunner(
     persistence.structuredArtifact(path(signature, suffix))
   }
 
-  def path(signature: Signature, suffix: String): String
+  def path(signature: Signature, suffix: String): String =
+    s"${signature.name}.${signature.id}.$suffix"
 
   /** Run the pipeline and return a URL pointing to the experiment-visualization page */
   def run[T](outputs: Producer[_]*): URI = {
@@ -46,8 +46,8 @@ abstract class PipelineRunner(
         i <- (0 to 100).iterator
         h = persistence.flatArtifact(s"experiment-$version.$i.html")
         j = persistence.flatArtifact(s"experiment-$version.$i.json")
-        if (!h.exists && !j.exists)
-      } yield (h, j)).next
+        if !h.exists && !j.exists
+      } yield (h, j)).next()
     SingletonIo.text[String].write(Workflow.renderHtml(workflow), htmlArtifact)
     SingletonIo.json[Workflow].write(workflow, jsonArtifact)
     htmlArtifact.url
@@ -59,18 +59,12 @@ object PipelineRunner {
   /** Store results in a single directory */
   def writeToDirectory(dir: File): PipelineRunner = {
     val persistence = new RelativeFileSystem(dir)
-    new PipelineRunner(persistence) {
-      override def path(signature: Signature, suffix: String): String =
-        s"${signature.name}.${signature.id}.$suffix"
-    }
+    new PipelineRunner(persistence)
   }
 
   /** Store results in S3 */
   def writeToS3(config: S3Config, rootPath: String): PipelineRunner = {
     val persistence = new S3(config, Some(rootPath))
-    new PipelineRunner(persistence) {
-      override def path(signature: Signature, suffix: String): String =
-        s"${signature.name}/${signature.name}.${signature.id}.$suffix"
-    }
+    new PipelineRunner(persistence)
   }
 }
