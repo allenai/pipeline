@@ -163,7 +163,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     import spray.json._
 
     class RNG(val seed: Int, val length: Int)
-      extends Producer[Iterable[Double]] with UnknownCodeInfo {
+        extends Producer[Iterable[Double]] with UnknownCodeInfo {
       private val rand = new Random(seed)
 
       def create = (0 until length).map(i => rand.nextDouble)
@@ -180,6 +180,21 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     rng1.get should equal(rng3.get)
   }
 
+  case class CountDependencies(listGenerators: List[Producer[Iterable[Double]]])
+      extends Producer[Int] with Ai2Signature {
+    override def create: Int = listGenerators.size
+  }
+
+  "Signatures with dependencies in containers" should "identify dependencies" in {
+    val has2 = new CountDependencies(List(randomNumbers, cachedRandomNumbers))
+    val has3 = new CountDependencies(List(randomNumbers, cachedRandomNumbers, randomNumbers))
+
+    has2.signature.dependencies.size should equal(2)
+    has3.signature.dependencies.size should equal(3)
+
+    has2.signature.id should not equal (has3.signature.id)
+  }
+
   override def beforeAll: Unit = {
     require((outputDir.exists && outputDir.isDirectory) || outputDir.mkdirs,
       s"Unable to create test output directory $outputDir")
@@ -189,3 +204,5 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     FileUtils.deleteDirectory(outputDir)
   }
 }
+
+

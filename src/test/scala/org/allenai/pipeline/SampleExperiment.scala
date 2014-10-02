@@ -36,7 +36,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   }
 
   case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
-      extends Producer[TrainedModel] with Ai2CodeInfo {
+      extends Producer[TrainedModel] with Ai2Signature {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -44,8 +44,6 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
     def train(data: Iterable[(Boolean, Array[Double])]): TrainedModel =
       TrainedModel(s"Trained model with ${data.size} rows")
-
-    override def signature = Signature.fromObject(this)
   }
 
   type PRMeasurement = Iterable[(Double, Double, Double)]
@@ -53,7 +51,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   // Threshold, precision, recall
   case class MeasureModel(val model: Producer[TrainedModel],
     val testData: Producer[Iterable[(Boolean, Array[Double])]])
-      extends Producer[PRMeasurement] with Ai2CodeInfo {
+      extends Producer[PRMeasurement] with Ai2Signature {
     def create = {
       model.get
       // Just generate some dummy data
@@ -68,14 +66,12 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
         r
       }
     }
-
-    override def signature = Signature.fromObject(this)
   }
 
   case class ParsedDocument(info: String)
 
   case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-      extends Producer[Iterable[Array[Double]]] with Ai2CodeInfo {
+      extends Producer[Iterable[Array[Double]]] with Ai2Signature {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -84,7 +80,6 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
       features.toList
     }
 
-    def signature = Signature.fromObject(this)
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
