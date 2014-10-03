@@ -7,6 +7,8 @@ import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import scala.reflect.runtime.universe._
+
 /** Executes a pipeline represented by a set of Producer instances
   * Inspects the meta-info about the pipeline steps (represented by PipelineRunnerSupport interface)
   * and builds a DAG representation of the pipeline.  Visualizes the DAG in HTML and stores the
@@ -31,6 +33,17 @@ class PipelineRunner(
     persistence.structuredArtifact(path(signature, suffix))
   }
 
+  def persist[T, A <: Artifact: TypeTag](producer: Producer[T], io: ArtifactIo[T, A],
+    suffix: String): PersistedProducer[T, A] = {
+    typeOf[A] match {
+      case t if t =:= typeOf[FlatArtifact] => producer.persisted(io,
+        flatArtifact((producer.signature, suffix)).asInstanceOf[A])
+      case t if t =:= typeOf[StructuredArtifact] => producer.persisted(io,
+        structuredArtifact((producer.signature, suffix)).asInstanceOf[A])
+      case _ => sys.error(s"Cannot persist using io class of unknown type $io")
+    }
+  }
+
   def path(signature: Signature, suffix: String): String =
     s"${signature.name}.${signature.id}.$suffix"
 
@@ -41,15 +54,20 @@ class PipelineRunner(
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
     val version = s"${System.getProperty("user.name")}-$today"
     val sig = Signature("experiment", version)
-    val (htmlArtifact, jsonArtifact) =
+    val (htmlArtifact, workflowArtifact, signatureArtifact) =
       (for {
         i <- (0 to 100).iterator
         h = persistence.flatArtifact(s"experiment-$version.$i.html")
-        j = persistence.flatArtifact(s"experiment-$version.$i.json")
-        if !h.exists && !j.exists
-      } yield (h, j)).next()
+        w = persistence.flatArtifact(s"experiment-$version.$i.workflow.json")
+        s = persistence.flatArtifact(s"experiment-$version.$i.signatures.json")
+        if !h.exists && !w.exists && !s.exists
+      } yield (h, w, s)).next()
     SingletonIo.text[String].write(Workflow.renderHtml(workflow), htmlArtifact)
-    SingletonIo.json[Workflow].write(workflow, jsonArtifact)
+    SingletonIo.json[Workflow].write(workflow, workflowArtifact)
+    import spray.json.DefaultJsonProtocol._
+    val signatureFormat = Signature.jsonWriter
+    val signatures = outputs.map(p => signatureFormat.write(p.signature)).toList.toJson
+    signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
     htmlArtifact.url
   }
 

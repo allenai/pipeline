@@ -38,8 +38,13 @@ trait FlatArtifact extends Artifact {
   }
 
   def asProducer: Producer[FlatArtifact] = new Producer[FlatArtifact] with Ai2CodeInfo {
-    override def signature = Signature("FlatArtifact", "0", "url" -> url)
+    override def signature: Signature = Signature("FlatArtifact", "0", "url" -> url)
+
+    override def codeInfo: CodeInfo = super.codeInfo.copy(className = "FlatArtifact")
+
     override def create: FlatArtifact = FlatArtifact.this
+
+    override def outputLocation: Some[URI] = Some(url)
   }
 }
 
@@ -65,7 +70,7 @@ object StructuredArtifact {
   */
 trait StructuredArtifact extends Artifact {
 
-  import org.allenai.pipeline.StructuredArtifact.{Reader, Writer}
+  import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
 
   def reader: Reader
 
@@ -82,16 +87,20 @@ trait StructuredArtifact extends Artifact {
         // scalastyle:on
         writer.writeEntry(name) { entryWriter =>
           Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n => entryWriter.
-              write(buffer, 0, n))
+            write(buffer, 0, n))
           is.close()
         }
       }
     }
   }
   def asProducer: Producer[StructuredArtifact] = new Producer[StructuredArtifact] with Ai2CodeInfo {
-    override def signature = Signature("StructuredArtifact", "0", "url" -> url)
+    override def signature: Signature = Signature("StructuredArtifact", "0", "url" -> url)
+
+    override def codeInfo: CodeInfo = super.codeInfo.copy(className = "StructuredArtifact")
 
     override def create: StructuredArtifact = StructuredArtifact.this
+
+    override def outputLocation: Some[URI] = Some(url)
   }
 }
 

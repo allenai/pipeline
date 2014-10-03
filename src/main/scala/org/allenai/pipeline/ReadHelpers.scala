@@ -15,7 +15,7 @@ trait ReadHelpers extends ColumnFormats {
       require(artifact.exists, s"$artifact does not exist")
       io match {
         case hasInfo: HasCodeInfo => new PersistedProducer(null, io, artifact) {
-          override def signature: Signature = Signature(io.toString,
+          override def signature: Signature = Signature(io.codeInfo.className,
             hasInfo.codeInfo.unchangedSince, "src" -> artifact.url)
 
           override def codeInfo: CodeInfo = hasInfo.codeInfo
@@ -30,7 +30,8 @@ trait ReadHelpers extends ColumnFormats {
       new Producer[T] {
         override def create: T = io.read(src.get)
 
-        override def signature: Signature = Signature(io.toString, io.codeInfo.unchangedSince,
+        override def signature: Signature = Signature(io.codeInfo.className,
+          io.codeInfo.unchangedSince,
           "src" -> src)
 
         override def codeInfo: CodeInfo = io.codeInfo

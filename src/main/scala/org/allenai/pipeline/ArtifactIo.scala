@@ -39,10 +39,8 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     _.write(implicitly[StringSerializable[T]].toString(data))
   }
 
-  override def toString: String = s"SingletonIo[${
-    scala.reflect.classTag[T].runtimeClass
-      .getSimpleName
-  }]"
+  override def codeInfo: CodeInfo = super.codeInfo.copy(className =
+    s"SingletonIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]")
 }
 
 object SingletonIo {
@@ -66,10 +64,10 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     .iterator,
     artifact)
 
-  override def toString: String = s"LineCollectionIo[${
+  override def codeInfo: CodeInfo = super.codeInfo.copy(className = s"LineCollectionIo[${
     scala.reflect.
       classTag[T].runtimeClass.getSimpleName
-  }]"
+  }]")
 
 }
 
@@ -103,10 +101,8 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     }
   }
 
-  override def toString: String = s"LineIteratorIo[${
-    scala.reflect.
-      classTag[T].runtimeClass.getSimpleName
-  }]"
+  override def codeInfo: CodeInfo = super.codeInfo.copy(className =
+    s"LineIteratorIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]")
 }
 
 object LineIteratorIo {

@@ -12,10 +12,9 @@ import java.net.URI
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link])
 
 /** Represents a Producer instance with PipelineRunnerSupport */
-case class Node(name: String,
+case class Node(info: CodeInfo,
   params: Map[String, String],
-  outputPath: Option[URI],
-  codePath: Option[URI])
+  outputPath: Option[URI])
 
 /** Represents dependency between Producer instances */
 case class Link(fromId: String, toId: String, name: String)
@@ -30,8 +29,9 @@ object Workflow {
       step <- steps
       stepInfo <- findNodes(step)
       sig = stepInfo.signature
+      codeInfo = stepInfo.codeInfo
     } yield {
-      (sig.id, Node(sig.name, sig.parameters, stepInfo.outputLocation, stepInfo.codeInfo.srcUrl))
+      (sig.id, Node(codeInfo, sig.parameters, stepInfo.outputLocation))
     }
 
     def findLinks(s: PRS): Iterable[(PRS, PRS, String)] =
@@ -48,15 +48,8 @@ object Workflow {
   }
 
   implicit val jsFormat = {
-    implicit val uriFormat = new JsonFormat[URI] {
-      override def write(uri: URI): JsValue = JsString(uri.toString)
-
-      override def read(value: JsValue): URI = value match {
-        case JsString(uri) => new URI(uri)
-        case _ => sys.error("Invalid format for URI")
-      }
-    }
-    implicit val nodeFormat = jsonFormat4(Node)
+    import CodeInfo._
+    implicit val nodeFormat = jsonFormat3(Node)
     implicit val linkFormat = jsonFormat3(Link)
     jsonFormat2(Workflow.apply)
   }
@@ -79,15 +72,15 @@ object Workflow {
     }
 
   def renderHtml(w: Workflow): String = {
-    val addNodeCode = (for ((id, Node(name, params, outputPath, codePath)) <- w.nodes) yield {
+    val addNodeCode = (for ((id, Node(info, params, outputPath)) <- w.nodes) yield {
       val paramsText = params.toList.map {
         case (key, value) =>
           s""""$key=${limitLength(value)}""""
       }.mkString(",")
-      val linksText = (codePath.map(uri => s"""new Link("${link(uri)}","code")""") ++
+      val linksText = (info.srcUrl.map(uri => s"""new Link("${link(uri)}","code")""") ++
         outputPath.map(uri => s"""new Link("${link(uri)}","output")""")).mkString(",")
       s"""g.addNode("$id", {\n
-         |label: generateStepContent("$name",\n
+         |label: generateStepContent("${info.className}",\n
          |[$paramsText],\n
          |[$linksText]\n
          |)});""".stripMargin

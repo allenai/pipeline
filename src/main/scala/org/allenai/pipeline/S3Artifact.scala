@@ -110,13 +110,28 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   protected var cachedFile: Option[A] = None
 
-  private val BUFFER_SIZE = 1048576 // 1 MB buffer
+  private val BUFFER_SIZE = 1048576
+  // 1 MB buffer
   protected def getCachedArtifact: A = cachedFile match {
     case Some(f) => f
     case None =>
-      val tmpFile = File.createTempFile(path.replaceAll("""/""", """\$"""), "tmp")
-      if (exists) {
-        logger.debug(s"Downloading $bucket/$path to $tmpFile")
+      val cacheDir = {
+        val f = new File(System.getProperty("java.io.tmpdir"), "pipeline-cache")
+        if (f.exists && !f.isDirectory) {
+          f.delete()
+        }
+        if (!f.exists) {
+          f.mkdirs()
+        }
+        f
+      }
+      require(cacheDir.exists && cacheDir.isDirectory,
+        s"Unable to create cache directory ${cacheDir.getCanonicalPath}")
+      val downloadFile = new File(cacheDir, path.replaceAll("""/""", """\$"""))
+      if (exists && !downloadFile.exists) {
+        logger.debug(s"Downloading $bucket/$path to $downloadFile")
+        val tmpFile = File.createTempFile(downloadFile.getName, "tmp", downloadFile.getParentFile)
+        tmpFile.deleteOnExit()
         val os = new FileOutputStream(tmpFile)
         val is = service.getObject(bucket, path).getObjectContent
         val buffer = new Array[Byte](BUFFER_SIZE)
@@ -124,9 +139,10 @@ trait S3Artifact[A <: Artifact] extends Logging {
           os.write(buffer, 0, n))
         is.close()
         os.close()
+        require(tmpFile.renameTo(downloadFile),
+          s"Unable to create download file ${downloadFile.getCanonicalPath}")
       }
-      tmpFile.deleteOnExit()
-      cachedFile = Some(makeLocalArtifact(tmpFile))
+      cachedFile = Some(makeLocalArtifact(downloadFile))
       cachedFile.get
   }
 }

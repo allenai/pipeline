@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.UnitSpec
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 
 import org.apache.commons.io.FileUtils
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
@@ -13,7 +13,8 @@ import java.io.{File, InputStream}
 /** See README.md for explanatory documentation of this example,
   * which runs a mocked-up pipeline to train and cross-validate a model.
   */
-class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfterAll {
+class SamplePipeline extends UnitSpec
+with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
 
   case class TrainedModel(info: String)
 
@@ -67,7 +68,6 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     }
   }
 
-  val outputDir = new File("test-output-pipeline")
   val inputDir = new File("pipeline/src/test/resources/pipeline")
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
@@ -83,7 +83,7 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
   // Define our persistence implementation
 
   val input = new RelativeFileSystem(inputDir)
-  implicit val output = new RelativeFileSystem(outputDir)
+  implicit val output = new RelativeFileSystem(scratchDir)
 
   //    This also works:
   //      val s3Config = S3Config("ai2-pipeline-sample")
@@ -106,8 +106,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
     // Run pipeline
     measure.get
 
-    assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
-    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
+    assert(findFile(scratchDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   case class ParsedDocument(info: String)
@@ -155,8 +155,8 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       Persist.Collection.asText(new MeasureModel(model, testData), "MeasureModel.txt")
     measure.get
 
-    assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
-    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
+    assert(findFile(scratchDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel,
@@ -196,22 +196,13 @@ class SamplePipeline extends UnitSpec with BeforeAndAfterEach with BeforeAndAfte
       new MeasureModel(model, testData), "MeasureModel.txt")
     measure.get
 
-    assert(findFile(outputDir, "TrainingData", ".txt"), "Training data file created")
-    assert(findFile(outputDir, "TrainModelPython", ".json"), "Json file created")
-    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
-  }
-
-  override def beforeEach(): Unit = {
-    require((outputDir.exists && outputDir.isDirectory) ||
-      outputDir.mkdirs, s"Unable to create test output directory $outputDir")
+    assert(findFile(scratchDir, "TrainingData", ".txt"), "Training data file created")
+    assert(findFile(scratchDir, "TrainModelPython", ".json"), "Json file created")
+    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   override def afterEach(): Unit = {
-    FileUtils.cleanDirectory(outputDir)
-  }
-
-  override def afterAll(): Unit = {
-    FileUtils.deleteDirectory(outputDir)
+    FileUtils.cleanDirectory(scratchDir)
   }
 
   def findFile(dir: File, prefix: String, suffix: String): Boolean =

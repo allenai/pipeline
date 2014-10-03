@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.UnitSpec
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 import org.allenai.pipeline.IoHelpers._
 
 import org.apache.commons.io.FileUtils
@@ -12,7 +12,8 @@ import scala.util.Random
 import java.io.{InputStream, File}
 
 /** Test PipelineRunner functionality */
-class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAfterAll {
+class SampleExperiment extends UnitSpec
+with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
   case class TrainedModel(info: String)
 
@@ -116,7 +117,6 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
   }
 
 
-  val outputDir = new File("test-output-experiment")
   val inputDir = new File("pipeline/src/test/resources/pipeline")
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
@@ -139,7 +139,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     implicit val featureFormat = columnArrayFormat[Double](',')
     implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
 
-    implicit val runner = PipelineRunner.writeToDirectory(outputDir)
+    implicit val runner = PipelineRunner.writeToDirectory(scratchDir)
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
@@ -155,10 +155,10 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
       new MeasureModel(model, testData))
     runner.run(measure)
 
-    assert(findFile(outputDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
-    assert(findFile(outputDir, "TrainModel", ".json"), "Json file created")
-    assert(findFile(outputDir, "MeasureModel", ".txt"), "P/R file created")
-    assert(findFile(outputDir, "experiment", ".html"), "Experiment summary created")
+    assert(findFile(scratchDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
+    assert(findFile(scratchDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
+    assert(findFile(scratchDir, "experiment", ".html"), "Experiment summary created")
   }
 
   "Subsequent Experiment" should "re-use existing data" in {
@@ -166,7 +166,7 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
     implicit val featureFormat = columnArrayFormat[Double](',')
     implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
 
-    implicit val runner = PipelineRunner.writeToDirectory(outputDir)
+    implicit val runner = PipelineRunner.writeToDirectory(scratchDir)
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
@@ -216,17 +216,8 @@ class SampleExperiment extends UnitSpec with BeforeAndAfterEach with BeforeAndAf
 
   }
 
-  override def beforeEach: Unit = {
-    require((outputDir.exists && outputDir.isDirectory) ||
-        outputDir.mkdirs, s"Unable to create test output directory $outputDir")
-  }
-
   override def afterEach: Unit = {
-    FileUtils.cleanDirectory(outputDir)
-  }
-
-  override def afterAll: Unit = {
-    FileUtils.deleteDirectory(outputDir)
+    FileUtils.cleanDirectory(scratchDir)
   }
 
   def findFile(dir: File, prefix: String, suffix: String): Boolean =

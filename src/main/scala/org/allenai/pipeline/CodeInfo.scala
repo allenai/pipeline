@@ -1,23 +1,36 @@
 package org.allenai.pipeline
 
-import scala.reflect.ClassTag
+import spray.json.DefaultJsonProtocol._
+import spray.json.{ JsonFormat, JsValue, JsString }
 
 import java.net.URI
-import java.util.UUID
 
 /** Contains information about the origin of the compiled class implementing a Producer
   * @param buildId A version number, e.g. git tag
   * @param unchangedSince The latest version number at which the logic for this class changed.
-  *                       Classes in which the buildIds differ but the unchangedSince field is
-  *                       the same are assumed to produce the same outputs when given the same
-  *                       inputs
+  *                      Classes in which the buildIds differ but the unchangedSince field is
+  *                      the same are assumed to produce the same outputs when given the same
+  *                      inputs
   * @param srcUrl Link to source (e.g. in GitHub)
   * @param binaryUrl Link to binaries (e.g. in Nexus)
   */
-case class CodeInfo(buildId: String,
+case class CodeInfo(className: String,
+  buildId: String,
   unchangedSince: String,
   srcUrl: Option[URI],
   binaryUrl: Option[URI])
+
+object CodeInfo {
+  implicit val uriFormat = new JsonFormat[URI] {
+    override def write(uri: URI): JsValue = JsString(uri.toString)
+
+    override def read(value: JsValue): URI = value match {
+      case JsString(uri) => new URI(uri)
+      case _ => sys.error("Invalid format for URI")
+    }
+  }
+  implicit val jsFormat = jsonFormat5(apply)
+}
 
 trait HasCodeInfo {
   def codeInfo: CodeInfo
@@ -26,7 +39,7 @@ trait HasCodeInfo {
 /** Represents code from an unspecified location
   */
 trait UnknownCodeInfo extends HasCodeInfo {
-  override def codeInfo: CodeInfo = CodeInfo("0", "0", None, None)
+  override def codeInfo: CodeInfo = CodeInfo(this.getClass.getSimpleName, "0", "0", None, None)
 }
 
 /** Reads the version number, nexus URL, and GitHub URL from
@@ -36,9 +49,10 @@ trait UnknownCodeInfo extends HasCodeInfo {
 trait Ai2CodeInfo extends HasCodeInfo {
   override def codeInfo: CodeInfo = {
     val version = unchangedSince
+    val className = this.getClass.getSimpleName.reverse.dropWhile(_ == '$').reverse
     this.getClass.getPackage.getImplementationVersion match {
-      case null => CodeInfo(version, version, None, None)
-      case buildId => CodeInfo(buildId, version, None, None)
+      case null => CodeInfo(className, version, version, None, None)
+      case buildId => CodeInfo(className, buildId, version, None, None)
     }
   }
 

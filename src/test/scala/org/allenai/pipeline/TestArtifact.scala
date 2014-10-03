@@ -4,7 +4,7 @@ import scala.io.Source
 
 import java.io.{ InputStream, File }
 
-import org.allenai.common.testkit.UnitSpec
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 import org.scalatest._
 
 import scala.collection.mutable.ListBuffer
@@ -12,11 +12,11 @@ import scala.util.Random
 
 /** Created by rodneykinney on 8/19/14.
   */
-class TestArtifact extends UnitSpec {
+class TestArtifact extends UnitSpec with ScratchDirectory {
   "FileArtifact" should "read/write" in {
     val rand = new Random()
 
-    val file = new File("flatFile.txt")
+    val file = new File(scratchDir, "flatFile.txt")
     val a = new FileArtifact(file)
     val buff = new ListBuffer[String]
     a.write { w =>
@@ -35,7 +35,7 @@ class TestArtifact extends UnitSpec {
   "ZipFileArtifact" should "read/write" in {
     val rand = new Random()
 
-    val file = new File("archive.zip")
+    val file = new File(scratchDir, "archive.zip")
     val z = new ZipFileArtifact(file)
     val numbers = new ListBuffer[Int]
     val letters = new ListBuffer[String]
