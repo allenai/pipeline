@@ -77,7 +77,7 @@ object Workflow {
         case (key, value) =>
           s""""$key=${limitLength(value)}""""
       }.mkString(",")
-      val linksText = (info.srcUrl.map(uri => s"""new Link("${link(uri)}","code")""") ++
+      val linksText = (info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${info.buildId}")""") ++
         outputPath.map(uri => s"""new Link("${link(uri)}","output")""")).mkString(",")
       s"""g.addNode("$id", {\n
          |label: generateStepContent("${info.className}",\n
