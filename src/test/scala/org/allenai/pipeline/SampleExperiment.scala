@@ -21,39 +21,43 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     val jsonFormat = jsonFormat1(apply)
   }
 
+  type TrainingPoint = (Boolean, Array[Double])
+
   class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
     labels: Producer[Iterable[Boolean]],
     testSizeRatio: Double)
-      extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean,
-          Array[Double])])] with Ai2CodeInfo {
-    def create = {
+      extends Producer[(Iterable[TrainingPoint], Iterable[TrainingPoint])] with Ai2CodeInfo {
+    def create: (Iterable[TrainingPoint], Iterable[TrainingPoint]) = {
       val rand = new Random
       val data = labels.get.zip(features.get)
       val testSize = math.round(testSizeRatio * data.size).toInt
       (data.drop(testSize), data.take(testSize))
     }
 
-    override def signature = Signature.fromFields(this, "features", "labels", "testSizeRatio")
+    override def signature: Signature =
+      Signature.fromFields(this, "features", "labels", "testSizeRatio")
   }
 
-  case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
+  case class TrainModel(trainingData: Producer[Iterable[TrainingPoint]])
       extends Producer[TrainedModel] with Ai2Signature {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
     }
 
-    def train(data: Iterable[(Boolean, Array[Double])]): TrainedModel =
+    def train(data: Iterable[TrainingPoint]): TrainedModel =
       TrainedModel(s"Trained model with ${data.size} rows")
+
+    override def signature = Signature.fromObject(this)
   }
 
   type PRMeasurement = Iterable[(Double, Double, Double)]
 
   // Threshold, precision, recall
   case class MeasureModel(val model: Producer[TrainedModel],
-    val testData: Producer[Iterable[(Boolean, Array[Double])]])
+    val testData: Producer[Iterable[TrainingPoint]])
       extends Producer[PRMeasurement] with Ai2Signature {
-    def create = {
+    def create: PRMeasurement = {
       model.get
       // Just generate some dummy data
       val rand = new Random
@@ -73,14 +77,13 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
   case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
       extends Producer[Iterable[Array[Double]]] with Ai2Signature {
-    def create = {
+    def create: Iterable[Array[Double]] = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
-        Array.fill(8)(rand.nextDouble)
+        Array.fill(8)(rand.nextDouble) // scalastyle:ignore
       }
       features.toList
     }
-
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
@@ -92,9 +95,9 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     def parse(id: String, is: InputStream): ParsedDocument = ParsedDocument(id)
 
     // Writing back to XML not supported
-    def write(data: Iterator[ParsedDocument], artifact: StructuredArtifact) = ???
+    def write(data: Iterator[ParsedDocument], artifact: StructuredArtifact): Unit = ???
 
-    override def toString = this.getClass.getSimpleName
+    override def toString: String = this.getClass.getSimpleName
   }
 
   class TrainModelPython(val data: Producer[FlatArtifact], val io: ArtifactIo[TrainedModel,
@@ -113,7 +116,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
       model
     }
 
-    override def signature = Signature.fromFields(this, "data", "io")
+    override def signature: Signature = Signature.fromFields(this, "data", "io")
   }
 
 

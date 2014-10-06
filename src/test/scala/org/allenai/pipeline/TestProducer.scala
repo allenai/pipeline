@@ -12,6 +12,7 @@ import java.io.File
 
 /** Created by rodneykinney on 8/19/14.
   */
+// scalastyle:off magic.number
 class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   import scala.language.reflectiveCalls

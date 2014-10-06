@@ -2,6 +2,7 @@ package org.allenai.pipeline
 
 import org.allenai.common.testkit.UnitSpec
 
+// scalastyle:off magic.number
 class TestVersionId extends UnitSpec {
   "Version ID" should "parse from string" in {
     MavenVersionId("1") should equal(Some(MavenVersionId(1)))

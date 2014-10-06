@@ -2,7 +2,7 @@ package org.allenai.pipeline
 
 import com.typesafe.config.ConfigFactory
 import spray.json.DefaultJsonProtocol._
-import spray.json.{JsString, JsValue, JsonFormat}
+import spray.json.{ JsString, JsValue, JsonFormat }
 
 import scala.collection.JavaConverters._
 
@@ -11,9 +11,9 @@ import java.net.URI
 /** Contains information about the origin of the compiled class implementing a Producer
   * @param buildId A version number, e.g. git tag
   * @param unchangedSince The latest version number at which the logic for this class changed.
-  *                       Classes in which the buildIds differ but the unchangedSince field is
-  *                       the same are assumed to produce the same outputs when given the same
-  *                       inputs
+  *                     Classes in which the buildIds differ but the unchangedSince field is
+  *                     the same are assumed to produce the same outputs when given the same
+  *                     inputs
   * @param srcUrl Link to source (e.g. in GitHub)
   * @param binaryUrl Link to binaries (e.g. in Nexus)
   */
@@ -61,7 +61,7 @@ trait Ai2CodeInfo extends HasCodeInfo {
         // This resource is written by allenai/sbt-release
         val configPath = s"""${pack.getImplementationVendor}/${
           pack.getImplementationTitle
-              .replaceAll("-", "")
+            .replaceAll("-", "")
         }/git.conf"""
         val config = ConfigFactory.load(configPath)
         // Commit sha
@@ -85,8 +85,7 @@ trait Ai2CodeInfo extends HasCodeInfo {
         val srcUrl = new URI(useRemote.getScheme, useRemote.getUserInfo, useRemote.getHost,
           useRemote.getPort, newPath, useRemote.getQuery, useRemote.getFragment)
         CodeInfo(className, buildId, lastChangedVersion, Some(srcUrl), None)
-      }
-      catch {
+      } catch {
         // Fall-back.  If the config doesn't exist or doesn't contain the expected information
         // Then get the version number from MANIFEST.MF and don't give a source URL
         case ex: Exception => this.getClass.getPackage.getImplementationVersion match {
