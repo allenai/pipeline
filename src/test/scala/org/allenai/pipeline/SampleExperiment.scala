@@ -179,6 +179,10 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
       Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainDataPersisted = Persist.Collection.asText(trainData)
+    // Another way of persisting
+    val trainDataPersistedAlt = runner.persist(trainData, LineCollectionIo.text[(Boolean,
+        Array[Double])], "txt")
+    trainDataPersistedAlt.artifact.url should equal(trainDataPersisted.artifact.url)
     val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
     val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
       Persist.Collection.asText(new MeasureModel(model, testData))

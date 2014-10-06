@@ -2,12 +2,12 @@ package org.allenai.pipeline
 
 import org.allenai.pipeline.IoHelpers._
 
+import scala.reflect.ClassTag
+
 import java.io.File
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
-
-import scala.reflect.runtime.universe._
 
 /** Executes a pipeline represented by a set of Producer instances
   * Inspects the meta-info about the pipeline steps (represented by PipelineRunnerSupport interface)
@@ -33,12 +33,12 @@ class PipelineRunner(
     persistence.structuredArtifact(path(signature, suffix))
   }
 
-  def persist[T, A <: Artifact: TypeTag](producer: Producer[T], io: ArtifactIo[T, A],
+  def persist[T, A <: Artifact: ClassTag](producer: Producer[T], io: ArtifactIo[T, A],
     suffix: String): PersistedProducer[T, A] = {
-    typeOf[A] match {
-      case t if t =:= typeOf[FlatArtifact] => producer.persisted(io,
+    implicitly[ClassTag[A]].runtimeClass match {
+      case c if c == classOf[FlatArtifact] => producer.persisted(io,
         flatArtifact((producer.signature, suffix)).asInstanceOf[A])
-      case t if t =:= typeOf[StructuredArtifact] => producer.persisted(io,
+      case c if c == classOf[StructuredArtifact] => producer.persisted(io,
         structuredArtifact((producer.signature, suffix)).asInstanceOf[A])
       case _ => sys.error(s"Cannot persist using io class of unknown type $io")
     }
