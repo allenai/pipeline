@@ -6,4 +6,5 @@ libraryDependencies ++= Seq(sprayJson,
   awsJavaSdk,
   commonsIO,
   scalaReflection)
- 
+
+dependencyOverrides += scalaReflection
