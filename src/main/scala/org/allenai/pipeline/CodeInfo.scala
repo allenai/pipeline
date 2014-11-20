@@ -11,17 +11,19 @@ import java.net.URI
 /** Contains information about the origin of the compiled class implementing a Producer
   * @param buildId A version number, e.g. git tag
   * @param unchangedSince The latest version number at which the logic for this class changed.
-  *                    Classes in which the buildIds differ but the unchangedSince field is
-  *                    the same are assumed to produce the same outputs when given the same
-  *                    inputs
+  *                   Classes in which the buildIds differ but the unchangedSince field is
+  *                   the same are assumed to produce the same outputs when given the same
+  *                   inputs
   * @param srcUrl Link to source (e.g. in GitHub)
   * @param binaryUrl Link to binaries (e.g. in Nexus)
   */
-case class CodeInfo(className: String,
+case class CodeInfo(
+  className: String,
   buildId: String,
   unchangedSince: String,
   srcUrl: Option[URI],
-  binaryUrl: Option[URI])
+  binaryUrl: Option[URI]
+)
 
 object CodeInfo {
   implicit val uriFormat = new JsonFormat[URI] {

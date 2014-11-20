@@ -11,8 +11,10 @@ import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
 /** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {
   private val parentDir = file.getCanonicalFile.getParentFile
-  require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
-    s"Unable to find or create directory $parentDir")
+  require(
+    (parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
+    s"Unable to find or create directory $parentDir"
+  )
   override def exists: Boolean = file.exists
 
   override def url: URI = file.getCanonicalFile.toURI
@@ -45,8 +47,10 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
   override def url: URI = dir.getCanonicalFile.toURI
 
   private val parentDir = dir.getCanonicalFile.getParentFile
-  require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
-    s"Unable to find or create directory $dir")
+  require(
+    (parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
+    s"Unable to find or create directory $dir"
+  )
 
   override def exists: Boolean = dir.exists && dir.isDirectory
 
@@ -58,7 +62,8 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
 
     /** Read only read plain files (no recursive directory search). */
     def readAll: Iterator[(String, InputStream)] = dir.listFiles.iterator.filterNot(
-      _.isDirectory).map(f => (f.getName, new FileInputStream(f)))
+      _.isDirectory
+    ).map(f => (f.getName, new FileInputStream(f)))
   }
 
   /** Writing to a directory is atomic, like other artifacts.
@@ -132,8 +137,10 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
 
   class ZipFileWriter(file: File) extends Writer {
     private val parentDir = file.getCanonicalFile.getParentFile
-    require((parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
-      s"Unable to find or create directory $parentDir")
+    require(
+      (parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
+      s"Unable to find or create directory $parentDir"
+    )
     private val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
     tmpFile.deleteOnExit()
     private val zipOut = new ZipOutputStream(new FileOutputStream(tmpFile))

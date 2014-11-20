@@ -21,9 +21,11 @@ object S3Config {
 }
 
 /** Artifact implementations using S3 storage. */
-class S3FlatArtifact(val path: String,
+class S3FlatArtifact(
+  val path: String,
   val config: S3Config,
-  val contentTypeOverride: Option[String] = None)
+  val contentTypeOverride: Option[String] = None
+)
     extends FlatArtifact with S3Artifact[FileArtifact] {
   protected def makeLocalArtifact(f: File) = new FileArtifact(f)
 
@@ -42,9 +44,11 @@ class S3FlatArtifact(val path: String,
 }
 
 /** Zip file stored in S3.  */
-class S3ZipArtifact(val path: String,
+class S3ZipArtifact(
+  val path: String,
   val config: S3Config,
-  val contentTypeOverride: Option[String] = None)
+  val contentTypeOverride: Option[String] = None
+)
     extends StructuredArtifact with S3Artifact[ZipFileArtifact] {
 
   import org.allenai.pipeline.StructuredArtifact._
@@ -125,8 +129,10 @@ trait S3Artifact[A <: Artifact] extends Logging {
         }
         f
       }
-      require(cacheDir.exists && cacheDir.isDirectory,
-        s"Unable to create cache directory ${cacheDir.getCanonicalPath}")
+      require(
+        cacheDir.exists && cacheDir.isDirectory,
+        s"Unable to create cache directory ${cacheDir.getCanonicalPath}"
+      )
       val downloadFile = new File(cacheDir, path.replaceAll("""/""", """\$"""))
       if (exists && !downloadFile.exists) {
         logger.debug(s"Downloading $bucket/$path to $downloadFile")
@@ -139,8 +145,10 @@ trait S3Artifact[A <: Artifact] extends Logging {
           os.write(buffer, 0, n))
         is.close()
         os.close()
-        require(tmpFile.renameTo(downloadFile),
-          s"Unable to create download file ${downloadFile.getCanonicalPath}")
+        require(
+          tmpFile.renameTo(downloadFile),
+          s"Unable to create download file ${downloadFile.getCanonicalPath}"
+        )
       }
       cachedFile = Some(makeLocalArtifact(downloadFile))
       cachedFile.get

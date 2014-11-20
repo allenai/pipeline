@@ -22,8 +22,10 @@ trait ColumnFormats {
       }
     }
 
-  def columnFormat2[P1, P2, T <: Product](construct: (P1, P2) => T,
-    sep: Char = '\t')(implicit p1Parser: SS[P1], p2Parser: SS[P2]): SS[T] = new SS[T] {
+  def columnFormat2[P1, P2, T <: Product](
+    construct: (P1, P2) => T,
+    sep: Char = '\t'
+  )(implicit p1Parser: SS[P1], p2Parser: SS[P2]): SS[T] = new SS[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
@@ -34,83 +36,106 @@ trait ColumnFormats {
     }
 
     override def toString(t: T): String = {
-      List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
-        p2Parser.toString(t.productElement(1).asInstanceOf[P2])).mkString(sep.toString)
+      List(
+        p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
+        p2Parser.toString(t.productElement(1).asInstanceOf[P2])
+      ).mkString(sep.toString)
     }
   }
 
-  def columnFormat3[P1, P2, P3, T <: Product](construct: (P1, P2, P3) => T,
-    sep: Char = '\t')(implicit p1Parser: SS[P1],
-      p2Parser: SS[P2], p3Parser: SS[P3]): SS[T] = new SS[T] {
+  def columnFormat3[P1, P2, P3, T <: Product](
+    construct: (P1, P2, P3) => T,
+    sep: Char = '\t'
+  )(implicit
+    p1Parser: SS[P1],
+    p2Parser: SS[P2], p3Parser: SS[P3]): SS[T] = new SS[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
       p.split(s, -1) match {
-        case Array(p1, p2, p3) => construct(p1Parser.fromString(p1),
+        case Array(p1, p2, p3) => construct(
+          p1Parser.fromString(p1),
           p2Parser.fromString(p2),
-          p3Parser.fromString(p3))
+          p3Parser.fromString(p3)
+        )
         case x => sys.error(s"Wrong number of columns in TSV (${x.length} instead of 3)")
       }
     }
 
     override def toString(t: T): String = {
-      List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
+      List(
+        p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
         p2Parser.toString(t.productElement(1).asInstanceOf[P2]),
-        p3Parser.toString(t.productElement(2).asInstanceOf[P3])).mkString(sep.toString)
+        p3Parser.toString(t.productElement(2).asInstanceOf[P3])
+      ).mkString(sep.toString)
     }
   }
 
-  def columnFormat4[P1, P2, P3, P4, T <: Product](construct: (P1, P2, P3, P4) => T,
-    sep: Char = '\t')(implicit p1Parser: SS[P1],
-      p2Parser: SS[P2],
-      p3Parser: SS[P3],
-      p4Parser: SS[P4]): SS[T] = new SS[T] {
+  def columnFormat4[P1, P2, P3, P4, T <: Product](
+    construct: (P1, P2, P3, P4) => T,
+    sep: Char = '\t'
+  )(implicit
+    p1Parser: SS[P1],
+    p2Parser: SS[P2],
+    p3Parser: SS[P3],
+    p4Parser: SS[P4]): SS[T] = new SS[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
       p.split(s, -1) match {
-        case Array(p1, p2, p3, p4) => construct(p1Parser.fromString(p1),
+        case Array(p1, p2, p3, p4) => construct(
+          p1Parser.fromString(p1),
           p2Parser.fromString(p2),
           p3Parser.fromString(p3),
-          p4Parser.fromString(p4))
+          p4Parser.fromString(p4)
+        )
         case x => sys.error(s"Wrong number of columns in TSV (${x.length} instead of 4)")
       }
     }
 
     override def toString(t: T): String = {
-      List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
+      List(
+        p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
         p2Parser.toString(t.productElement(1).asInstanceOf[P2]),
         p3Parser.toString(t.productElement(2).asInstanceOf[P3]),
-        p4Parser.toString(t.productElement(3).asInstanceOf[P4])).mkString(sep.toString)
+        p4Parser.toString(t.productElement(3).asInstanceOf[P4])
+      ).mkString(sep.toString)
     }
   }
 
-  def columnFormat5[P1, P2, P3, P4, P5, T <: Product](construct: (P1, P2, P3, P4, P5) => T,
-    sep: Char = '\t')(implicit p1Parser: SS[P1],
-      p2Parser: SS[P2],
-      p3Parser: SS[P3],
-      p4Parser: SS[P4],
-      p5Parser: SS[P5]): SS[T] = new SS[T] {
+  def columnFormat5[P1, P2, P3, P4, P5, T <: Product](
+    construct: (P1, P2, P3, P4, P5) => T,
+    sep: Char = '\t'
+  )(implicit
+    p1Parser: SS[P1],
+    p2Parser: SS[P2],
+    p3Parser: SS[P3],
+    p4Parser: SS[P4],
+    p5Parser: SS[P5]): SS[T] = new SS[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
       p.split(s, -1) match {
-        case Array(p1, p2, p3, p4, p5) => construct(p1Parser.fromString(p1),
+        case Array(p1, p2, p3, p4, p5) => construct(
+          p1Parser.fromString(p1),
           p2Parser.fromString(p2),
           p3Parser.fromString(p3),
           p4Parser.fromString(p4),
-          p5Parser.fromString(p5))
+          p5Parser.fromString(p5)
+        )
         case x => sys.error(s"Wrong number of columns in TSV (${x.length} instead of 5)")
       }
     }
 
     // scalastyle:off
     override def toString(t: T): String = {
-      List(p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
+      List(
+        p1Parser.toString(t.productElement(0).asInstanceOf[P1]),
         p2Parser.toString(t.productElement(1).asInstanceOf[P2]),
         p3Parser.toString(t.productElement(2).asInstanceOf[P3]),
         p4Parser.toString(t.productElement(3).asInstanceOf[P4]),
-        p5Parser.toString(t.productElement(4).asInstanceOf[P5])).mkString(sep.toString)
+        p5Parser.toString(t.productElement(4).asInstanceOf[P5])
+      ).mkString(sep.toString)
     }
     // scalastyle:on
   }
@@ -164,11 +189,13 @@ trait ColumnFormats {
     columnFormat3(Tuple3.apply[T1, T2, T3], sep)
 
   implicit def tuple4ColumnFormat[T1: SS, T2: SS, T3: SS, T4: SS](
-    sep: Char = '\t'): SS[(T1, T2, T3, T4)] =
+    sep: Char = '\t'
+  ): SS[(T1, T2, T3, T4)] =
     columnFormat4(Tuple4.apply[T1, T2, T3, T4], sep)
 
   implicit def tuple5ColumnFormat[T1: SS, T2: SS, T3: SS, T4: SS, T5: SS](
-    sep: Char = '\t'): SS[(T1, T2, T3, T4, T5)] =
+    sep: Char = '\t'
+  ): SS[(T1, T2, T3, T4, T5)] =
     columnFormat5(Tuple5.apply[T1, T2, T3, T4, T5], sep)
 
 }

@@ -14,8 +14,10 @@ object IoHelpers extends ReadHelpers with WriteHelpers {
     def apply[T](data: T): Producer[T] = new Producer[T] with UnknownCodeInfo {
       override def create: T = data
 
-      override def signature: Signature = Signature(data.getClass.getName,
-        data.hashCode.toHexString)
+      override def signature: Signature = Signature(
+        data.getClass.getName,
+        data.hashCode.toHexString
+      )
 
       override def outputLocation: Option[URI] = None
     }

@@ -20,7 +20,8 @@ import java.util.Date
   * @param persistence factory for turning paths into Artifacts
   */
 class PipelineRunner(
-  persistence: ArtifactFactory[String])
+  persistence: ArtifactFactory[String]
+)
     extends ArtifactFactory[(Signature, String)] {
 
   def flatArtifact(signatureSuffix: (Signature, String)): FlatArtifact = {
@@ -36,10 +37,14 @@ class PipelineRunner(
   def persist[T, A <: Artifact: ClassTag](producer: Producer[T], io: ArtifactIo[T, A],
     suffix: String): PersistedProducer[T, A] = {
     implicitly[ClassTag[A]].runtimeClass match {
-      case c if c == classOf[FlatArtifact] => producer.persisted(io,
-        flatArtifact((producer.signature, suffix)).asInstanceOf[A])
-      case c if c == classOf[StructuredArtifact] => producer.persisted(io,
-        structuredArtifact((producer.signature, suffix)).asInstanceOf[A])
+      case c if c == classOf[FlatArtifact] => producer.persisted(
+        io,
+        flatArtifact((producer.signature, suffix)).asInstanceOf[A]
+      )
+      case c if c == classOf[StructuredArtifact] => producer.persisted(
+        io,
+        structuredArtifact((producer.signature, suffix)).asInstanceOf[A]
+      )
       case _ => sys.error(s"Cannot persist using io class of unknown type $io")
     }
   }

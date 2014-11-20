@@ -12,9 +12,11 @@ import java.net.URI
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link])
 
 /** Represents a Producer instance with PipelineRunnerSupport */
-case class Node(info: CodeInfo,
+case class Node(
+  info: CodeInfo,
   params: Map[String, String],
-  outputPath: Option[URI])
+  outputPath: Option[URI]
+)
 
 /** Represents dependency between Producer instances */
 case class Link(fromId: String, toId: String, name: String)

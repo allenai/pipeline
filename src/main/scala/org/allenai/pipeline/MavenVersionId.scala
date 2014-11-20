@@ -1,11 +1,13 @@
 package org.allenai.pipeline
 
 /** Maven-style version id */
-case class MavenVersionId(major: Int,
+case class MavenVersionId(
+  major: Int,
     minor: Option[Int] = None,
     incremental: Option[Int] = None,
     build: Option[Int] = None,
-    qualifier: Option[String] = None) extends Comparable[MavenVersionId] {
+    qualifier: Option[String] = None
+) extends Comparable[MavenVersionId] {
   require(!incremental.isDefined || minor.isDefined, s"Invalid version $this")
 
   def versionId: String = s"""$major""" +
@@ -65,11 +67,13 @@ object MavenVersionId {
             case ex: NumberFormatException => (Some(s2.toInt), Some(s1))
           }
         }
-        Some(new MavenVersionId(major.toInt,
+        Some(new MavenVersionId(
+          major.toInt,
           if (minor == null) None else Some(minor.toInt),
           if (incremental == null) None else Some(incremental.toInt),
           build,
-          qualifier))
+          qualifier
+        ))
       } catch {
         case ex: NumberFormatException => None
       }

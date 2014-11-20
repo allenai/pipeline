@@ -45,7 +45,9 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 
 object SingletonIo {
   def text[T: StringSerializable: ClassTag](
-    implicit codec: Codec): ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
+    implicit
+    codec: Codec
+  ): ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
 
   def json[T: JsonFormat: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
@@ -60,9 +62,11 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 
   override def read(artifact: FlatArtifact): Iterable[T] = delegate.read(artifact).toList
 
-  override def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(data
+  override def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(
+    data
     .iterator,
-    artifact)
+    artifact
+  )
 
   override def codeInfo: CodeInfo = super.codeInfo.copy(className = s"LineCollectionIo[${
     scala.reflect.
@@ -73,11 +77,15 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 
 object LineCollectionIo {
   def text[T: StringSerializable: ClassTag](
-    implicit codec: Codec): ArtifactIo[Iterable[T], FlatArtifact] =
+    implicit
+    codec: Codec
+  ): ArtifactIo[Iterable[T], FlatArtifact] =
     new LineCollectionIo[T]
 
   def json[T: JsonFormat: ClassTag](
-    implicit codec: Codec): ArtifactIo[Iterable[T], FlatArtifact] = {
+    implicit
+    codec: Codec
+  ): ArtifactIo[Iterable[T], FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new LineCollectionIo[T]
   }
@@ -107,11 +115,15 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 
 object LineIteratorIo {
   def text[T: StringSerializable: ClassTag](
-    implicit codec: Codec): ArtifactIo[Iterator[T], FlatArtifact] =
+    implicit
+    codec: Codec
+  ): ArtifactIo[Iterator[T], FlatArtifact] =
     new LineIteratorIo[T]
 
   def json[T: JsonFormat: ClassTag](
-    implicit codec: Codec): ArtifactIo[Iterator[T], FlatArtifact] = {
+    implicit
+    codec: Codec
+  ): ArtifactIo[Iterator[T], FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new LineIteratorIo[T]
   }

@@ -26,8 +26,10 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
     * If the artifact we are using for persistence exists,
     * return the deserialized object rather than recomputing it.
     */
-  def persisted[A <: Artifact](io: ArtifactIo[T, A],
-    artifactSource: => A): PersistedProducer[T, A] =
+  def persisted[A <: Artifact](
+    io: ArtifactIo[T, A],
+    artifactSource: => A
+  ): PersistedProducer[T, A] =
     new PersistedProducer(this, io, artifactSource)
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
@@ -49,10 +51,12 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
     }
   }
 
-  def copy[T2](create: () => T2 = self.create _,
+  def copy[T2](
+    create: () => T2 = self.create _,
     signature: () => Signature = self.signature _,
     codeInfo: () => CodeInfo = self.codeInfo _,
-    cachingEnabled: () => Boolean = self.cachingEnabled _): Producer[T2] = {
+    cachingEnabled: () => Boolean = self.cachingEnabled _
+  ): Producer[T2] = {
     val _create = create
     val _signature = signature
     val _codeInfo = codeInfo
@@ -147,24 +151,35 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
 //
 object Producer2 {
   def unapply[T1, T2](p: Producer[(T1, T2)]): Option[(Producer[T1], Producer[T2])] = {
-    val p1 = p.copy(create = () => p.get._1,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
+    val p1 = p.copy(
+      create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1")
+    )
 
-    val p2 = p.copy(create = () => p.get._2,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
+    val p2 = p.copy(
+      create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2")
+    )
     Some((p1, p2))
   }
 }
 
 object Producer3 {
   def unapply[T1, T2, T3](
-    p: Producer[(T1, T2, T3)]): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
-    val p1 = p.copy(create = () => p.get._1,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
-    val p2 = p.copy(create = () => p.get._2,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
-    val p3 = p.copy(create = () => p.get._3,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
+    p: Producer[(T1, T2, T3)]
+  ): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
+    val p1 = p.copy(
+      create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1")
+    )
+    val p2 = p.copy(
+      create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2")
+    )
+    val p3 = p.copy(
+      create = () => p.get._3,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_3")
+    )
     Some((p1, p2, p3))
   }
 }
@@ -173,14 +188,22 @@ object Producer4 {
   private type P[T] = Producer[T] // Reduce line length
 
   def unapply[T1, T2, T3, T4](p: P[(T1, T2, T3, T4)]): Option[(P[T1], P[T2], P[T3], P[T4])] = {
-    val p1 = p.copy(create = () => p.get._1,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
-    val p2 = p.copy(create = () => p.get._2,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
-    val p3 = p.copy(create = () => p.get._3,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
-    val p4 = p.copy(create = () => p.get._4,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
+    val p1 = p.copy(
+      create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1")
+    )
+    val p2 = p.copy(
+      create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2")
+    )
+    val p3 = p.copy(
+      create = () => p.get._3,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_3")
+    )
+    val p4 = p.copy(
+      create = () => p.get._4,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_4")
+    )
     Some((p1, p2, p3, p4))
   }
 }
@@ -189,17 +212,28 @@ object Producer5 {
   private type P[T] = Producer[T] // Reduce line length
 
   def unapply[T1, T2, T3, T4, T5](
-    p: P[(T1, T2, T3, T4, T5)]): Option[(P[T1], P[T2], P[T3], P[T4], P[T5])] = {
-    val p1 = p.copy(create = () => p.get._1,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_1"))
-    val p2 = p.copy(create = () => p.get._2,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_2"))
-    val p3 = p.copy(create = () => p.get._3,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_3"))
-    val p4 = p.copy(create = () => p.get._4,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_4"))
-    val p5 = p.copy(create = () => p.get._5,
-      signature = () => p.signature.copy(name = s"${p.signature.name}_5"))
+    p: P[(T1, T2, T3, T4, T5)]
+  ): Option[(P[T1], P[T2], P[T3], P[T4], P[T5])] = {
+    val p1 = p.copy(
+      create = () => p.get._1,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_1")
+    )
+    val p2 = p.copy(
+      create = () => p.get._2,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_2")
+    )
+    val p3 = p.copy(
+      create = () => p.get._3,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_3")
+    )
+    val p4 = p.copy(
+      create = () => p.get._4,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_4")
+    )
+    val p5 = p.copy(
+      create = () => p.get._5,
+      signature = () => p.signature.copy(name = s"${p.signature.name}_5")
+    )
     Some((p1, p2, p3, p4, p5))
   }
 }
