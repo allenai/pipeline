@@ -1,19 +1,19 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.allenai.pipeline.IoHelpers._
 
 import org.apache.commons.io.FileUtils
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
 import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
 
-import java.io.{InputStream, File}
+import java.io.{ InputStream, File }
 
 /** Test PipelineRunner functionality */
 class SampleExperiment extends UnitSpec
-with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
+    with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
   case class TrainedModel(info: String)
 
@@ -23,9 +23,11 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
   type TrainingPoint = (Boolean, Array[Double])
 
-  class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
+  class JoinAndSplitData(
+    features: Producer[Iterable[Array[Double]]],
     labels: Producer[Iterable[Boolean]],
-    testSizeRatio: Double)
+    testSizeRatio: Double
+  )
       extends Producer[(Iterable[TrainingPoint], Iterable[TrainingPoint])] with Ai2CodeInfo {
     def create: (Iterable[TrainingPoint], Iterable[TrainingPoint]) = {
       val rand = new Random
@@ -54,8 +56,10 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
   type PRMeasurement = Iterable[(Double, Double, Double)]
 
   // Threshold, precision, recall
-  case class MeasureModel(val model: Producer[TrainedModel],
-    val testData: Producer[Iterable[TrainingPoint]])
+  case class MeasureModel(
+    val model: Producer[TrainedModel],
+    val testData: Producer[Iterable[TrainingPoint]]
+  )
       extends Producer[PRMeasurement] with Ai2Signature {
     def create: PRMeasurement = {
       model.get
@@ -87,7 +91,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
-  with Ai2CodeInfo {
+      with Ai2CodeInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
     }
@@ -100,8 +104,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     override def toString: String = this.getClass.getSimpleName
   }
 
-  class TrainModelPython(val data: Producer[FlatArtifact], val io: ArtifactIo[TrainedModel,
-      FileArtifact])
+  class TrainModelPython(val data: Producer[FlatArtifact], val io: ArtifactIo[TrainedModel, FileArtifact])
       extends Producer[TrainedModel] with Ai2CodeInfo {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
@@ -118,7 +121,6 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
     override def signature: Signature = Signature.fromFields(this, "data", "io")
   }
-
 
   val inputDir = new File("pipeline/src/test/resources/pipeline")
   val featureFile = "features.txt"
@@ -155,7 +157,8 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     val trainDataPersisted = Persist.Collection.asText(trainData)
     val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
     val measure: Producer[PRMeasurement] = Persist.Collection.asText(
-      new MeasureModel(model, testData))
+      new MeasureModel(model, testData)
+    )
     runner.run(measure)
 
     assert(findFile(scratchDir, "JoinAndSplitData_1", ".txt"), "Training data file created")
@@ -180,8 +183,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainDataPersisted = Persist.Collection.asText(trainData)
     // Another way of persisting
-    val trainDataPersistedAlt = runner.persist(trainData, LineCollectionIo.text[(Boolean,
-        Array[Double])], "txt")
+    val trainDataPersistedAlt = runner.persist(trainData, LineCollectionIo.text[(Boolean, Array[Double])], "txt")
     trainDataPersistedAlt.artifact.url should equal(trainDataPersisted.artifact.url)
     val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
     val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
@@ -203,13 +205,15 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
         Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
       val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
       val trainDataPersisted = Persist.Collection.asText(trainData)
-      val model = Persist.Singleton.asJson(new TrainModelPython(trainDataPersisted.asArtifact,
-        SingletonIo.json[TrainedModel]))
+      val model = Persist.Singleton.asJson(new TrainModelPython(
+        trainDataPersisted.asArtifact,
+        SingletonIo.json[TrainedModel]
+      ))
       val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
         Persist.Collection.asText(new MeasureModel(model, testData))
       val experimentSummary = runner.run(measure)
       (new File(trainDataPersisted.artifact.url), new File(measure.artifact.url),
-          experimentSummary)
+        experimentSummary)
     }
 
     // Should use the same file to persist training data

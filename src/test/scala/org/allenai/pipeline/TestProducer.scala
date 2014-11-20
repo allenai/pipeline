@@ -52,13 +52,17 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistedProducer" should "read from file if exists" in {
-    val pStep = randomNumbers.persisted(LineCollectionIo.text[Double],
-      output.flatArtifact("savedNumbers.txt"))
+    val pStep = randomNumbers.persisted(
+      LineCollectionIo.text[Double],
+      output.flatArtifact("savedNumbers.txt")
+    )
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = cachedRandomNumbers.persisted(LineCollectionIo.text[Double],
-      new FileArtifact(new File(outputDir, "savedNumbers.txt")))
+    val otherStep = cachedRandomNumbers.persisted(
+      LineCollectionIo.text[Double],
+      new FileArtifact(new File(outputDir, "savedNumbers.txt"))
+    )
     otherStep.get should equal(pStep.get)
   }
 
@@ -71,13 +75,17 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistentCachedProducer" should "read from file if exists" in {
-    val pStep = cachedRandomNumbers.persisted(LineCollectionIo.text[Double],
-      output.flatArtifact("savedCachedNumbers.txt"))
+    val pStep = cachedRandomNumbers.persisted(
+      LineCollectionIo.text[Double],
+      output.flatArtifact("savedCachedNumbers.txt")
+    )
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = randomNumbers.persisted(LineCollectionIo.text[Double],
-      output.flatArtifact("savedCachedNumbers.txt"))
+    val otherStep = randomNumbers.persisted(
+      LineCollectionIo.text[Double],
+      output.flatArtifact("savedCachedNumbers.txt")
+    )
     otherStep.get should equal(pStep.get)
   }
 
@@ -94,16 +102,22 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Persisted iterator" should "re-use value" in {
-    val persisted = randomIterator.persisted(LineIteratorIo.text[Double],
-      output.flatArtifact("randomIterator.txt"))
+    val persisted = randomIterator.persisted(
+      LineIteratorIo.text[Double],
+      output.flatArtifact("randomIterator.txt")
+    )
     persisted.get.toList should equal(persisted.get.toList)
   }
 
   "Persisted iterator" should "read from file if exists" in {
-    val persisted = randomIterator.enableCaching.persisted(LineIteratorIo.text[Double],
-      output.flatArtifact("savedCachedIterator.txt"))
-    val otherStep = randomIterator.disableCaching.persisted(LineIteratorIo.text[Double],
-      output.flatArtifact("savedCachedIterator.txt"))
+    val persisted = randomIterator.enableCaching.persisted(
+      LineIteratorIo.text[Double],
+      output.flatArtifact("savedCachedIterator.txt")
+    )
+    val otherStep = randomIterator.disableCaching.persisted(
+      LineIteratorIo.text[Double],
+      output.flatArtifact("savedCachedIterator.txt")
+    )
   }
 
   "Signature id" should "be order independent" in {
@@ -197,13 +211,14 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   override def beforeAll: Unit = {
-    require((outputDir.exists && outputDir.isDirectory) || outputDir.mkdirs,
-      s"Unable to create test output directory $outputDir")
+    require(
+      (outputDir.exists && outputDir.isDirectory) || outputDir.mkdirs,
+      s"Unable to create test output directory $outputDir"
+    )
   }
 
   override def afterAll: Unit = {
     FileUtils.deleteDirectory(outputDir)
   }
 }
-
 

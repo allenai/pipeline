@@ -2,7 +2,7 @@ package org.allenai.pipeline
 
 import java.io.File
 
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import spray.json.DefaultJsonProtocol._
 import org.allenai.pipeline.IoHelpers._
 

@@ -4,7 +4,7 @@ import scala.io.Source
 
 import java.io.{ InputStream, File }
 
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.scalatest._
 
 import scala.collection.mutable.ListBuffer

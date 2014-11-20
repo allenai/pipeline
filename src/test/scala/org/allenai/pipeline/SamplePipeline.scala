@@ -1,20 +1,20 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
 import org.apache.commons.io.FileUtils
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
 import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
 
-import java.io.{File, InputStream}
+import java.io.{ File, InputStream }
 
 /** See README.md for explanatory documentation of this example,
   * which runs a mocked-up pipeline to train and cross-validate a model.
   */
 class SamplePipeline extends UnitSpec
-with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
+    with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
   case class TrainedModel(info: String)
 
@@ -22,11 +22,13 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
     val jsonFormat = jsonFormat1(apply)
   }
 
-  class JoinAndSplitData(features: Producer[Iterable[Array[Double]]],
-                         labels: Producer[Iterable[Boolean]],
-                         testSizeRatio: Double)
-    extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])]
-    with NoPipelineRunnerSupport {
+  class JoinAndSplitData(
+    features: Producer[Iterable[Array[Double]]],
+    labels: Producer[Iterable[Boolean]],
+    testSizeRatio: Double
+  )
+      extends Producer[(Iterable[(Boolean, Array[Double])], Iterable[(Boolean, Array[Double])])]
+      with NoPipelineRunnerSupport {
     def create = {
       val rand = new Random
       val data = labels.get.zip(features.get)
@@ -36,7 +38,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
   }
 
   case class TrainModel(trainingData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[TrainedModel] with NoPipelineRunnerSupport {
+      extends Producer[TrainedModel] with NoPipelineRunnerSupport {
     def create: TrainedModel = {
       val dataRows = trainingData.get
       train(dataRows) // Run training algorithm on training data
@@ -49,9 +51,11 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
   type PRMeasurement = Iterable[(Double, Double, Double)]
 
   // Threshold, precision, recall
-  class MeasureModel(val model: Producer[TrainedModel],
-                     val testData: Producer[Iterable[(Boolean, Array[Double])]])
-    extends Producer[PRMeasurement] with NoPipelineRunnerSupport {
+  class MeasureModel(
+    val model: Producer[TrainedModel],
+    val testData: Producer[Iterable[(Boolean, Array[Double])]]
+  )
+      extends Producer[PRMeasurement] with NoPipelineRunnerSupport {
     def create = {
       model.get
       // Just generate some dummy data
@@ -113,7 +117,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
   case class ParsedDocument(info: String)
 
   case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-    extends Producer[Iterable[Array[Double]]] with NoPipelineRunnerSupport {
+      extends Producer[Iterable[Array[Double]]] with NoPipelineRunnerSupport {
     def create = {
       val features = for (doc <- documents.get) yield {
         val rand = new Random
@@ -124,7 +128,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
-  with UnknownCodeInfo {
+      with UnknownCodeInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
     }
@@ -147,7 +151,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
       Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
     // Define pipeline
     val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
-    testData: Producer[Iterable[(Boolean, Array[Double])]]) =
+      testData: Producer[Iterable[(Boolean, Array[Double])]]) =
       new JoinAndSplitData(docFeatures, labelData, 0.2)
     val model: Producer[TrainedModel] =
       Persist.Singleton.asJson(new TrainModel(trainData), "TrainModel.json")
@@ -159,9 +163,8 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
     assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
-  class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel,
-    FileArtifact])
-    extends Producer[TrainedModel] with NoPipelineRunnerSupport {
+  class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel, FileArtifact])
+      extends Producer[TrainedModel] with NoPipelineRunnerSupport {
     def create: TrainedModel = {
       val inputFile = File.createTempFile("trainData", ".tsv")
       val outputFile = File.createTempFile("model", ".json")
@@ -190,10 +193,13 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory{
     // Define pipeline
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
     val trainingDataFile = Persist.Collection.asText(trainData, "TrainingData.txt").asArtifact
-    val model = Persist.Singleton.asJson(new TrainModelPython(trainingDataFile,
-      SingletonIo.json[TrainedModel]), "TrainModelPython.json")
+    val model = Persist.Singleton.asJson(new TrainModelPython(
+      trainingDataFile,
+      SingletonIo.json[TrainedModel]
+    ), "TrainModelPython.json")
     val measure: Producer[PRMeasurement] = Persist.Collection.asText(
-      new MeasureModel(model, testData), "MeasureModel.txt")
+      new MeasureModel(model, testData), "MeasureModel.txt"
+    )
     measure.get
 
     assert(findFile(scratchDir, "TrainingData", ".txt"), "Training data file created")
