@@ -46,9 +46,7 @@ trait ColumnFormats {
   def columnFormat3[P1, P2, P3, T <: Product](
     construct: (P1, P2, P3) => T,
     sep: Char = '\t'
-  )(implicit
-    p1Parser: SS[P1],
-    p2Parser: SS[P2], p3Parser: SS[P3]): SS[T] = new SS[T] {
+  )(implicit p1Parser: SS[P1], p2Parser: SS[P2], p3Parser: SS[P3]): SS[T] = new SS[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {

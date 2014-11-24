@@ -2,7 +2,7 @@ package org.allenai.pipeline
 
 /** Maven-style version id */
 case class MavenVersionId(
-  major: Int,
+    major: Int,
     minor: Option[Int] = None,
     incremental: Option[Int] = None,
     build: Option[Int] = None,

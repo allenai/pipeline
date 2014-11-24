@@ -44,10 +44,7 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 }
 
 object SingletonIo {
-  def text[T: StringSerializable: ClassTag](
-    implicit
-    codec: Codec
-  ): ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
+  def text[T: StringSerializable: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
 
   def json[T: JsonFormat: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
