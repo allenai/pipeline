@@ -99,6 +99,16 @@ trait Ai2CodeInfo extends HasCodeInfo {
     info
   }
 
+  private val sshRemotePattern = """([^@]+)@([^:]+):(.*)""".r
+  def parseRemote(remote: String): URI = {
+    remote match {
+      case sshRemotePattern(user, host, path) =>
+        val absPath = if (path.startsWith("/")) path else s"/$path"
+        new URI("https", host, absPath, null)
+      case x => new URI(x)
+    }
+  }
+
   def unchangedSince: String = ("0" +: updateVersionHistory).last
 
   /** Whenever the logic of this class is updated, the corresponding release number should
