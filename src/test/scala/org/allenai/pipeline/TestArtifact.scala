@@ -32,6 +32,15 @@ class TestArtifact extends UnitSpec with ScratchDirectory {
     file.delete()
   }
 
+  it should "write valid utf-8" in {
+    val input = "The term \ud835\udc43(\ud835\udc43\ud835\udc5d) in the equation below"
+    val file = new File(scratchDir, "flatFile.txt")
+    val a = new FileArtifact(file)
+    a.write(_.write(input))
+    val output = Source.fromInputStream(a.read).mkString
+    input should equal(output)
+  }
+
   "ZipFileArtifact" should "read/write" in {
     val rand = new Random()
 

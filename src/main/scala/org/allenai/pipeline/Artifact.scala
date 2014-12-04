@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
 import org.allenai.common.Resource
-
 import java.io.{ InputStream, OutputStream }
 import java.net.URI
+import java.nio.charset.StandardCharsets
 
 /** Represents data in a persistent store. */
 trait Artifact {
@@ -126,44 +126,5 @@ class ArtifactStreamWriter(out: OutputStream) {
     out.write('\n')
   }
 
-  // This was lifted from java.util.zip.ZipOutputStream
-  private def asUTF8(s: String): Array[Byte] = {
-    val c = s.toCharArray
-    val len = c.length
-    // Count the number of encoded bytes...
-    var count = 0
-    for (i <- 0 until len) {
-      val ch = c(i)
-      if (ch <= 0x7f) {
-        count += 1
-      } else if (ch <= 0x7ff) {
-        count += 2
-      } else {
-        count += 3
-      }
-    }
-    // Now return the encoded bytes...
-    val b = new Array[Byte](count)
-    var off = 0
-    for (i <- 0 until len) {
-      val ch = c(i)
-      if (ch <= 0x7f) {
-        b(off) = ch.toByte
-        off += 1
-      } else if (ch <= 0x7ff) {
-        b(off) = ((ch >> 6) | 0xc0).toByte
-        off += 1
-        b(off) = ((ch & 0x3f) | 0x80).toByte
-        off += 1
-      } else {
-        b(off) = ((ch >> 12) | 0xe0).toByte
-        off += 1
-        b(off) = (((ch >> 6) & 0x3f) | 0x80).toByte
-        off += 1
-        b(off) = ((ch & 0x3f) | 0x80).toByte
-        off += 1
-      }
-    }
-    b
-  }
+  private def asUTF8(s: String): Array[Byte] = s.getBytes(StandardCharsets.UTF_8)
 }
