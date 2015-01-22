@@ -72,7 +72,7 @@ class SamplePipeline extends UnitSpec
     }
   }
 
-  val inputDir = new File("pipeline/src/test/resources/pipeline")
+  val inputDir = new File("src/test/resources/pipeline")
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
 

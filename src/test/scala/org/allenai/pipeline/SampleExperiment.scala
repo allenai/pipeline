@@ -122,7 +122,7 @@ class SampleExperiment extends UnitSpec
     override def signature: Signature = Signature.fromFields(this, "data", "io")
   }
 
-  val inputDir = new File("pipeline/src/test/resources/pipeline")
+  val inputDir = new File("src/test/resources/pipeline")
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
 
