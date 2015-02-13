@@ -9,7 +9,7 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
 
-import java.io.{ InputStream, File, PrintWriter }
+import java.io.{ File, InputStream, PrintWriter }
 
 /** Test PipelineRunner functionality */
 class SampleExperiment extends UnitSpec
