@@ -1,5 +1,7 @@
 package org.allenai.pipeline
 
+import org.allenai.common.Resource
+
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -7,7 +9,7 @@ import scala.io.Source
 
 import java.net.URI
 
-/** DAG representation of the execution of a set of Producers
+/** DAG representation of the execution of a set of Producers.
   */
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link])
 
@@ -74,23 +76,38 @@ object Workflow {
     }
 
   def renderHtml(w: Workflow): String = {
-    val addNodeCode = (for ((id, Node(info, params, outputPath)) <- w.nodes) yield {
-      val paramsText = params.toList.map {
-        case (key, value) =>
-          s""""$key=${limitLength(value)}""""
-      }.mkString(",")
-      val linksText = (info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${info.buildId}")""") ++
-        outputPath.map(uri => s"""new Link("${link(uri)}","output")""")).mkString(",")
-      s"""g.addNode("$id", {\n
-         |label: generateStepContent("${info.className}",\n
-         |[$paramsText],\n
-         |[$linksText]\n
-         |)});""".stripMargin
-    }).mkString("\n")
-    val addEdgeCode = (for (Link(from, to, name) <- w.links) yield {
-      s"""g.addEdge(null, "$from", "$to", {label: "$name"}); """
-    }).mkString("\n")
-    val template = Source.fromURL(this.getClass.getResource("/pipelineSummary.html")).mkString
-    template.format(addNodeCode, addEdgeCode)
+    val addNodes = 
+      for ((id, Node(info, params, outputPath)) <- w.nodes) yield {
+        // Params show up as line items in the pipeline diagram node.
+        val paramsText = params.toList.map {
+          case (key, value) =>
+            s""""$key=${limitLength(value)}""""
+        }.mkString(",")
+        // A link is like a param but it hyperlinks somewhere.
+        val links = 
+          // An optional link to the source data.
+          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${info.buildId}")""") ++
+          // An optional link to the output data.
+          outputPath.map(uri => s"""new Link("${link(uri)}","output")""")
+        val linksText = links.mkString(",")
+        s"""        g.setNode("$id", {
+           |          labelType: "html",
+           |          label: generateStepContent("${info.className}",
+           |            [$paramsText],
+           |            [$linksText])
+           |        });""".stripMargin
+      }
+    val addEdges = 
+      for (Link(from, to, name) <- w.links) yield {
+        s"""        g.setEdge("$from", "$to", {label: "$name"}); """
+      }
+    
+    val resourceName = "pipelineSummary.html"
+    val resourceUrl = this.getClass.getResource(resourceName)
+    require(resourceUrl != null, s"Could not find resource: ${resourceName}")
+    val template = Resource.using(Source.fromURL(resourceUrl)) { source =>
+      source.mkString
+    }
+    template.format(addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
   }
 }

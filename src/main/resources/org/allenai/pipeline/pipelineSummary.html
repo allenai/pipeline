@@ -7,9 +7,9 @@
     </style>
   </head>
   <body>
-    <svg width="100%%"></svg>
+    <svg width=960 height=600><g/></svg>
     <script src="http://d3js.org/d3.v3.min.js"></script>
-    <script src="http://cpettitt.github.io/project/dagre-d3/v0.2.9/dagre-d3.min.js"></script>
+    <script src="http://cpettitt.github.io/project/dagre-d3/v0.4.2/dagre-d3.min.js"></script>
     <script>
       (function() {
         /**
@@ -54,29 +54,43 @@
           return out;
         };
 
-
         // Create a new directed graph
-        var g = new dagreD3.Digraph();
+        var g = new dagreD3.graphlib.Graph({ multigraph: true })
+          .setGraph({})
+          .setDefaultEdgeLabel(function() { return {}; });
 
         // Add nodes to the graph. The first argument is the node id. The second is
         // metadata about the node. In this case we're going to add labels to each of
         // our nodes.
-        %s
+%s
 
         // Add edges to the graph. The first argument is the edge id. Here we use null
         // to indicate that an arbitrary edge id can be assigned automatically. The
         // second argument is the source of the edge. The third argument is the target
         // of the edge. The last argument is the edge metadata.
-        %s
-        var renderer = new dagreD3.Renderer();
-        var svg = d3.select('svg');
-        var svgGroup = svg.append('g');
-        var layout = renderer.run(g , svgGroup);
+%s
+
+        var svg = d3.select("svg");
+        var inner = svg.select("g");
+        var zoom = d3.behavior.zoom().on("zoom", function() {
+              inner.attr("transform", "translate(" + d3.event.translate + ")" +
+                                          "scale(" + d3.event.scale + ")");
+            });
+        svg.call(zoom);
+
+        // Create the renderer
+        var render = new dagreD3.render();
+
+        // Run the renderer. This is what draws the final graph.
+        render(inner, g);
 
         // Center the graph
-        var xCenterOffset = (svg[0][0].clientWidth - layout.graph().width) / 2;
-        svgGroup.attr('transform', 'translate(' + xCenterOffset + ', 20)');
-        svg.attr('height', layout.graph().height + 120);
+        var initialScale = 0.75;
+        zoom
+          .translate([(svg.attr("width") - g.graph().width * initialScale) / 2, 20])
+          .scale(initialScale)
+          .event(svg);
+        svg.attr('height', g.graph().height * initialScale + 40);
       })();
     </script>
   </body>
