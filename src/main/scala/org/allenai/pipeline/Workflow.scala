@@ -12,12 +12,14 @@ import java.net.URI
 /** DAG representation of the execution of a set of Producers.
   */
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
-  def sourceNodes() = nodes.filter { case (nodeId, node) => 
-    !links.exists(link => link.toId == nodeId)
+  def sourceNodes() = nodes.filter {
+    case (nodeId, node) =>
+      !links.exists(link => link.toId == nodeId)
   }
 
-  def sinkNodes() = nodes.filter { case (nodeId, node) => 
-    !links.exists(link => link.fromId == nodeId)
+  def sinkNodes() = nodes.filter {
+    case (nodeId, node) =>
+      !links.exists(link => link.fromId == nodeId)
   }
 }
 
@@ -86,7 +88,7 @@ object Workflow {
   def renderHtml(w: Workflow): String = {
     val sourceNodes = w.sourceNodes()
     val sinkNodes = w.sinkNodes()
-    val addNodes = 
+    val addNodes =
       for ((id, Node(info, params, outputPath)) <- w.nodes) yield {
         // Params show up as line items in the pipeline diagram node.
         val paramsText = params.toList.map {
@@ -94,11 +96,11 @@ object Workflow {
             s""""$key=${limitLength(value)}""""
         }.mkString(",")
         // A link is like a param but it hyperlinks somewhere.
-        val links = 
+        val links =
           // An optional link to the source data.
           info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${info.buildId}")""") ++
-          // An optional link to the output data.
-          outputPath.map(uri => s"""new Link("${link(uri)}","output")""")
+            // An optional link to the output data.
+            outputPath.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sourceNodes match {
           case _ if sourceNodes contains id => "sourceNode"
           case _ if sinkNodes contains id => "sinkNode"
@@ -113,11 +115,11 @@ object Workflow {
            |            [$linksText])
            |        });""".stripMargin
       }
-    val addEdges = 
+    val addEdges =
       for (Link(from, to, name) <- w.links) yield {
         s"""        g.setEdge("$from", "$to", {label: "$name"}); """
       }
-    
+
     val resourceName = "pipelineSummary.html"
     val resourceUrl = this.getClass.getResource(resourceName)
     require(resourceUrl != null, s"Could not find resource: ${resourceName}")

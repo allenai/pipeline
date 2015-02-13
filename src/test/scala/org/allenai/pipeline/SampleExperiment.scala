@@ -283,11 +283,5 @@ object SampleExperimentApp extends App {
   )
   runner.run(measure)
 
-  val outputFile = new File("diagram.html")
-  val pw = new PrintWriter(outputFile)
-  val html = Workflow.renderHtml(Workflow.forPipeline(measure))
-  pw.write(html)
-  pw.close()
-
-  println("Pipeline diagram written to " + outputFile.getAbsolutePath)
+  println("Pipeline files written to " + scratchDir.getAbsolutePath)
 }
