@@ -362,10 +362,13 @@
 
         var scale;
         if(heightDiff > widthDiff) {
-          scale = graphDims.height / containerDims.height;
+          scale = containerDims.height / graphDims.height;
         } else if(widthDiff >= heightDiff) {
-          scale = graphDims.width / containerDims.width;
+          scale = containerDims.width / graphDims.width;
         }
+
+        // Reduce the graph so it fits cleanly.
+        scale = scale * 0.9;
 
         var scaledGraphDims = {
           width: graphDims.width * scale,
