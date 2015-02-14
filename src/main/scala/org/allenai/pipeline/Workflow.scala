@@ -88,6 +88,13 @@ object Workflow {
   def renderHtml(w: Workflow): String = {
     val sourceNodes = w.sourceNodes()
     val sinkNodes = w.sinkNodes()
+    // Collect nodes with output paths to be displayed in the upper-left.
+    val outputNodeLinks = for {
+      (id, Node(info, params, outputPath)) <- w.nodes.toList
+      path <- outputPath
+    } yield {
+      s"""<a href="$path">${info.className}</a>"""
+    }
     val addNodes =
       for ((id, Node(info, params, outputPath)) <- w.nodes) yield {
         // Params show up as line items in the pipeline diagram node.
@@ -126,6 +133,7 @@ object Workflow {
     val template = Resource.using(Source.fromURL(resourceUrl)) { source =>
       source.mkString
     }
-    template.format(addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
+    val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
+    template.format(outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
   }
 }
