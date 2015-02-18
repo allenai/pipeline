@@ -69,8 +69,10 @@ object Workflow {
   }
 
   private def link(uri: URI) = uri.getScheme match {
-    case "s3" => new java.net.URI("http", s"${uri.getHost}.s3.amazonaws.com", uri.getPath,
-      null).toString
+    case "s3" | "s3n" =>
+      new java.net.URI("http", s"${uri.getHost}.s3.amazonaws.com", uri.getPath, null).toString
+    case "file" =>
+      new java.net.URI(null, null, uri.getPath, null)
     case _ => uri.toString
   }
 
