@@ -13,8 +13,11 @@ import java.util.regex.Pattern
 trait ColumnFormats {
   private type SS[T] = StringSerializable[T]
 
-  def columnFormat[P1, T <: Product](construct: (P1) => T)(implicit p1Parser: SS[P1]): SS[T] =
-    new SS[T] {
+  def columnFormat[P1, T <: Product](construct: (P1) => T)(
+    implicit
+    p1Parser: StringSerializable[P1]
+  ): StringSerializable[T] =
+    new StringSerializable[T] {
       override def fromString(s: String): T = construct(p1Parser.fromString(s))
 
       override def toString(t: T): String = {
@@ -25,7 +28,11 @@ trait ColumnFormats {
   def columnFormat2[P1, P2, T <: Product](
     construct: (P1, P2) => T,
     sep: Char = '\t'
-  )(implicit p1Parser: SS[P1], p2Parser: SS[P2]): SS[T] = new SS[T] {
+  )(
+    implicit
+    p1Parser: StringSerializable[P1],
+    p2Parser: StringSerializable[P2]
+  ): StringSerializable[T] = new StringSerializable[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
@@ -46,7 +53,12 @@ trait ColumnFormats {
   def columnFormat3[P1, P2, P3, T <: Product](
     construct: (P1, P2, P3) => T,
     sep: Char = '\t'
-  )(implicit p1Parser: SS[P1], p2Parser: SS[P2], p3Parser: SS[P3]): SS[T] = new SS[T] {
+  )(
+    implicit
+    p1Parser: StringSerializable[P1],
+    p2Parser: StringSerializable[P2],
+    p3Parser: StringSerializable[P3]
+  ): StringSerializable[T] = new StringSerializable[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
@@ -73,10 +85,10 @@ trait ColumnFormats {
     construct: (P1, P2, P3, P4) => T,
     sep: Char = '\t'
   )(implicit
-    p1Parser: SS[P1],
-    p2Parser: SS[P2],
-    p3Parser: SS[P3],
-    p4Parser: SS[P4]): SS[T] = new SS[T] {
+    p1Parser: StringSerializable[P1],
+    p2Parser: StringSerializable[P2],
+    p3Parser: StringSerializable[P3],
+    p4Parser: StringSerializable[P4]): StringSerializable[T] = new StringSerializable[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
@@ -105,11 +117,11 @@ trait ColumnFormats {
     construct: (P1, P2, P3, P4, P5) => T,
     sep: Char = '\t'
   )(implicit
-    p1Parser: SS[P1],
-    p2Parser: SS[P2],
-    p3Parser: SS[P3],
-    p4Parser: SS[P4],
-    p5Parser: SS[P5]): SS[T] = new SS[T] {
+    p1Parser: StringSerializable[P1],
+    p2Parser: StringSerializable[P2],
+    p3Parser: StringSerializable[P3],
+    p4Parser: StringSerializable[P4],
+    p5Parser: StringSerializable[P5]): StringSerializable[T] = new StringSerializable[T] {
     val p = compile(sep)
 
     override def fromString(s: String): T = {
@@ -140,39 +152,41 @@ trait ColumnFormats {
 
   private def compile(c: Char): Pattern = Pattern.compile(s"\\Q$c\\E")
 
-  implicit object IntToString extends SS[Int] {
+  implicit object IntToString extends StringSerializable[Int] {
     override def fromString(s: String): Int = s.toInt
 
     override def toString(param: Int): String = param.toString
   }
 
-  implicit object DoubleToString extends SS[Double] {
+  implicit object DoubleToString extends StringSerializable[Double] {
     override def fromString(s: String): Double = s.toDouble
 
     override def toString(param: Double): String = param.toString
   }
 
-  implicit object FloatToString extends SS[Float] {
+  implicit object FloatToString extends StringSerializable[Float] {
     override def fromString(s: String): Float = s.toFloat
 
     override def toString(param: Float): String = param.toString
   }
 
-  implicit object StringToString extends SS[String] {
+  implicit object StringToString extends StringSerializable[String] {
     override def fromString(s: String): String = s
 
     override def toString(param: String): String = param
   }
 
-  implicit object BooleanToString extends SS[Boolean] {
+  implicit object BooleanToString extends StringSerializable[Boolean] {
     override def fromString(s: String): Boolean = s.toBoolean
 
     override def toString(param: Boolean): String = param.toString
   }
 
-  def columnArrayFormat[T: SS: ClassTag](sep: Char = '\t'): SS[Array[T]] = new SS[Array[T]] {
+  def columnArrayFormat[T: StringSerializable: ClassTag](
+    sep: Char = '\t'
+  ): StringSerializable[Array[T]] = new StringSerializable[Array[T]] {
     val p = compile(sep)
-    val colParser = implicitly[SS[T]]
+    val colParser = implicitly[StringSerializable[T]]
 
     override def fromString(line: String): Array[T] = p.split(line, -1).map(colParser.fromString)
 
@@ -180,20 +194,24 @@ trait ColumnFormats {
       .toString)
   }
 
-  implicit def tuple2ColumnFormat[T1: SS, T2: SS](sep: Char = '\t'): SS[(T1, T2)] =
+  implicit def tuple2ColumnFormat[T1: SS, T2: SS](
+    sep: Char = '\t'
+  ): StringSerializable[(T1, T2)] =
     columnFormat2(Tuple2.apply[T1, T2], sep)
 
-  implicit def tuple3ColumnFormat[T1: SS, T2: SS, T3: SS](sep: Char = '\t'): SS[(T1, T2, T3)] =
+  implicit def tuple3ColumnFormat[T1: SS, T2: SS, T3: SS](
+    sep: Char = '\t'
+  ): StringSerializable[(T1, T2, T3)] =
     columnFormat3(Tuple3.apply[T1, T2, T3], sep)
 
   implicit def tuple4ColumnFormat[T1: SS, T2: SS, T3: SS, T4: SS](
     sep: Char = '\t'
-  ): SS[(T1, T2, T3, T4)] =
+  ): StringSerializable[(T1, T2, T3, T4)] =
     columnFormat4(Tuple4.apply[T1, T2, T3, T4], sep)
 
   implicit def tuple5ColumnFormat[T1: SS, T2: SS, T3: SS, T4: SS, T5: SS](
     sep: Char = '\t'
-  ): SS[(T1, T2, T3, T4, T5)] =
+  ): StringSerializable[(T1, T2, T3, T4, T5)] =
     columnFormat5(Tuple5.apply[T1, T2, T3, T4, T5], sep)
 
 }
