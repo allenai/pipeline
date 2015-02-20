@@ -11,8 +11,6 @@ import java.util.regex.Pattern
   * and will be written as a column in the output file.
   */
 trait ColumnFormats {
-  private type SS[T] = StringSerializable[T]
-
   def columnFormat[P1, T <: Product](construct: (P1) => T)(
     implicit
     p1Parser: StringSerializable[P1]
@@ -193,6 +191,10 @@ trait ColumnFormats {
     override def toString(arr: Array[T]): String = arr.map(colParser.toString).mkString(sep
       .toString)
   }
+
+  // This typedef is used sparingly to keep lines readable.  It's not used everywhere so the code
+  // is still grep-able.
+  private type SS[T] = StringSerializable[T]
 
   implicit def tuple2ColumnFormat[T1: SS, T2: SS](
     sep: Char = '\t'
