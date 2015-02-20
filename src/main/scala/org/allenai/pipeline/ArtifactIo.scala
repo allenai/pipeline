@@ -8,7 +8,11 @@ import spray.json.JsonFormat
 import scala.io.{ Codec, Source }
 import scala.reflect.ClassTag
 
-/** Interface for defining how to persist a data type.  */
+/** Interface for defining how to persist a data type.
+  *
+  * @tparam  T  the type of the data being serialized
+  * @tparam  A  the type of the artifact being interface with (i.e. FileArtifact)
+  */
 trait ArtifactIo[T, -A <: Artifact] extends HasCodeInfo {
   def read(artifact: A): T
 
@@ -44,7 +48,8 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
 }
 
 object SingletonIo {
-  def text[T: StringSerializable: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = new SingletonIo[T]
+  def text[T: StringSerializable: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] =
+    new SingletonIo[T]
 
   def json[T: JsonFormat: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])

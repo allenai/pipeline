@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-/** Maven-style version id */
+/** Maven-style semantic version id */
 case class MavenVersionId(
     major: Int,
     minor: Option[Int] = None,

@@ -6,6 +6,8 @@ import java.net.URI
 
 /** An individual step in a data processing pipeline.
   * A lazily evaluated calculation, with support for in-memory caching and persistence.
+  *
+  * @tparam  T  the type of data being produced
   */
 trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport {
   self =>
@@ -25,6 +27,10 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
     * Once computed, write the result to the given artifact.
     * If the artifact we are using for persistence exists,
     * return the deserialized object rather than recomputing it.
+    *
+    * @tparam  A  the type of artifact being writen to (i.e. directory, file)
+    * @param  io  the serialization for data of type T
+    * @param  artifactSource  creation of the artifact to be written
     */
   def persisted[A <: Artifact](
     io: ArtifactIo[T, A],
@@ -33,6 +39,9 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
     new PersistedProducer(this, io, artifactSource)
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
+    *
+    * When caching is enabled, an in-memory reference is stored to the output object so
+    * subsequent calls to .get do not re-process.
     */
   def enableCaching: Producer[T] = {
     if (cachingEnabled) {
