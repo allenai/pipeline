@@ -86,6 +86,20 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
   override def outputLocation: Option[URI] = None
 }
 
+object Producer {
+  /** A Pipeline step wrapper for in-memory data. */
+  def fromMemory[T](data: T): Producer[T] = new Producer[T] with UnknownCodeInfo {
+    override def create: T = data
+
+    override def signature: Signature = Signature(
+      data.getClass.getName,
+      data.hashCode.toHexString
+    )
+
+    override def outputLocation: Option[URI] = None
+  }
+}
+
 /** This information is used by PipelineRunner to construct and visualize the DAG for a pipeline */
 trait PipelineRunnerSupport extends HasCodeInfo {
   /** Represents a digest of the logic that will uniquely determine the output of this Producer

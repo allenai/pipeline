@@ -9,18 +9,9 @@ object IoHelpers extends ReadHelpers with WriteHelpers {
 
   import scala.language.implicitConversions
 
-  /** A Pipeline step wrapper for in-memory data. */
   object FromMemory {
-    def apply[T](data: T): Producer[T] = new Producer[T] with UnknownCodeInfo {
-      override def create: T = data
-
-      override def signature: Signature = Signature(
-        data.getClass.getName,
-        data.hashCode.toHexString
-      )
-
-      override def outputLocation: Option[URI] = None
-    }
+    @deprecated("Use producer.fromMemory instead.", "2014.01.22-1")
+    def apply[T](data: T): Producer[T] = Producer.fromMemory(data)
   }
 
   def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
