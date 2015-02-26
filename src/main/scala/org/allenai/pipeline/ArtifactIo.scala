@@ -11,7 +11,7 @@ import scala.reflect.ClassTag
 /** Interface for defining how to persist a data type.
   *
   * @tparam  T  the type of the data being serialized
-  * @tparam  A  the type of the artifact being interface with (i.e. FileArtifact)
+  * @tparam  A  the type of the artifact being written/read (i.e. FileArtifact)
   */
 trait ArtifactIo[T, -A <: Artifact] extends HasCodeInfo {
   def read(artifact: A): T
