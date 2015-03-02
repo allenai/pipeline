@@ -6,15 +6,13 @@ import scala.collection.JavaConverters._
 
 import java.io._
 import java.net.URI
-import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
+import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 
 /** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {
   private val parentDir = file.getCanonicalFile.getParentFile
-  require(
-    (parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
-    s"Unable to find or create directory $parentDir"
-  )
+  FileUtils.forceMkdir(parentDir)
+
   override def exists: Boolean = file.exists
 
   override def url: URI = file.getCanonicalFile.toURI
