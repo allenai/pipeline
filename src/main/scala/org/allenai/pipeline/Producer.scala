@@ -11,17 +11,25 @@ import java.net.URI
   */
 trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport {
   self =>
+  protected def create: T
+
   /** Return the computed value. */
-  def create: T
-
   def get: T = {
-    if (cachingEnabled && cachedValue.isDefined) cachedValue.get else create
+    if (!cachingEnabled)
+      create
+    else cachedValue match {
+      case None =>
+        val result = create
+        if (!result.isInstanceOf[Iterator[_]]) {
+          cachedValue = Some(result)
+        }
+        result
+      case Some(value) =>
+        value
+    }
   }
 
-  private lazy val cachedValue: Option[T] = {
-    val result = create
-    if (result.isInstanceOf[Iterator[_]]) None else Some(result)
-  }
+  private var cachedValue: Option[T] = None
 
   /** Persist the result of this step.
     * Once computed, write the result to the given artifact.

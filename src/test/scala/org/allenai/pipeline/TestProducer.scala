@@ -120,6 +120,19 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     )
   }
 
+  "Consumed iterator" should "be called only once" in {
+    val numbers = randomIterator.get
+    val consumedIterator = new Producer[Iterator[Double]] with UnknownCodeInfo {
+      def create = {
+        val n = numbers.toList
+        n.toIterator
+      }
+      def signature = Signature.fromFields(this)
+    }
+
+    consumedIterator.get.size should equal(20)
+  }
+
   "Signature id" should "be order independent" in {
     val s1 = Signature("name", "version", "first" -> 1, "second" -> 2)
     val s2 = Signature("name", "version", "second" -> 2, "first" -> 1)
