@@ -153,6 +153,8 @@ object SampleExperiment {
       (data.drop(testSize), data.take(testSize))
     }
 
+    override val description = Some("Join and split data.")
+
     override def signature: Signature =
       Signature.fromFields(this, "features", "labels", "testSizeRatio")
   }
@@ -166,6 +168,8 @@ object SampleExperiment {
 
     def train(data: Iterable[TrainingPoint]): TrainedModel =
       TrainedModel(s"Trained model with ${data.size} rows")
+
+    override val description = Some("Train teh model.  Teh.")
 
     override def signature = Signature.fromObject(this)
   }
@@ -192,6 +196,8 @@ object SampleExperiment {
         r
       }
     }
+
+    override val description = Some("Measure the model.")
   }
 
   case class ParsedDocument(info: String)

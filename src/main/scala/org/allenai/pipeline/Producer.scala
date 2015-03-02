@@ -64,12 +64,14 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
     create: () => T2 = self.create _,
     signature: () => Signature = self.signature _,
     codeInfo: () => CodeInfo = self.codeInfo _,
-    cachingEnabled: () => Boolean = self.cachingEnabled _
+    cachingEnabled: () => Boolean = self.cachingEnabled _,
+    description: () => Option[String] = self.description _
   ): Producer[T2] = {
     val _create = create
     val _signature = signature
     val _codeInfo = codeInfo
     val _cachingEnabled = cachingEnabled
+    val _description = description
     new Producer[T2] {
       override def create: T2 = _create()
 
@@ -115,6 +117,9 @@ trait PipelineRunnerSupport extends HasCodeInfo {
     * Rather, when a PersistedProducer is created, it will populate this field appropriately.
     */
   def outputLocation: Option[URI]
+
+  /** An optional, short description string for this step. */
+  def description: Option[String] = None
 }
 
 /** Producer implementations that do not need to be executed by PipelineRunner can mix in this
@@ -164,6 +169,8 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: ArtifactIo[T, A
   override def codeInfo: CodeInfo = step.codeInfo
 
   override def outputLocation: Option[URI] = Some(artifact.url)
+
+  override def description = Option(step).flatMap(_.description)
 }
 
 //

@@ -27,7 +27,8 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
 case class Node(
   info: CodeInfo,
   params: Map[String, String],
-  outputPath: Option[URI]
+  outputPath: Option[URI],
+  description: Option[String]
 )
 
 /** Represents dependency between Producer instances */
@@ -45,7 +46,7 @@ object Workflow {
       sig = stepInfo.signature
       codeInfo = stepInfo.codeInfo
     } yield {
-      (sig.id, Node(codeInfo, sig.parameters, stepInfo.outputLocation))
+      (sig.id, Node(codeInfo, sig.parameters, stepInfo.outputLocation, stepInfo.description))
     }
 
     def findLinks(s: PRS): Iterable[(PRS, PRS, String)] =
@@ -63,7 +64,7 @@ object Workflow {
 
   implicit val jsFormat = {
     import CodeInfo._
-    implicit val nodeFormat = jsonFormat3(Node)
+    implicit val nodeFormat = jsonFormat4(Node)
     implicit val linkFormat = jsonFormat3(Link)
     jsonFormat2(Workflow.apply)
   }
@@ -92,13 +93,13 @@ object Workflow {
     val sinkNodes = w.sinkNodes()
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
-      (id, Node(info, params, outputPath)) <- w.nodes.toList
+      (id, Node(info, params, outputPath, desc)) <- w.nodes.toList
       path <- outputPath
     } yield {
       s"""<a href="$path">${info.className}</a>"""
     }
     val addNodes =
-      for ((id, Node(info, params, outputPath)) <- w.nodes) yield {
+      for ((id, Node(info, params, outputPath, desc)) <- w.nodes) yield {
         // Params show up as line items in the pipeline diagram node.
         val paramsText = params.toList.map {
           case (key, value) =>
@@ -120,6 +121,7 @@ object Workflow {
            |          class: "$clazz",
            |          labelType: "html",
            |          label: generateStepContent("${info.className}",
+           |            "${desc.getOrElse("")}",
            |            [$paramsText],
            |            [$linksText])
            |        });""".stripMargin

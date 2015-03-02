@@ -22,7 +22,7 @@ trait ReadHelpers extends ColumnFormats {
 
           override def codeInfo: CodeInfo = hasInfo.codeInfo
         }
-        case _ => new PersistedProducer(null, io, artifact)
+        case _ => new PersistedProducer(null, io, artifact) with UnknownCodeInfo
       }
     }
 
