@@ -1,11 +1,38 @@
 import Dependencies._
 
-name := "common-pipeline"
+lazy val buildSettings = Seq(
+  organization := "org.allenai",
+  crossScalaVersions := Seq("2.11.5"),
+  scalaVersion <<= crossScalaVersions { (vs: Seq[String]) => vs.head },
+  publishMavenStyle := true,
+  publishArtifact in Test := false,
+  pomIncludeRepository := { _ => false },
+  licenses := Seq("Apache 2.0" -> new URL("http://www.apache.org/licenses/LICENSE-2.0.txt")),
+  homepage := Some(url("https://github.com/allenai/pipeline")),
+  scmInfo := Some(ScmInfo(
+    url("https://github.com/allenai/pipeline"),
+    "https://github.com/allenai/pipeline.git")),
+  ReleaseKeys.publishArtifactsAction := PgpKeys.publishSigned.value,
+  pomExtra := (
+    <developers>
+      <developer>
+        <id>allenai-dev-role</id>
+        <name>Allen Institute for Artificial Intelligence</name>
+        <email>dev-role@allenai.org</email>
+      </developer>
+    </developers>),
+  dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5") ++ 
+  PublishTo.sonatype
+
+lazy val pipeline = Project(
+  id = "allenai-pipeline",
+  base = file("."),
+  settings = buildSettings
+).enablePlugins(LibraryPlugin)
 
 libraryDependencies ++= Seq(sprayJson,
   awsJavaSdk,
-  commonsIO)
-
-libraryDependencies <+= scalaVersion (sv => scalaReflection(sv))
-
-dependencyOverrides <+= scalaVersion (sv => scalaReflection(sv))
+  commonsIO,
+  ai2Common,
+  allenAiTestkit,
+  scalaReflection)
