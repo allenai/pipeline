@@ -2,8 +2,8 @@ package org.allenai.pipeline
 
 import org.allenai.common.Resource
 
-import spray.json._
 import spray.json.DefaultJsonProtocol._
+import spray.json.{JsString, JsValue, JsonFormat}
 
 import scala.io.Source
 
@@ -23,49 +23,68 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
   }
 }
 
-/** Represents a Producer instance with PipelineRunnerSupport */
-case class Node(
-  info: CodeInfo,
-  params: Map[String, String],
-  outputPath: Option[URI],
-  description: Option[String]
+/** Represents a PipelineStep without its dependencies */
+case class Node(className: String,
+  classVersion: String = "",
+  srcUrl: Option[URI] = None,
+  binaryUrl: Option[URI] = None,
+  parameters: Map[String, String] = Map(),
+  description: Option[String] = None,
+  outputLocation: Option[URI] = None
 )
+
+object Node {
+  def apply(stepInfo: PipelineStepInfo): Node =
+    Node(stepInfo.className,
+      stepInfo.classVersion,
+      stepInfo.srcUrl,
+      stepInfo.binaryUrl,
+      stepInfo.parameters,
+      stepInfo.description,
+      stepInfo.outputLocation)
+}
 
 /** Represents dependency between Producer instances */
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  private type PRS = PipelineRunnerSupport // Reduce line length
-  def forPipeline(steps: PRS*): Workflow = {
-    def findNodes(s: PRS): Iterable[PRS] =
-      Seq(s) ++ s.signature.dependencies.flatMap(t => findNodes(t._2))
+  def forPipeline(steps: PipelineStep*): Workflow = {
+    def findNodes(s: PipelineStep): Iterable[PipelineStepInfo] =
+      Seq(s.stepInfo) ++ s.stepInfo.dependencies.flatMap(t => findNodes(t._2))
 
     val nodeList = for {
       step <- steps
       stepInfo <- findNodes(step)
-      sig = stepInfo.signature
-      codeInfo = stepInfo.codeInfo
     } yield {
-      (sig.id, Node(codeInfo, sig.parameters, stepInfo.outputLocation, stepInfo.description))
+      (stepInfo.signature.id, Node(stepInfo))
     }
 
-    def findLinks(s: PRS): Iterable[(PRS, PRS, String)] =
-      s.signature.dependencies.map { case (name, dep) => (dep, s, name) } ++
-        s.signature.dependencies.flatMap(t => findLinks(t._2))
+    def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
+      s.dependencies.map { case (name, dep) => (dep.stepInfo, s, name)} ++
+          s.dependencies.flatMap(t => findLinks(t._2.stepInfo))
 
     val nodes = nodeList.toMap
 
     val links = (for {
       step <- steps
-      (from, to, name) <- findLinks(step)
+      (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
     Workflow(nodes, links)
   }
 
   implicit val jsFormat = {
-    import CodeInfo._
-    implicit val nodeFormat = jsonFormat4(Node)
     implicit val linkFormat = jsonFormat3(Link)
+    implicit val nodeFormat = {
+      implicit val uriFormat = new JsonFormat[URI] {
+        override def write(uri: URI): JsValue = JsString(uri.toString)
+
+        override def read(value: JsValue): URI = value match {
+          case JsString(uri) => new URI(uri)
+          case s => sys.error(s"Invalid URI: $s")
+        }
+      }
+      jsonFormat7(Node.apply)
+    }
     jsonFormat2(Workflow.apply)
   }
 
@@ -79,6 +98,7 @@ object Workflow {
 
   private val DEFAULT_MAX_SIZE = 40
   private val LHS_MAX_SIZE = 15
+
   private def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) =
     if (s.size < maxLength) {
       s
@@ -93,24 +113,24 @@ object Workflow {
     val sinkNodes = w.sinkNodes()
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
-      (id, Node(info, params, outputPath, desc)) <- w.nodes.toList
-      path <- outputPath
+      (id, info) <- w.nodes.toList
+      path <- info.outputLocation
     } yield {
       s"""<a href="$path">${info.className}</a>"""
     }
     val addNodes =
-      for ((id, Node(info, params, outputPath, desc)) <- w.nodes) yield {
+      for ((id, info) <- w.nodes) yield {
         // Params show up as line items in the pipeline diagram node.
-        val paramsText = params.toList.map {
+        val paramsText = info.parameters.toList.map {
           case (key, value) =>
             s""""$key=${limitLength(value)}""""
         }.mkString(",")
         // A link is like a param but it hyperlinks somewhere.
         val links =
-          // An optional link to the source data.
-          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${info.buildId}")""") ++
-            // An optional link to the output data.
-            outputPath.map(uri => s"""new Link("${link(uri)}","output")""")
+        // An optional link to the source data.
+          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src" }")""") ++
+              // An optional link to the output data.
+              info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sourceNodes match {
           case _ if sourceNodes contains id => "sourceNode"
           case _ if sinkNodes contains id => "sinkNode"
@@ -121,7 +141,7 @@ object Workflow {
            |          class: "$clazz",
            |          labelType: "html",
            |          label: generateStepContent("${info.className}",
-           |            "${desc.getOrElse("")}",
+           |            "${info.description.getOrElse("")}",
            |            [$paramsText],
            |            [$linksText])
            |        });""".stripMargin

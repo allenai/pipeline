@@ -5,19 +5,30 @@ import org.allenai.pipeline.IoHelpers._
 
 import spray.json.JsonFormat
 
-import scala.io.{ Codec, Source }
+import scala.io.{Codec, Source}
 import scala.reflect.ClassTag
+
+
+trait ArtifactIo[T, -A <: Artifact] extends SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A]
 
 /** Interface for defining how to persist a data type.
   *
   * @tparam  T  the type of the data being serialized
-  * @tparam  A  the type of the artifact being written/read (i.e. FileArtifact)
+  * @tparam  A  the type of the artifact being written (i.e. FileArtifact)
   */
-trait ArtifactIo[T, -A <: Artifact] extends HasCodeInfo {
-  def read(artifact: A): T
-
+trait SerializeToArtifact[-T, -A <: Artifact] extends PipelineStep {
   def write(data: T, artifact: A): Unit
 }
+
+/** Interface for defining how to persist a data type.
+  *
+  * @tparam  T  the type of the data being serialized
+  * @tparam  A  the type of the artifact being read (i.e. FileArtifact)
+  */
+trait DeserializeFromArtifact[+T, -A <: Artifact] extends PipelineStep {
+  def read(artifact: A): T
+}
+
 
 // Classes below implement the common case of serializing an object to a string,
 // typically using JSON or delimited columns,
@@ -31,8 +42,9 @@ trait StringSerializable[T] {
 }
 
 /** Persist a single object to a flat file.  */
-class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
-    extends ArtifactIo[T, FlatArtifact] with Ai2CodeInfo {
+class SingletonIo[T: StringSerializable : ClassTag](implicit codec: Codec)
+    extends ArtifactIo[T, FlatArtifact]
+    with Ai2SimpleStepInfo {
   override def read(artifact: FlatArtifact): T = {
     Resource.using(Source.fromInputStream(artifact.read)) { src =>
       implicitly[StringSerializable[T]].fromString(src.mkString)
@@ -43,48 +55,48 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     _.write(implicitly[StringSerializable[T]].toString(data))
   }
 
-  override def codeInfo: CodeInfo = super.codeInfo.copy(className =
-    s"SingletonIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]")
+  override def stepInfo: PipelineStepInfo =
+    super.stepInfo.copy(
+      className = s"SingletonIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]",
+      parameters = Map("charSet" -> codec.charSet.toString))
 }
 
 object SingletonIo {
-  def text[T: StringSerializable: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] =
+  def text[T: StringSerializable : ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] =
     new SingletonIo[T]
 
-  def json[T: JsonFormat: ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = {
+  def json[T: JsonFormat : ClassTag](implicit codec: Codec): ArtifactIo[T, FlatArtifact] = {
     implicit val format: StringSerializable[T] = asStringSerializable(implicitly[JsonFormat[T]])
     new SingletonIo[T]
   }
 }
 
 /** Persist a collection of string-serializable objects to a flat file, one line per object.  */
-class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
-    extends ArtifactIo[Iterable[T], FlatArtifact] with Ai2CodeInfo {
+class LineCollectionIo[T: StringSerializable : ClassTag](implicit codec: Codec)
+    extends ArtifactIo[Iterable[T], FlatArtifact] with Ai2SimpleStepInfo {
   private val delegate = new LineIteratorIo[T]
 
-  override def read(artifact: FlatArtifact): Iterable[T] = delegate.read(artifact).toList
+  override def read(artifact: FlatArtifact): Iterable[T] =
+    delegate.read(artifact).toList
 
-  override def write(data: Iterable[T], artifact: FlatArtifact): Unit = delegate.write(
-    data
-    .iterator,
-    artifact
-  )
+  override def write(data: Iterable[T], artifact: FlatArtifact): Unit =
+    delegate.write(data.iterator, artifact)
 
-  override def codeInfo: CodeInfo = super.codeInfo.copy(className = s"LineCollectionIo[${
-    scala.reflect.
-      classTag[T].runtimeClass.getSimpleName
-  }]")
+  override def stepInfo: PipelineStepInfo =
+    super.stepInfo.copy(
+      className = s"LineCollectionIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]",
+      parameters = Map("charSet" -> codec.charSet.toString))
 
 }
 
 object LineCollectionIo {
-  def text[T: StringSerializable: ClassTag](
+  def text[T: StringSerializable : ClassTag](
     implicit
     codec: Codec
   ): ArtifactIo[Iterable[T], FlatArtifact] =
     new LineCollectionIo[T]
 
-  def json[T: JsonFormat: ClassTag](
+  def json[T: JsonFormat : ClassTag](
     implicit
     codec: Codec
   ): ArtifactIo[Iterable[T], FlatArtifact] = {
@@ -95,8 +107,8 @@ object LineCollectionIo {
 }
 
 /** Persist an iterator of string-serializable objects to a flat file, one line per object.  */
-class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
-    extends ArtifactIo[Iterator[T], FlatArtifact] with Ai2CodeInfo {
+class LineIteratorIo[T: StringSerializable : ClassTag](implicit codec: Codec)
+    extends ArtifactIo[Iterator[T], FlatArtifact] with Ai2SimpleStepInfo {
   val format = implicitly[StringSerializable[T]]
 
   override def read(artifact: FlatArtifact): Iterator[T] =
@@ -111,18 +123,20 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     }
   }
 
-  override def codeInfo: CodeInfo = super.codeInfo.copy(className =
-    s"LineIteratorIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]")
+  override def stepInfo: PipelineStepInfo =
+    super.stepInfo.copy(className =
+        s"LineIteratorIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]",
+      parameters = Map("charSet" -> codec.charSet.toString))
 }
 
 object LineIteratorIo {
-  def text[T: StringSerializable: ClassTag](
+  def text[T: StringSerializable : ClassTag](
     implicit
     codec: Codec
   ): ArtifactIo[Iterator[T], FlatArtifact] =
     new LineIteratorIo[T]
 
-  def json[T: JsonFormat: ClassTag](
+  def json[T: JsonFormat : ClassTag](
     implicit
     codec: Codec
   ): ArtifactIo[Iterator[T], FlatArtifact] = {

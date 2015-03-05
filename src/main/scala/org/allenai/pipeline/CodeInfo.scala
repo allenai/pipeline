@@ -9,7 +9,6 @@ import scala.collection.JavaConverters._
 import java.net.URI
 
 /** Contains information about the origin of the compiled class implementing a Producer
-  * @param buildId A version number, e.g. git tag
   * @param unchangedSince The latest version number at which the logic for this class changed.
   *            Classes in which the buildIds differ but the unchangedSince field is
   *            the same are assumed to produce the same outputs when given the same
@@ -19,10 +18,9 @@ import java.net.URI
   */
 case class CodeInfo(
   className: String,
-  buildId: String,
   unchangedSince: String,
-  srcUrl: Option[URI],
-  binaryUrl: Option[URI]
+  srcUrl: Option[URI] = None,
+  binaryUrl: Option[URI] = None
 )
 
 object CodeInfo {
@@ -31,34 +29,26 @@ object CodeInfo {
 
     override def read(value: JsValue): URI = value match {
       case JsString(uri) => new URI(uri)
-      case _ => sys.error("Invalid format for URI")
+      case s => sys.error(s"Invalid URI: $s")
     }
   }
-  implicit val jsFormat = jsonFormat5(apply)
-}
+  implicit val jsFormat = jsonFormat4(apply)
 
-trait HasCodeInfo {
-  def codeInfo: CodeInfo
-}
-
-/** Represents code from an unspecified location.
-  */
-trait UnknownCodeInfo extends HasCodeInfo {
-  override def codeInfo: CodeInfo = CodeInfo(this.getClass.getSimpleName, "0", "0", None, None)
+  def unknown(target: Any) = CodeInfo(target.getClass.getSimpleName, "")
 }
 
 /** Reads the version number and GitHub URL from
   * configuration file bundled into the jar.
   * These are populated by the AI2 sbt plugins.
   */
-trait Ai2CodeInfo extends HasCodeInfo {
-  override def codeInfo: CodeInfo = {
+object Ai2CodeInfo {
+  def apply(target: Any): PipelineStepInfo = {
     val lastChangedVersion = unchangedSince
-    val className = this.getClass.getSimpleName.reverse.dropWhile(_ == '$').reverse
+    val className = target.getClass.getSimpleName.reverse.dropWhile(_ == '$').reverse
     val info = {
       try {
         // This information is stored in META-INF/MANIFEST.MF
-        val pack = this.getClass.getPackage
+        val pack = target.getClass.getPackage
         val buildId = pack.getImplementationVersion
         // This resource is written by allenai/sbt-release
         val configPath = s"""${pack.getImplementationVendor}/${
@@ -86,13 +76,13 @@ trait Ai2CodeInfo extends HasCodeInfo {
         val newPath = s"""${useRemote.getPath.replaceAll(".git/?$", "")}/tree/$sha"""
         val srcUrl = new URI(useRemote.getScheme, useRemote.getUserInfo, useRemote.getHost,
           useRemote.getPort, newPath, useRemote.getQuery, useRemote.getFragment)
-        CodeInfo(className, buildId, lastChangedVersion, Some(srcUrl), None)
+        PipelineStepInfo(className, lastChangedVersion, Some(srcUrl))
       } catch {
         // Fall-back.  If the config doesn't exist or doesn't contain the expected information
         // Then get the version number from MANIFEST.MF and don't give a source URL
-        case ex: Exception => this.getClass.getPackage.getImplementationVersion match {
-          case null => CodeInfo(className, lastChangedVersion, lastChangedVersion, None, None)
-          case buildId => CodeInfo(className, buildId, lastChangedVersion, None, None)
+        case ex: Exception => target.getClass.getPackage.getImplementationVersion match {
+          case null => PipelineStepInfo(className, lastChangedVersion)
+          case buildId => PipelineStepInfo(className, lastChangedVersion)
         }
       }
     }
@@ -109,19 +99,11 @@ trait Ai2CodeInfo extends HasCodeInfo {
     }
   }
 
-  def unchangedSince: String = ("0" +: updateVersionHistory).last
+  def unchangedSince: String = ("" +: updateVersionHistory).last
 
   /** Whenever the logic of this class is updated, the corresponding release number should
     * be added to this list.  The unchangedSince field will be set to the latest version that is
     * still earlier than the version in the jar file.
     */
   def updateVersionHistory: Seq[String] = List()
-}
-
-/** For convenience, case classes can mix in this single trait to implement PipelineRunnerSupport
-  */
-trait Ai2Signature extends PipelineRunnerSupport with Ai2CodeInfo {
-  this: Product =>
-
-  override def signature: Signature = Signature.fromObject(this)
 }

@@ -35,15 +35,16 @@ class PipelineRunner(
   }
 
   def persist[T, A <: Artifact: ClassTag](producer: Producer[T], io: ArtifactIo[T, A],
-    suffix: String): PersistedProducer[T, A] = {
+    suffix: String): PersistedProducer[T, A] =
+  {
     implicitly[ClassTag[A]].runtimeClass match {
       case c if c == classOf[FlatArtifact] => producer.persisted(
         io,
-        flatArtifact((producer.signature, suffix)).asInstanceOf[A]
+        flatArtifact((producer.stepInfo.signature, suffix)).asInstanceOf[A]
       )
       case c if c == classOf[StructuredArtifact] => producer.persisted(
         io,
-        structuredArtifact((producer.signature, suffix)).asInstanceOf[A]
+        structuredArtifact((producer.stepInfo.signature, suffix)).asInstanceOf[A]
       )
       case _ => sys.error(s"Cannot persist using io class of unknown type $io")
     }
@@ -58,7 +59,6 @@ class PipelineRunner(
     outputs.foreach(_.get)
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
     val version = s"${System.getProperty("user.name")}-$today"
-    val sig = Signature("experiment", version)
     val (htmlArtifact, workflowArtifact, signatureArtifact) =
       (for {
         i <- (0 to 100).iterator
@@ -71,7 +71,7 @@ class PipelineRunner(
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
     import spray.json.DefaultJsonProtocol._
     val signatureFormat = Signature.jsonWriter
-    val signatures = outputs.map(p => signatureFormat.write(p.signature)).toList.toJson
+    val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
     signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
     htmlArtifact.url
   }
