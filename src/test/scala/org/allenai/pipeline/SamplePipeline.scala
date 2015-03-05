@@ -1,20 +1,20 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 
 import org.apache.commons.io.FileUtils
-import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
 
-import java.io.{ File, InputStream }
+import java.io.{File, InputStream}
 
 /** See README.md for explanatory documentation of this example,
   * which runs a mocked-up pipeline to train and cross-validate a model.
   */
 class SamplePipeline extends UnitSpec
-    with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
+with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
   case class TrainedModel(info: String)
 
@@ -94,24 +94,28 @@ class SamplePipeline extends UnitSpec
   //      val input = new RelativeFileSystem(inputDir)
   //      val output = new S3(s3Config, Some("test-output"))
 
+  val pipeline = new Pipeline {
+    override def artifactFactory = output
+  }
+
   "Sample Pipeline 1" should "complete" in {
-//    // Read input data
-//    val featureData: Producer[Iterable[Array[Double]]] =
-//      Read.ArrayCollection.fromText[Double](input.flatArtifact(featureFile))
-//    val labelData: Producer[Iterable[Boolean]] =
-//      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-//    // Define pipeline
-//    val Producer2(trainData, testData) = new JoinAndSplitData(featureData, labelData, 0.2)
-//    val model: Producer[TrainedModel] =
-//      Persist.Singleton.asJson(new TrainModel(trainData), "TrainModel.json")
-//    val measure: Producer[PRMeasurement] =
-//      Persist.Collection.asText(new MeasureModel(model, testData), "MeasureModel.txt")
-//
-//    // Run pipeline
-//    measure.get
-//
-//    assert(findFile(scratchDir, "TrainModel", ".json"), "Json file created")
-//    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
+    // Read input data
+    val featureData: Producer[Iterable[Array[Double]]] =
+      Read.ArrayCollection.fromText[Double](input.flatArtifact(featureFile))
+    val labelData: Producer[Iterable[Boolean]] =
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+    // Define pipeline
+    val Producer2(trainData, testData) = new JoinAndSplitData(featureData, labelData, 0.2) -> (("train", "test"))
+    val model: Producer[TrainedModel] =
+      pipeline.Persist.Singleton.asJson(new TrainModel(trainData), Some("TrainModel.json"))
+    val measure: Producer[PRMeasurement] =
+      pipeline.Persist.Collection.asText(new MeasureModel(model, testData), Some("MeasureModel.txt"))
+
+    // Run pipeline
+    measure.get
+
+    assert(findFile(scratchDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   case class ParsedDocument(info: String)
@@ -128,7 +132,7 @@ class SamplePipeline extends UnitSpec
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
-      with BasicPipelineStepInfo {
+  with BasicPipelineStepInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
     }
@@ -143,24 +147,24 @@ class SamplePipeline extends UnitSpec
 
   "Sample Pipeline 2" should "complete" in {
     // Read input data
-//    val docDir = new File(inputDir, "xml")
-//    val docs = Read.fromArtifact(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
-//    val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
-//
-//    val labelData: Producer[Iterable[Boolean]] =
-//      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-//    // Define pipeline
-//    val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
-//      testData: Producer[Iterable[(Boolean, Array[Double])]]) =
-//      new JoinAndSplitData(docFeatures, labelData, 0.2)
-//    val model: Producer[TrainedModel] =
-//      Persist.Singleton.asJson(new TrainModel(trainData), "TrainModel.json")
-//    val measure: Producer[PRMeasurement] =
-//      Persist.Collection.asText(new MeasureModel(model, testData), "MeasureModel.txt")
-//    measure.get
-//
-//    assert(findFile(scratchDir, "TrainModel", ".json"), "Json file created")
-//    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
+        val docDir = new File(inputDir, "xml")
+        val docs = Read.fromArtifact(ParseDocumentsFromXML, new DirectoryArtifact(docDir))
+        val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
+
+        val labelData: Producer[Iterable[Boolean]] =
+          Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+        // Define pipeline
+        val Producer2(trainData: Producer[Iterable[(Boolean, Array[Double])]],
+          testData: Producer[Iterable[(Boolean, Array[Double])]]) =
+          new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
+        val model: Producer[TrainedModel] =
+          pipeline.Persist.Singleton.asJson(new TrainModel(trainData), Some("TrainModel.json"))
+        val measure: Producer[PRMeasurement] =
+          pipeline.Persist.Collection.asText(new MeasureModel(model, testData), Some("MeasureModel.txt"))
+        measure.get
+
+        assert(findFile(scratchDir, "TrainModel", ".json"), "Json file created")
+        assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   class TrainModelPython(data: Producer[FlatArtifact], io: ArtifactIo[TrainedModel, FileArtifact])
@@ -181,30 +185,30 @@ class SamplePipeline extends UnitSpec
 
   "Sample Pipeline 3" should "complete" in {
     // TSV format for label+features is <label><tab><comma-separated feature values>
-//    implicit val featureFormat = columnArrayFormat[Double](',')
-//    implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
+//        implicit val featureFormat = columnArrayFormat[Double](',')
+//        implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
 //
-//    val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
-//    val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
-//    val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
+//        val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
+//        val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
+//        val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 //
-//    val labelData: Producer[Iterable[Boolean]] =
-//      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-//    // Define pipeline
-//    val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2)
-//    val trainingDataFile = Persist.Collection.asText(trainData, "TrainingData.txt").asArtifact
-//    val model = Persist.Singleton.asJson(new TrainModelPython(
-//      trainingDataFile,
-//      SingletonIo.json[TrainedModel]
-//    ), "TrainModelPython.json")
-//    val measure: Producer[PRMeasurement] = Persist.Collection.asText(
-//      new MeasureModel(model, testData), "MeasureModel.txt"
-//    )
-//    measure.get
+//        val labelData: Producer[Iterable[Boolean]] =
+//          Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+//        // Define pipeline
+//        val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
+//        val trainingDataFile = pipeline.Persist.Collection.asText(trainData, Some("TrainingData.txt")).asArtifact
+//        val model = pipeline.Persist.Singleton.asJson(new TrainModelPython(
+//          trainingDataFile,
+//          SingletonIo.json[TrainedModel]
+//        ), "TrainModelPython.json")
+//        val measure: Producer[PRMeasurement] = Persist.Collection.asText(
+//          new MeasureModel(model, testData), "MeasureModel.txt"
+//        )
+//        measure.get
 //
-//    assert(findFile(scratchDir, "TrainingData", ".txt"), "Training data file created")
-//    assert(findFile(scratchDir, "TrainModelPython", ".json"), "Json file created")
-//    assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
+//        assert(findFile(scratchDir, "TrainingData", ".txt"), "Training data file created")
+//        assert(findFile(scratchDir, "TrainModelPython", ".json"), "Json file created")
+//        assert(findFile(scratchDir, "MeasureModel", ".txt"), "P/R file created")
   }
 
   override def afterEach(): Unit = {

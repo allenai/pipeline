@@ -11,7 +11,7 @@ import scala.util.Random
 
 import java.io.{File, InputStream}
 
-/** Test Pipelinepipeline functionality */
+/** Test Pipeline functionality */
 class SampleExperiment extends UnitSpec
 with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
@@ -36,83 +36,83 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     def artifactFactory = new RelativeFileSystem(scratchDir)
   }
 
-    "Sample Experiment" should "complete" in {
-      // TSV format for label+features is <label><tab><comma-separated feature values>
-      implicit val featureFormat = columnArrayFormat[Double](',')
-      implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
+  "Sample Experiment" should "complete" in {
+    // TSV format for label+features is <label><tab><comma-separated feature values>
+    implicit val featureFormat = columnArrayFormat[Double](',')
+    implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
 
 
+    val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
+    val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
+    val docFeatures = new FeaturizeDocuments(docs)
+
+    // Define pipeline
+    val labelData: Producer[Iterable[Boolean]] =
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+    val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
+    val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
+    val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
+    val measure: Producer[PRMeasurement] =
+      pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
+    pipeline.run("SamplePipeline", measure)
+
+    assert(findFile(outputDataDir, "JoinAndSplitData_train", ".txt"), "Training data file created")
+    assert(findFile(outputDataDir, "TrainModel", ".json"), "Json file created")
+    assert(findFile(outputDataDir, "MeasureModel", ".txt"), "P/R file created")
+    assert(findFile(new File(scratchDir, "summary"), "SamplePipeline", ".html"), "Experiment summary created")
+  }
+
+  "Subsequent Experiment" should "re-use existing data" in {
+    // TSV format for label+features is <label><tab><comma-separated feature values>
+    implicit val featureFormat = columnArrayFormat[Double](',')
+    implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
+
+    val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
+    val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
+    val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
+
+    val labelData: Producer[Iterable[Boolean]] =
+      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+    val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
+    val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
+    val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
+    val measure =
+      pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
+    val experimentSummary = pipeline.run("Sample Experiment", measure)
+
+    val trainDataFile = new File(trainDataPersisted.artifact.url)
+    val measureFile = new File(measure.artifact.url)
+
+    val trainDataModifiedTime = trainDataFile.lastModified
+
+    // Pipeline using different instances, with some shared steps
+    val (trainDataFile2, measureFile2) = {
       val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
       val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
       val docFeatures = new FeaturizeDocuments(docs)
 
-      // Define pipeline
       val labelData: Producer[Iterable[Boolean]] =
         Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-      val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) ->(("train", "test"))
+      val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
       val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
-      val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
-      val measure: Producer[PRMeasurement] =
-        pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
+      val model = pipeline.Persist.Singleton.asJson(new TrainModelPython(
+        trainDataPersisted,
+        SingletonIo.json[TrainedModel]
+      ), None, ".json")
+      val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
+        pipeline.Persist.Collection.asText(new MeasureModel(model, testData))
       pipeline.run("SamplePipeline", measure)
-
-      assert(findFile(outputDataDir, "JoinAndSplitData_train", ".txt"), "Training data file created")
-      assert(findFile(outputDataDir, "TrainModel", ".json"), "Json file created")
-      assert(findFile(outputDataDir, "MeasureModel", ".txt"), "P/R file created")
-      assert(findFile(new File(scratchDir,"summary"), "SamplePipeline", ".html"), "Experiment summary created")
+      (new File(trainDataPersisted.artifact.url),
+          new File(measure.artifact.url))
     }
 
-    "Subsequent Experiment" should "re-use existing data" in {
-      // TSV format for label+features is <label><tab><comma-separated feature values>
-      implicit val featureFormat = columnArrayFormat[Double](',')
-      implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
-
-      val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
-      val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
-      val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
-
-      val labelData: Producer[Iterable[Boolean]] =
-        Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-      val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) ->(("train", "test"))
-      val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
-      val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
-      val measure =
-        pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
-      val experimentSummary = pipeline.run("Sample Experiment", measure)
-
-      val trainDataFile = new File(trainDataPersisted.artifact.url)
-      val measureFile = new File(measure.artifact.url)
-
-      val trainDataModifiedTime = trainDataFile.lastModified
-
-      // Pipeline using different instances, with some shared steps
-      val (trainDataFile2, measureFile2) = {
-        val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
-        val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
-        val docFeatures = new FeaturizeDocuments(docs)
-
-        val labelData: Producer[Iterable[Boolean]] =
-          Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
-        val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) ->(("train", "test"))
-        val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
-        val model = pipeline.Persist.Singleton.asJson(new TrainModelPython(
-          trainDataPersisted,
-          SingletonIo.json[TrainedModel]
-        ), None, ".json")
-        val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
-          pipeline.Persist.Collection.asText(new MeasureModel(model, testData))
-        pipeline.run("SamplePipeline", measure)
-        (new File(trainDataPersisted.artifact.url),
-            new File(measure.artifact.url))
-      }
-
-      // Should use the same file to persist training data
-      trainDataFile2 should equal(trainDataFile)
-      // Should not recompute training data
-      trainDataFile2.lastModified should equal(trainDataFile.lastModified)
-      // Should store output in different location
-      measureFile2 should not equal (measureFile)
-    }
+    // Should use the same file to persist training data
+    trainDataFile2 should equal(trainDataFile)
+    // Should not recompute training data
+    trainDataFile2.lastModified should equal(trainDataFile.lastModified)
+    // Should store output in different location
+    measureFile2 should not equal (measureFile)
+  }
 
   override def afterEach: Unit = {
     FileUtils.cleanDirectory(scratchDir)
