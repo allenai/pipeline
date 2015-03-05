@@ -5,10 +5,10 @@ import org.allenai.pipeline.IoHelpers._
 
 import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
+import spray.json.JsonFormat
 
 import scala.reflect.ClassTag
 
-import java.io.File
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -20,64 +20,7 @@ import java.util.Date
   * }
   */
 trait Pipeline extends Logging {
-  def config: Config
-  lazy val input: ArtifactFactory[String] =
-    fromUrl(new URI(config.getString("input.dir")))
-  // Initializing a tuple.
-  lazy val (dataOutput: ArtifactFactory[String], summaryOutput: ArtifactFactory[String]) = {
-    val url = new URI(config.getString("output.dir"))
-    val path = url.getPath.stripSuffix("/")
-    val dataDir = new URI(url.getScheme, url.getHost, s"$path/data", null)
-    logger.info(s"Writing output to $dataDir")
-    val summaryDir = new URI(url.getScheme, url.getHost, s"$path/summary", null)
-    (fromUrl(dataDir),
-        fromUrl(summaryDir))
-  }
-
-  def persist[T, A <: Artifact : ClassTag](
-    original: Producer[T], io: ArtifactIo[T, A], path: String
-  ) = {
-    implicitly[ClassTag[A]].runtimeClass match {
-      case c if c == classOf[FlatArtifact] => original.persisted(
-        io,
-        dataOutput.flatArtifact(path).asInstanceOf[A]
-      )
-      case c if c == classOf[StructuredArtifact] => original.persisted(
-        io,
-        dataOutput.structuredArtifact(path).asInstanceOf[A]
-      )
-      case _ => sys.error(s"Cannot persist using io class of unknown type $io")
-    }
-  }
-
-  def getAutoPersistPath[T, A <: Artifact](original: Producer[T], io: ArtifactIo[T, A], suffix: String): String =
-    s"${original.stepInfo.signature.name}.${original.stepInfo.signature.id}$suffix"
-
-  def autoPersist[T, A <: Artifact : ClassTag](
-    original: Producer[T], io: ArtifactIo[T, A], suffix: String
-  ): Producer[T] = {
-    val path = getAutoPersistPath(original, io, suffix)
-    persist(original, io, path)
-  }
-
-  def optionallyPersist[T, A <: Artifact : ClassTag](stepName: String, suffix: String)(
-    original: Producer[T], io: ArtifactIo[T, A]
-  ): Producer[T] = {
-
-    val configKey = s"output.persist.$stepName"
-    if (config.hasPath(configKey)) {
-      config.getValue(configKey).unwrapped() match {
-        case java.lang.Boolean.TRUE =>
-          persist(original, io, getAutoPersistPath(original, io, suffix))
-        case path: String =>
-          persist(original, io, path)
-        case _ => original
-      }
-    } else {
-      original
-    }
-
-  }
+  def artifactFactory: FlatArtifactFactory[String] with StructuredArtifactFactory[String]
 
   def run(rawTitle: String, outputs: Producer[_]*): Unit = {
     try {
@@ -97,14 +40,14 @@ trait Pipeline extends Logging {
       val title = rawTitle.replaceAll( """\s+""", "-")
       val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
-      val workflowArtifact = summaryOutput.flatArtifact(s"$title-$today.workflow.json")
+      val workflowArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.workflow.json")
       val workflow = Workflow.forPipeline(outputs: _*)
       SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
-      val htmlArtifact = summaryOutput.flatArtifact(s"$title-$today.html")
+      val htmlArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.html")
       SingletonIo.text[String].write(Workflow.renderHtml(workflow), htmlArtifact)
 
-      val signatureArtifact = summaryOutput.flatArtifact(s"$title-$today.signatures.json")
+      val signatureArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.signatures.json")
       val signatureFormat = Signature.jsonWriter
       val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
       signatureArtifact.write { writer => writer.write(signatures.prettyPrint)}
@@ -115,24 +58,120 @@ trait Pipeline extends Logging {
     }
   }
 
+  def persist[T, A <: Artifact : ClassTag](
+    original: Producer[T],
+    io: ArtifactIo[T, A],
+    fileName: Option[String] = None,
+    suffix: String = ""
+  ) = {
+    val path = fileName.getOrElse(
+      s"${original.stepInfo.signature.name}.${original.stepInfo.signature.id}$suffix"
+    )
+    implicitly[ClassTag[A]].runtimeClass match {
+      case c if c == classOf[FlatArtifact] => original.persisted(
+        io,
+        artifactFactory.flatArtifact(s"data/$path").asInstanceOf[A]
+      )
+      case c if c == classOf[StructuredArtifact] => original.persisted(
+        io,
+        artifactFactory.structuredArtifact(s"data/$path").asInstanceOf[A]
+      )
+      case _ => sys.error(s"Cannot persist using io class of unknown type $io")
+    }
+  }
+
+  object Persist {
+
+    object Iterator {
+      def asText[T: StringSerializable : ClassTag](
+        step: Producer[Iterator[T]],
+        path: Option[String] = None,
+        suffix: String = ""
+      ): PersistedProducer[Iterator[T], FlatArtifact] =
+        persist(step, LineIteratorIo.text[T], path, suffix)
+
+      def asJson[T: JsonFormat : ClassTag](step: Producer[Iterator[T]],
+        path: Option[String] = None,
+        suffix: String = "")(
+      ): PersistedProducer[Iterator[T], FlatArtifact] =
+        persist(step, LineIteratorIo.json[T], path, suffix)
+    }
+
+    object Collection {
+      def asText[T: StringSerializable : ClassTag](
+        step: Producer[Iterable[T]],
+        path: Option[String] = None,
+        suffix: String = "")(
+      ): PersistedProducer[Iterable[T], FlatArtifact] =
+        persist(step, LineCollectionIo.text[T], path, suffix)
+
+      def asJson[T: JsonFormat : ClassTag](
+        step: Producer[Iterable[T]],
+        path: Option[String] = None,
+        suffix: String = "")(
+      ): PersistedProducer[Iterable[T], FlatArtifact] =
+        persist(step, LineCollectionIo.json[T], path, suffix)
+    }
+
+    object Singleton {
+      def asText[T: StringSerializable : ClassTag](
+        step: Producer[T],
+        path: Option[String] = None,
+        suffix: String = "")(
+      ): PersistedProducer[T, FlatArtifact] =
+        persist(step, SingletonIo.text[T], path, suffix)
+
+      def asJson[T: JsonFormat : ClassTag](
+        step: Producer[T],
+        path: Option[String] = None,
+        suffix: String = "")(
+      ): PersistedProducer[T, FlatArtifact] =
+        persist(step, SingletonIo.json[T], path, suffix)
+    }
+
+  }
+
   // Convert S3 URLs to an http: URL viewable in a browser
   def toHttpUrl(url: URI): URI = {
     url.getScheme match {
       case "s3" | "s3n" =>
-        new java.net.URI("http", s"${url.getHost}.s3.amazonaws.com", url.getPath, null)
+        new java.net.URI("http", s"${
+          url.getHost
+        }.s3.amazonaws.com", url.getPath, null)
       case "file" =>
         new java.net.URI(null, null, url.getPath, null)
       case _ => url
     }
   }
+}
 
-  def fromUrl(outputUrl: URI): ArtifactFactory[String] = {
-    outputUrl match {
-      case url if url.getScheme == "s3" || url.getScheme == "s3n" => new S3(S3Config(url.getHost), Some(url.getPath))
-      case url if url.getScheme == "file" || url.getScheme == null =>
-        new RelativeFileSystem(new File(url.getPath))
-      case _ => sys.error(s"Illegal dir: $outputUrl")
-    }
+trait ConfiguredPipeline extends Pipeline {
+  def config: Config
+
+  override lazy val artifactFactory = {
+    val url = new URI(config.getString("output.dir"))
+    val path = url.getPath.stripSuffix("/")
+    val outputDirUrl = new URI(url.getScheme, url.getHost, path, null)
+    ArtifactFactory.fromUrl(outputDirUrl)
   }
 
+  def optionallyPersist[T, A <: Artifact : ClassTag](
+    stepName: String,
+    suffix: String = "")(
+    original: Producer[T], io: ArtifactIo[T, A]
+  ): Producer[T] = {
+
+    val configKey = s"output.persist.$stepName"
+    if (config.hasPath(configKey)) {
+      config.getValue(configKey).unwrapped() match {
+        case java.lang.Boolean.TRUE =>
+          persist(original, io, None, suffix)
+        case path: String =>
+          persist(original, io, Some(path))
+        case _ => original
+      }
+    } else {
+      original
+    }
+  }
 }

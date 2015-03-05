@@ -98,24 +98,6 @@ object Producer {
 
 }
 
-
-//trait PipelineRunnerSupport extends HasCodeInfo {
-//  def signature: Signature
-//
-//  def outputLocation: Option[URI]
-//
-//  def description: Option[String] = None
-//}
-
-
-//trait NoPipelineRunnerSupport extends PipelineRunnerSupport {
-//  override def codeInfo: CodeInfo = ???
-//
-//  override def signature: Signature = ???
-//
-//  override def outputLocation: Option[URI] = ???
-//}
-
 trait CachingEnabled {
   def cachingEnabled: Boolean = true
 }
@@ -124,27 +106,21 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, A <: Artifact](step: Producer[T], io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-  artifactSource: => A) extends Producer[T] {
+class PersistedProducer[T, -A <: Artifact](step: Producer[T], io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+  _artifact: A) extends Producer[T] {
   self =>
-  lazy val artifact = artifactSource
+
+  def artifact: Artifact = _artifact
 
   def create: T = {
     if (!artifact.exists) {
       val result = step.get
       logger.debug(s"Writing to $artifact using $io")
-      io.write(result, artifact)
+      io.write(result, _artifact)
     }
     logger.debug(s"Reading from $artifact using $io")
-    io.read(artifact)
+    io.read(_artifact)
   }
-
-  def asArtifact: Producer[A] = copy(create = () => {
-    if (!artifact.exists) {
-      io.write(step.get, artifact)
-    }
-    artifact
-  })
 
   override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
 }
@@ -153,7 +129,7 @@ class PersistedProducer[T, A <: Artifact](step: Producer[T], io: SerializeToArti
 // Allow un-zipping of Producer instances
 // e.g.:
 //   val tupleProducer: Producer[List[Int], List[String]]
-//   val Producer2(intList, stringList) = tupleProducer
+//   val Producer2(intList, stringList) = tupleProducer -> (("integers", "strings"))
 //
 object Producer2 {
   def unapply[T1, T2](
@@ -173,76 +149,80 @@ object Producer2 {
   }
 }
 
-//object Producer3 {
-//  def unapply[T1, T2, T3](
-//    p: Producer[(T1, T2, T3)]
-//  ): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
-//    val p1 = p.copy(
-//      create = () => p.get._1,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_1")
-//    )
-//    val p2 = p.copy(
-//      create = () => p.get._2,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_2")
-//    )
-//    val p3 = p.copy(
-//      create = () => p.get._3,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_3")
-//    )
-//    Some((p1, p2, p3))
-//  }
-//}
-//
-//object Producer4 {
-//  private type P[T] = Producer[T] // Reduce line length
-//
-//  def unapply[T1, T2, T3, T4](p: P[(T1, T2, T3, T4)]): Option[(P[T1], P[T2], P[T3], P[T4])] = {
-//    val p1 = p.copy(
-//      create = () => p.get._1,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_1")
-//    )
-//    val p2 = p.copy(
-//      create = () => p.get._2,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_2")
-//    )
-//    val p3 = p.copy(
-//      create = () => p.get._3,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_3")
-//    )
-//    val p4 = p.copy(
-//      create = () => p.get._4,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_4")
-//    )
-//    Some((p1, p2, p3, p4))
-//  }
-//}
-//
-//object Producer5 {
-//  private type P[T] = Producer[T] // Reduce line length
-//
-//  def unapply[T1, T2, T3, T4, T5](
-//    p: P[(T1, T2, T3, T4, T5)]
-//  ): Option[(P[T1], P[T2], P[T3], P[T4], P[T5])] = {
-//    val p1 = p.copy(
-//      create = () => p.get._1,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_1")
-//    )
-//    val p2 = p.copy(
-//      create = () => p.get._2,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_2")
-//    )
-//    val p3 = p.copy(
-//      create = () => p.get._3,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_3")
-//    )
-//    val p4 = p.copy(
-//      create = () => p.get._4,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_4")
-//    )
-//    val p5 = p.copy(
-//      create = () => p.get._5,
-//      signature = () => p.signature.copy(name = s"${p.signature.name}_5")
-//    )
-//    Some((p1, p2, p3, p4, p5))
-//  }
-//}
+object Producer3 {
+  def unapply[T1, T2, T3](
+    input: (Producer[(T1, T2, T3)], (String, String, String))
+  ): Option[(Producer[T1], Producer[T2], Producer[T3])] = {
+    val (p, (name1, name2, name3)) = input
+    val p1 = p.copy(
+      create = () => p.get._1,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name1")
+    )
+
+    val p2 = p.copy(
+      create = () => p.get._2,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name2")
+    )
+    val p3 = p.copy(
+      create = () => p.get._3,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name3")
+    )
+    Some((p1, p2, p3))
+  }
+}
+
+object Producer4 {
+  def unapply[T1, T2, T3, T4](
+    input: (Producer[(T1, T2, T3, T4)], (String, String, String, String))
+  ): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4])] = {
+    val (p, (name1, name2, name3, name4)) = input
+    val p1 = p.copy(
+      create = () => p.get._1,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name1")
+    )
+
+    val p2 = p.copy(
+      create = () => p.get._2,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name2")
+    )
+    val p3 = p.copy(
+      create = () => p.get._3,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name3")
+    )
+    val p4 = p.copy(
+      create = () => p.get._4,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name4")
+    )
+    Some((p1, p2, p3, p4))
+  }
+}
+
+object Producer5 {
+  def unapply[T1, T2, T3, T4, T5](
+    input: (Producer[(T1, T2, T3, T4, T5)], (String, String, String, String, String))
+  ): Option[(Producer[T1], Producer[T2], Producer[T3], Producer[T4], Producer[T5])] = {
+    val (p, (name1, name2, name3, name4, name5)) = input
+    val p1 = p.copy(
+      create = () => p.get._1,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name1")
+    )
+
+    val p2 = p.copy(
+      create = () => p.get._2,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name2")
+    )
+    val p3 = p.copy(
+      create = () => p.get._3,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name3")
+    )
+    val p4 = p.copy(
+      create = () => p.get._4,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name4")
+    )
+    val p5 = p.copy(
+      create = () => p.get._5,
+      stepInfo = () => p.stepInfo.copy(className = s"${p.stepInfo.className}_$name5")
+    )
+    Some((p1, p2, p3, p4, p5))
+  }
+}

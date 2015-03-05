@@ -4,7 +4,6 @@ import org.allenai.common.testkit.UnitSpec
 
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfterAll
-import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
 
@@ -23,16 +22,14 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   val outputDir = new File("test-output-producer")
 
-  implicit val output = new RelativeFileSystem(outputDir)
-
-  implicit val runner = PipelineRunner.writeToDirectory(outputDir)
+  val output = new RelativeFileSystem(outputDir)
 
   val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled {
     def create = {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def stepInfo = PipelineStepInfo.fromFields(this).copy(className = "RNG")
+    def stepInfo = PipelineStepInfo.fromFields(this)().copy(className = "RNG")
   }
 
   val cachedRandomNumbers = new Producer[Iterable[Double]] with CachingEnabled {
@@ -40,7 +37,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def stepInfo = PipelineStepInfo.fromFields(this).copy(className = "CachedRNG")
+    def stepInfo = PipelineStepInfo.fromFields(this)().copy(className = "CachedRNG")
   }
 
   "Uncached random numbers" should "regenerate on each invocation" in {
@@ -94,7 +91,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20).iterator) yield rand.nextDouble
     }
 
-    override def stepInfo = PipelineStepInfo.fromFields(this).copy(className = "RNG")
+    override def stepInfo = PipelineStepInfo.fromFields(this)().copy(className = "RNG")
   }
 
   "Random iterator" should "never cache" in {
@@ -127,7 +124,6 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
         val n = numbers.toList
         n.toIterator
       }
-      def signature = PipelineStepInfo.fromFields(this)
     }
 
     consumedIterator.get.size should equal(20)

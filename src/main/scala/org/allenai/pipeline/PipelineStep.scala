@@ -60,12 +60,13 @@ object PipelineStepInfo {
       dependencies = (deps ++ containedDeps).map {
         case (n, p: PipelineStep) => (n, p)
       }.toMap,
-      parameters = pars.map { case (n, value) => (n, String.valueOf(value)) }.toMap
+      parameters = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
     )
   }
 
   def fromFields(
     base: Any,
+    classVersion: String = "")(
     fieldNames: String*
   ): PipelineStepInfo = {
     val params = for (field <- fieldNames) yield {
@@ -73,14 +74,16 @@ object PipelineStepInfo {
       f.setAccessible(true)
       (field, f.get(base))
     }
-    val info = Ai2CodeInfo(base)
+    val info = Ai2CodeInfo(base, classVersion)
     apply(info.className, info.classVersion, params: _*)
   }
 
   // The most magical of the Signature factory methods
   // If the target class is a case class, inspects the class definition
   // to extract the fields named in the constructor
-  def fromObject[T <: Product : ClassTag](obj: T): PipelineStepInfo = {
+  def fromObject[T <: Product : ClassTag](
+    obj: T,
+    classVersion: String = ""): PipelineStepInfo = {
     // Scala reflection is not thread-safe in 2.10:
     // http://docs.scala-lang.org/overviews/reflection/thread-safety.html
     synchronized {
@@ -88,7 +91,7 @@ object PipelineStepInfo {
       val fieldNames = mirror.reflect(obj).symbol.asType.typeSignature.members.collect {
         case m: MethodSymbol if m.isCaseAccessor => m.name.toString
       }.toList
-      fromFields(obj, fieldNames: _*)
+      fromFields(obj, classVersion)(fieldNames: _*)
     }
   }
 
@@ -104,15 +107,26 @@ trait BasicPipelineStepInfo extends PipelineStep {
 
 /** For convenience, case classes can mix in this single trait to implement PipelineStep
   */
-trait Ai2StepInfo extends PipelineStep {
+trait Ai2StepInfo extends Ai2SimpleStepInfo {
   this: Product =>
 
-  override def stepInfo = PipelineStepInfo.fromObject(this)
-      .copy(description = if (description.nonEmpty) Some(description) else None)
+  override def stepInfo = PipelineStepInfo.fromObject(this, classVersion)
+      .copy(description = descriptionOption)
 
-  def description: String = ""
 }
 
 trait Ai2SimpleStepInfo extends PipelineStep {
-  override def stepInfo = Ai2CodeInfo(this)
+  override def stepInfo = Ai2CodeInfo(this, classVersion)
+      .copy(description = descriptionOption)
+  /** Whenever the logic of this class is updated, the corresponding release number should
+    * be added to this list.  The unchangedSince field will be set to the latest version that is
+    * still earlier than the version in the jar file.
+    */
+  val versionHistory: Seq[String] = List()
+
+  def description: String = ""
+  protected def descriptionOption = if (description.nonEmpty) Some(description) else None
+
+  protected val classVersion = ("" +: versionHistory).last
+
 }

@@ -14,25 +14,6 @@ trait ReadHelpers extends ColumnFormats {
     def fromArtifact[T, A <: Artifact](reader: DeserializeFromArtifact[T, A], artifact: A): Producer[T] =
       new ReadFromArtifact(reader, artifact)
 
-//    /** General deserialization method. */
-//    def fromArtifactProducer[T, A <: Artifact](
-//      io: ArtifactIo[T, A],
-//      src: Producer[A]
-//    ): Producer[T] =
-//      new Producer[T] {
-//        override def create: T = io.read(src.get)
-//
-//        override def signature: Signature = Signature(
-//          io.codeInfo.className,
-//          io.codeInfo.unchangedSince,
-//          "src" -> src
-//        )
-//
-//        override def codeInfo: CodeInfo = io.codeInfo
-//
-//        override def outputLocation: Option[URI] = Some(src.get.url)
-//      }
-
     /** Read single object from flat file */
     object Singleton {
       def fromText[T: StringSerializable : ClassTag](artifact: FlatArtifact)(

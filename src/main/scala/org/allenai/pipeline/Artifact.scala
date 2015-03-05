@@ -36,16 +36,6 @@ trait FlatArtifact extends Artifact {
       }
     }
   }
-
-//  def asProducer: Producer[FlatArtifact] = new Producer[FlatArtifact] with Ai2CodeInfo {
-//    override def signature: Signature = Signature("FlatArtifact", "0", "url" -> url)
-//
-//    override def codeInfo: CodeInfo = super.codeInfo.copy(className = "FlatArtifact")
-//
-//    override def create: FlatArtifact = FlatArtifact.this
-//
-//    override def outputLocation: Some[URI] = Some(url)
-//  }
 }
 
 object StructuredArtifact {
@@ -93,15 +83,6 @@ trait StructuredArtifact extends Artifact {
       }
     }
   }
-//  def asProducer: Producer[StructuredArtifact] = new Producer[StructuredArtifact] with Ai2CodeInfo {
-//    override def signature: Signature = Signature("StructuredArtifact", "0", "url" -> url)
-//
-//    override def codeInfo: CodeInfo = super.codeInfo.copy(className = "StructuredArtifact")
-//
-//    override def create: StructuredArtifact = StructuredArtifact.this
-//
-//    override def outputLocation: Some[URI] = Some(url)
-//  }
 }
 
 /** Class for writing that exposes a more restrictive interface than OutputStream
