@@ -41,12 +41,9 @@ case class PipelineStepInfo(
     dependencies = dependencies,
     parameters = parameters
   )
-}
 
-object PipelineStepInfo {
-  def basic(target: Any) = PipelineStepInfo(target.getClass.getSimpleName)
-
-  def apply(className: String, classVersion: String, params: (String, Any)*): PipelineStepInfo = {
+  // Add parameters and dependencies, inferring the type dynamically
+  def addParameters(params: (String, Any)*): PipelineStepInfo = {
     val (deps, other) = params.partition(_._2.isInstanceOf[PipelineStep])
     val (containersWithDeps, pars) = other.partition(t => t._2.isInstanceOf[Iterable[_]] &&
         t._2.asInstanceOf[Iterable[_]].forall(_.isInstanceOf[PipelineStep]))
@@ -54,36 +51,35 @@ object PipelineStepInfo {
       (id, depList: Iterable[_]) <- containersWithDeps
       (d, i) <- depList.zipWithIndex
     } yield (s"${id}_$i", d)
-    PipelineStepInfo(
-      className = className,
-      classVersion = classVersion,
-      dependencies = (deps ++ containedDeps).map {
-        case (n, p: PipelineStep) => (n, p)
-      }.toMap,
-      parameters = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
-    )
+    val depMap = (deps ++ containedDeps).map {
+      case (n, p: PipelineStep) => (n, p)
+    }.toMap
+    val paramMap = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
+    copy(
+      parameters = this.parameters ++ paramMap,
+      dependencies = this.dependencies ++ depMap)
   }
 
-  def fromFields(
-    base: Any,
-    classVersion: String = "")(
+
+  // Add parameters and dependencies using the named fields of the given object
+  def addFields(
+    obj: Any,
     fieldNames: String*
   ): PipelineStepInfo = {
     val params = for (field <- fieldNames) yield {
-      val f = base.getClass.getDeclaredField(field)
+      val f = obj.getClass.getDeclaredField(field)
       f.setAccessible(true)
-      (field, f.get(base))
+      (field, f.get(obj))
     }
-    val info = Ai2CodeInfo(base, classVersion)
-    apply(info.className, info.classVersion, params: _*)
+    this.addParameters(params: _*)
   }
 
-  // The most magical of the Signature factory methods
+  // The most magical of the factory methods
   // If the target class is a case class, inspects the class definition
   // to extract the fields named in the constructor
-  def fromObject[T <: Product : ClassTag](
-    obj: T,
-    classVersion: String = ""): PipelineStepInfo = {
+  // and adds them to the parameters and dependencies
+  def addObject[T <: Product : ClassTag](
+    obj: T): PipelineStepInfo = {
     // Scala reflection is not thread-safe in 2.10:
     // http://docs.scala-lang.org/overviews/reflection/thread-safety.html
     synchronized {
@@ -91,9 +87,15 @@ object PipelineStepInfo {
       val fieldNames = mirror.reflect(obj).symbol.asType.typeSignature.members.collect {
         case m: MethodSymbol if m.isCaseAccessor => m.name.toString
       }.toList
-      fromFields(obj, classVersion)(fieldNames: _*)
+      addFields(obj, fieldNames: _*)
     }
   }
+
+}
+
+object PipelineStepInfo {
+  def basic(target: Any) = PipelineStepInfo(target.getClass.getSimpleName)
+
 
 }
 
@@ -110,14 +112,14 @@ trait BasicPipelineStepInfo extends PipelineStep {
 trait Ai2StepInfo extends Ai2SimpleStepInfo {
   this: Product =>
 
-  override def stepInfo = PipelineStepInfo.fromObject(this, classVersion)
-      .copy(description = descriptionOption)
-
+  override def stepInfo =
+    super.stepInfo.addObject(this)
 }
 
 trait Ai2SimpleStepInfo extends PipelineStep {
   override def stepInfo = Ai2CodeInfo(this, classVersion)
       .copy(description = descriptionOption)
+
   /** Whenever the logic of this class is updated, the corresponding release number should
     * be added to this list.  The unchangedSince field will be set to the latest version that is
     * still earlier than the version in the jar file.
@@ -125,8 +127,9 @@ trait Ai2SimpleStepInfo extends PipelineStep {
   val versionHistory: Seq[String] = List()
 
   def description: String = ""
-  protected def descriptionOption = if (description.nonEmpty) Some(description) else None
+  private def descriptionOption =
+    if (description.nonEmpty) Some(description) else None
 
-  protected val classVersion = ("" +: versionHistory).last
+  private val classVersion = ("" +: versionHistory).last
 
 }

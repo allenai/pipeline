@@ -33,7 +33,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def stepInfo = PipelineStepInfo.fromFields(this)().copy(className = "RNG")
+    def stepInfo = PipelineStepInfo(className = "RNG")
   }
 
   val cachedRandomNumbers = new Producer[Iterable[Double]] with CachingEnabled {
@@ -41,7 +41,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20)) yield rand.nextDouble
     }
 
-    def stepInfo = PipelineStepInfo.fromFields(this)().copy(className = "CachedRNG")
+    def stepInfo = PipelineStepInfo(className = "CachedRNG")
   }
 
   "Uncached random numbers" should "regenerate on each invocation" in {
@@ -95,7 +95,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       for (i <- (0 until 20).iterator) yield rand.nextDouble
     }
 
-    override def stepInfo = PipelineStepInfo.fromFields(this)().copy(className = "RNG")
+    override def stepInfo = PipelineStepInfo(className = "RNG")
   }
 
   "Random iterator" should "never cache" in {
@@ -134,9 +134,9 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Signature id" should "be order independent" in {
-    val s1 = PipelineStepInfo("name", "version", "first" -> 1, "second" -> 2).signature
-    val s2 = PipelineStepInfo("name", "version", "second" -> 2, "first" -> 1).signature
-    val s3 = PipelineStepInfo("name", "version2", "first" -> 1, "second" -> 2).signature
+    val s1 = PipelineStepInfo("name", "version").addParameters("first" -> 1, "second" -> 2).signature
+    val s2 = PipelineStepInfo("name", "version").addParameters("second" -> 2, "first" -> 1).signature
+    val s3 = PipelineStepInfo("name", "version2").addParameters("first" -> 1, "second" -> 2).signature
 
     s1.id should equal(s2.id)
 
@@ -144,23 +144,24 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Signature id" should "change with dependencies" in {
+    val base = PipelineStepInfo("name", "version")
     val prs1 = new PipelineStep {
-      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 1)
+      override def stepInfo = base.addParameters("param1" -> 1)
     }
     val prs1a = new PipelineStep {
-      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 1)
+      override def stepInfo = base.addParameters("param1" -> 1)
     }
     val prs2 = new PipelineStep {
-      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 2)
+      override def stepInfo = base.addParameters("param1" -> 2)
     }
     val prs3 = new PipelineStep {
-      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 3, "upstream" -> prs1)
+      override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs1)
     }
     val prs4 = new PipelineStep {
-      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 3, "upstream" -> prs2)
+      override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs2)
     }
     val prs5 = new PipelineStep {
-      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 3, "upstream" -> prs1a)
+      override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs1a)
     }
 
     // parameters are different
@@ -183,7 +184,9 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
       def create = (0 until length).map(i => rand.nextDouble)
 
-      override def stepInfo = PipelineStepInfo.fromFields(this)("seed", "length")
+      override def stepInfo =
+        PipelineStepInfo.basic(this)
+            .addFields(this, "seed", "length")
     }
 
     val rng1 = pipeline.Persist.Collection.asJson(new RNG(42, 100))

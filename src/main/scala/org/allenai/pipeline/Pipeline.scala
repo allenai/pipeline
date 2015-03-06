@@ -37,7 +37,7 @@ trait Pipeline extends Logging {
       val duration = (System.currentTimeMillis - start) / 1000.0
       logger.info(f"Ran pipeline in $duration%.3f s")
     } catch {
-      case e: Throwable => logger.error("Untrapped exception", e)
+      case e: Exception => logger.error("Untrapped exception", e)
     }
 
     val title = rawTitle.replaceAll( """\s+""", "-")
