@@ -24,6 +24,10 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   val output = new RelativeFileSystem(outputDir)
 
+  val pipeline = new Pipeline {
+    override def artifactFactory = output
+  }
+
   val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled {
     def create = {
       for (i <- (0 until 20)) yield rand.nextDouble
@@ -130,78 +134,65 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Signature id" should "be order independent" in {
-//    val s1 = Signature("name", "version", "first" -> 1, "second" -> 2)
-//    val s2 = Signature("name", "version", "second" -> 2, "first" -> 1)
-//    val s3 = Signature("name", "version2", "first" -> 1, "second" -> 2)
-//
-//    s1.id should equal(s2.id)
-//
-//    s1.id should not equal (s3.id)
+    val s1 = PipelineStepInfo("name", "version", "first" -> 1, "second" -> 2).signature
+    val s2 = PipelineStepInfo("name", "version", "second" -> 2, "first" -> 1).signature
+    val s3 = PipelineStepInfo("name", "version2", "first" -> 1, "second" -> 2).signature
+
+    s1.id should equal(s2.id)
+
+    s1.id should not equal (s3.id)
   }
 
   "Signature id" should "change with dependencies" in {
-//    val prs1 = new PipelineRunnerSupport with BasicPipelineStepInfo {
-//      override def signature = Signature("name", "version", "param1" -> 1)
-//
-//      override def outputLocation = None
-//    }
-//    val prs1a = new PipelineRunnerSupport with BasicPipelineStepInfo {
-//      override def signature = Signature("name", "version", "param1" -> 1)
-//
-//      override def outputLocation = None
-//    }
-//    val prs2 = new PipelineRunnerSupport with BasicPipelineStepInfo {
-//      override def signature = Signature("name", "version", "param1" -> 2)
-//
-//      override def outputLocation = None
-//    }
-//    val prs3 = new PipelineRunnerSupport with BasicPipelineStepInfo {
-//      override def signature = Signature("name", "version", "param1" -> 3, "upstream" -> prs1)
-//
-//      override def outputLocation = None
-//    }
-//    val prs4 = new PipelineRunnerSupport with BasicPipelineStepInfo {
-//      override def signature = Signature("name", "version", "param1" -> 3, "upstream" -> prs2)
-//
-//      override def outputLocation = None
-//    }
-//    val prs5 = new PipelineRunnerSupport with BasicPipelineStepInfo {
-//      override def signature = Signature("name", "version", "param1" -> 3, "upstream" -> prs1a)
-//
-//      override def outputLocation = None
-//    }
-//
-//    // parameters are different
-//    prs1.signature.id should not equal (prs2.signature.id)
-//
-//    // parameters same, dependencies different
-//    prs3.signature.id should not equals (prs4.signature.id)
-//
-//    // dependencies different instances with same signature
-//    prs5.signature.id should equal(prs3.signature.id)
+    val prs1 = new PipelineStep {
+      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 1)
+    }
+    val prs1a = new PipelineStep {
+      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 1)
+    }
+    val prs2 = new PipelineStep {
+      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 2)
+    }
+    val prs3 = new PipelineStep {
+      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 3, "upstream" -> prs1)
+    }
+    val prs4 = new PipelineStep {
+      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 3, "upstream" -> prs2)
+    }
+    val prs5 = new PipelineStep {
+      override def stepInfo = PipelineStepInfo("name", "version", "param1" -> 3, "upstream" -> prs1a)
+    }
+
+    // parameters are different
+    prs1.stepInfo.signature.id should not equal (prs2.stepInfo.signature.id)
+
+    // parameters same, dependencies different
+    prs3.stepInfo.signature.id should not equals (prs4.stepInfo.signature.id)
+
+    // dependencies different instances with same signature
+    prs5.stepInfo.signature.id should equal(prs3.stepInfo.signature.id)
   }
 
   "Signatures" should "determine unique paths" in {
-//    import org.allenai.pipeline.Signature._
-//
-//    import spray.json._
-//
-//    class RNG(val seed: Int, val length: Int)
-//        extends Producer[Iterable[Double]] with BasicPipelineStepInfo {
-//      private val rand = new Random(seed)
-//
-//      def create = (0 until length).map(i => rand.nextDouble)
-//
-//      override def signature = Signature.fromFields(this, "seed", "length")
-//    }
-//
-//    val rng1 = Persist.Collection.asJson(new RNG(42, 100))
-//    val rng2 = Persist.Collection.asJson(new RNG(117, 100))
-//
-//    rng1.signature should not equal (rng2.signature)
-//
-//    val rng3 = Persist.Collection.asJson(new RNG(42, 100))
-//    rng1.get should equal(rng3.get)
+    import spray.json._
+    import DefaultJsonProtocol._
+
+    class RNG(val seed: Int, val length: Int)
+        extends Producer[Iterable[Double]] with BasicPipelineStepInfo {
+      private val rand = new Random(seed)
+
+      def create = (0 until length).map(i => rand.nextDouble)
+
+      override def stepInfo = PipelineStepInfo.fromFields(this)("seed", "length")
+    }
+
+    val rng1 = pipeline.Persist.Collection.asJson(new RNG(42, 100))
+    val rng2 = pipeline.Persist.Collection.asJson(new RNG(117, 100))
+
+    rng1.stepInfo.signature should not equal (rng2.stepInfo.signature)
+
+    val rng3 = pipeline.Persist.Collection.asJson(new RNG(42, 100))
+    rng1.get should equal(rng3.get)
   }
 
   case class CountDependencies(listGenerators: List[Producer[Iterable[Double]]])
@@ -210,13 +201,13 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Signatures with dependencies in containers" should "identify dependencies" in {
-//    val has2 = new CountDependencies(List(randomNumbers, cachedRandomNumbers))
-//    val has3 = new CountDependencies(List(randomNumbers, cachedRandomNumbers, randomNumbers))
-//
-//    has2.stepInfo.signature.dependencies.size should equal(2)
-//    has3.stepInfo.signature.dependencies.size should equal(3)
-//
-//    has2.stepInfo.signature.id should not equal (has3.stepInfo.signature.id)
+    val has2 = new CountDependencies(List(randomNumbers, cachedRandomNumbers))
+    val has3 = new CountDependencies(List(randomNumbers, cachedRandomNumbers, randomNumbers))
+
+    has2.stepInfo.signature.dependencies.size should equal(2)
+    has3.stepInfo.signature.dependencies.size should equal(3)
+
+    has2.stepInfo.signature.id should not equal (has3.stepInfo.signature.id)
   }
 
   override def beforeAll: Unit = {

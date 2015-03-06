@@ -36,26 +36,26 @@ trait Pipeline extends Logging {
       outputs.foreach(_.get)
       val duration = (System.currentTimeMillis - start) / 1000.0
       logger.info(f"Ran pipeline in $duration%.3f s")
-
-      val title = rawTitle.replaceAll( """\s+""", "-")
-      val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
-
-      val workflowArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.workflow.json")
-      val workflow = Workflow.forPipeline(outputs: _*)
-      SingletonIo.json[Workflow].write(workflow, workflowArtifact)
-
-      val htmlArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.html")
-      SingletonIo.text[String].write(Workflow.renderHtml(workflow), htmlArtifact)
-
-      val signatureArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.signatures.json")
-      val signatureFormat = Signature.jsonWriter
-      val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
-      signatureArtifact.write { writer => writer.write(signatures.prettyPrint)}
-
-      logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
     } catch {
       case e: Throwable => logger.error("Untrapped exception", e)
     }
+
+    val title = rawTitle.replaceAll( """\s+""", "-")
+    val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
+
+    val workflowArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.workflow.json")
+    val workflow = Workflow.forPipeline(outputs: _*)
+    SingletonIo.json[Workflow].write(workflow, workflowArtifact)
+
+    val htmlArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.html")
+    SingletonIo.text[String].write(Workflow.renderHtml(workflow), htmlArtifact)
+
+    val signatureArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.signatures.json")
+    val signatureFormat = Signature.jsonWriter
+    val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
+    signatureArtifact.write { writer => writer.write(signatures.prettyPrint)}
+
+    logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
   }
 
   def persist[T, A <: Artifact : ClassTag](
@@ -64,9 +64,13 @@ trait Pipeline extends Logging {
     fileName: Option[String] = None,
     suffix: String = ""
   ) = {
-    val path = fileName.getOrElse(
-      s"${original.stepInfo.signature.name}.${original.stepInfo.signature.id}$suffix"
-    )
+    val path = fileName.getOrElse {
+      // Although the persistence method does not affect the signature
+      // (the same object will be returned in all cases), it is used 
+      // to determine the output path, to avoid parsing incompatible data
+      val signature = original.stepInfo.copy(dependencies = original.stepInfo.dependencies + ("io" -> io)).signature
+      s"${signature.name}.${signature.id}$suffix"
+    }
     implicitly[ClassTag[A]].runtimeClass match {
       case c if c == classOf[FlatArtifact] => original.persisted(
         io,
@@ -156,9 +160,10 @@ trait ConfiguredPipeline extends Pipeline {
   }
 
   def optionallyPersist[T, A <: Artifact : ClassTag](
+    original: Producer[T],
     stepName: String,
-    suffix: String = "")(
-    original: Producer[T], io: ArtifactIo[T, A]
+    io: ArtifactIo[T, A],
+    suffix: String = ""
   ): Producer[T] = {
 
     val configKey = s"output.persist.$stepName"
@@ -174,4 +179,56 @@ trait ConfiguredPipeline extends Pipeline {
       original
     }
   }
+
+  object OptionallyPersist {
+
+    object Iterator {
+      def asText[T: StringSerializable : ClassTag](
+        step: Producer[Iterator[T]],
+        stepName: String,
+        suffix: String = ""
+      ): Producer[Iterator[T]] =
+        optionallyPersist(step, stepName, LineIteratorIo.text[T], suffix)
+
+      def asJson[T: JsonFormat : ClassTag](
+        step: Producer[Iterator[T]],
+        stepName: String,
+        suffix: String = ""): Producer[Iterator[T]] =
+        optionallyPersist(step, stepName, LineIteratorIo.json[T], suffix)
+    }
+
+    object Collection {
+      def asText[T: StringSerializable : ClassTag](
+        step: Producer[Iterable[T]],
+        stepName: String,
+        suffix: String = "")(
+      ): Producer[Iterable[T]] =
+        optionallyPersist(step, stepName, LineCollectionIo.text[T], suffix)
+
+      def asJson[T: JsonFormat : ClassTag](
+        step: Producer[Iterable[T]],
+        stepName: String,
+        suffix: String = "")(
+      ): Producer[Iterable[T]] =
+        optionallyPersist(step, stepName, LineCollectionIo.json[T], suffix)
+    }
+
+    object Singleton {
+      def asText[T: StringSerializable : ClassTag](
+        step: Producer[T],
+        stepName: String,
+        suffix: String = "")(
+      ): Producer[T] =
+        optionallyPersist(step, stepName, SingletonIo.text[T], suffix)
+
+      def asJson[T: JsonFormat : ClassTag](
+        step: Producer[T],
+        stepName: String,
+        suffix: String = "")(
+      ): Producer[T] =
+        optionallyPersist(step, stepName, SingletonIo.json[T], suffix)
+    }
+
+  }
+
 }

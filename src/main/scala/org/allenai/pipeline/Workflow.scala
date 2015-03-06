@@ -21,6 +21,10 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     case (nodeId, node) =>
       !links.exists(link => link.fromId == nodeId)
   }
+
+  def errorNodes() = nodes.filter {
+    case (nodeId, node) => node.outputMissing
+  }
 }
 
 /** Represents a PipelineStep without its dependencies */
@@ -30,18 +34,27 @@ case class Node(className: String,
   binaryUrl: Option[URI] = None,
   parameters: Map[String, String] = Map(),
   description: Option[String] = None,
-  outputLocation: Option[URI] = None
+  outputLocation: Option[URI] = None,
+  outputMissing: Boolean = false
 )
 
 object Node {
-  def apply(stepInfo: PipelineStepInfo): Node =
+  def apply(step: PipelineStep): Node = {
+    val stepInfo = step.stepInfo
+    val outputMissing = step match {
+      case persisted: PersistedProducer[_, _] =>
+        !persisted.artifact.exists
+      case _ => false
+    }
     Node(stepInfo.className,
       stepInfo.classVersion,
       stepInfo.srcUrl,
       stepInfo.binaryUrl,
       stepInfo.parameters,
       stepInfo.description,
-      stepInfo.outputLocation)
+      stepInfo.outputLocation,
+      outputMissing)
+  }
 }
 
 /** Represents dependency between Producer instances */
@@ -49,14 +62,14 @@ case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
   def forPipeline(steps: PipelineStep*): Workflow = {
-    def findNodes(s: PipelineStep): Iterable[PipelineStepInfo] =
-      Seq(s.stepInfo) ++ s.stepInfo.dependencies.flatMap(t => findNodes(t._2))
+    def findNodes(s: PipelineStep): Iterable[PipelineStep] =
+      Seq(s) ++ s.stepInfo.dependencies.flatMap(t => findNodes(t._2))
 
     val nodeList = for {
       step <- steps
-      stepInfo <- findNodes(step)
+      childStep <- findNodes(step)
     } yield {
-      (stepInfo.signature.id, Node(stepInfo))
+      (childStep.stepInfo.signature.id, Node.apply(childStep))
     }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
@@ -83,7 +96,7 @@ object Workflow {
           case s => sys.error(s"Invalid URI: $s")
         }
       }
-      jsonFormat7(Node.apply)
+      jsonFormat8(Node.apply)
     }
     jsonFormat2(Workflow.apply)
   }
@@ -111,6 +124,7 @@ object Workflow {
   def renderHtml(w: Workflow): String = {
     val sourceNodes = w.sourceNodes()
     val sinkNodes = w.sinkNodes()
+    val errorNodes = w.errorNodes()
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
       (id, info) <- w.nodes.toList
@@ -128,12 +142,13 @@ object Workflow {
         // A link is like a param but it hyperlinks somewhere.
         val links =
         // An optional link to the source data.
-          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src" }")""") ++
+          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++
               // An optional link to the output data.
               info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sourceNodes match {
           case _ if sourceNodes contains id => "sourceNode"
           case _ if sinkNodes contains id => "sinkNode"
+          case _ if errorNodes contains id => "errorNode"
           case _ => ""
         }
         val linksText = links.mkString(",")

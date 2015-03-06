@@ -10,5 +10,6 @@ case class ReadFromArtifact[T, A <: Artifact](
 
   override def stepInfo =
     reader.stepInfo.copy(
-      parameters = reader.stepInfo.parameters + ("src" -> artifact.url.toString))
+      parameters = reader.stepInfo.parameters + ("src" -> artifact.url.toString),
+      outputLocation = Some(artifact.url))
 }
