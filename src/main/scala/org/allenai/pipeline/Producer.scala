@@ -11,7 +11,7 @@ import java.net.URI
   */
 trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport {
   self =>
-  protected def create: T
+  def create: T
 
   /** Return the computed value. */
   def get: T = {
