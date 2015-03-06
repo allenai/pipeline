@@ -15,17 +15,19 @@ trait Producer[T] extends Logging with CachingEnabled with PipelineRunnerSupport
 
   /** Return the computed value. */
   def get: T = {
-    if (!cachingEnabled)
+    if (!cachingEnabled) {
       create
-    else cachedValue match {
-      case None =>
-        val result = create
-        if (!result.isInstanceOf[Iterator[_]]) {
-          cachedValue = Some(result)
-        }
-        result
-      case Some(value) =>
-        value
+    } else {
+      cachedValue match {
+        case None =>
+          val result = create
+          if (!result.isInstanceOf[Iterator[_]]) {
+            cachedValue = Some(result)
+          }
+          result
+        case Some(value) =>
+          value
+      }
     }
   }
 

@@ -6,7 +6,7 @@ import scala.collection.JavaConverters._
 
 import java.io._
 import java.net.URI
-import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
+import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
 
 /** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {
