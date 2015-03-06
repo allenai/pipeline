@@ -22,7 +22,7 @@ lazy val buildSettings = Seq(
       </developer>
     </developers>),
   dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5") ++ 
-  PublishTo.sonatype
+  PublishTo.ai2Public
 
 lazy val pipeline = Project(
   id = "allenai-pipeline",
