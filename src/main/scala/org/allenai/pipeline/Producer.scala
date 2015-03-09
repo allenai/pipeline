@@ -25,9 +25,9 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
 
   /** Return the computed value. */
   final def get: T = {
-    if (!cachingEnabled)
+    if (!cachingEnabled) {
       createAndTime
-    else if (!initialized) {
+    } else if (!initialized) {
       initialized = true
       cachedValue
     } else if (!cachedValue.isInstanceOf[Iterator[_]]) {
@@ -108,9 +108,11 @@ object Producer {
     override def create: T = data
 
     override def stepInfo: PipelineStepInfo =
-      super.stepInfo.copy(className = data.getClass.getName, classVersion = data.hashCode.toHexString)
+      super.stepInfo.copy(
+        className = data.getClass.getName,
+        classVersion = data.hashCode.toHexString
+      )
   }
-
 }
 
 trait CachingEnabled {
@@ -121,8 +123,11 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact](step: Producer[T], io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-    _artifact: A) extends Producer[T] {
+class PersistedProducer[T, -A <: Artifact](
+    step: Producer[T],
+    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    _artifact: A
+) extends Producer[T] {
   self =>
 
   def artifact: Artifact = _artifact

@@ -8,7 +8,8 @@ import spray.json.JsonFormat
 import scala.io.{ Codec, Source }
 import scala.reflect.ClassTag
 
-trait ArtifactIo[T, -A <: Artifact] extends SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A]
+trait ArtifactIo[T, -A <: Artifact]
+  extends SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A]
 
 /** Interface for defining how to persist a data type.
   *

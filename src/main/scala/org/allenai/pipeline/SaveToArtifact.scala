@@ -6,8 +6,9 @@ case class SaveToArtifact[T, A <: Artifact](
     val artifact: A
 ) extends Producer[A] with BasicPipelineStepInfo {
   def create: A = {
-    if (!artifact.exists)
+    if (!artifact.exists) {
       writer.write(input.get, artifact)
+    }
     artifact
   }
 

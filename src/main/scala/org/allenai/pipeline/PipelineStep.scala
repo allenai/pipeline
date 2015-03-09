@@ -15,8 +15,9 @@ trait PipelineStep {
   * @param dependencies Input steps (name -> step pairs) required to run this step
   * @param description Optional, short description string for this step.
   * @param outputLocation If this step has been Persisted, the URL of the Artifact
-  *                       where the data was written.  Specifying a value will not cause a step to be persisted.
-  *                       Rather, when a step is persisted via Producer.persist, this field will be populated appropriately.
+  *                       where the data was written.  Specifying a value will not cause a step to
+  *                       be persisted.  Rather, when a step is persisted via Producer.persist,
+  *                       this field will be populated appropriately.
   */
 case class PipelineStepInfo(
     className: String,
