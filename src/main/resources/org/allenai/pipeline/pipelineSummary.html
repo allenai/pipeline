@@ -337,10 +337,16 @@
          *
          * @return {string}   The HTML for the step contents.
          */
-        function generateStepContent(label, description, data, links) {
+        function generateStepContent(label, description, millis, data, links) {
           var out = "<h2>" + label + "</h2>";
+          if(millis) {
+            out += millis + " millis";
+          }
+          else {
+            out += "cached";
+          }
           if(description) {
-            out += "<p>" + description + "</p>"
+            out += "<p>" + description + "</p>";
           }
           if(data && Array.isArray(data)) {
             out += '<ul class="data">';
