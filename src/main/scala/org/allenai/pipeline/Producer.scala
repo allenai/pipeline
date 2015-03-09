@@ -20,11 +20,9 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     else if (!initialized) {
       initialized = true
       cachedValue
-    }
-    else if (!cachedValue.isInstanceOf[Iterator[_]]) {
+    } else if (!cachedValue.isInstanceOf[Iterator[_]]) {
       cachedValue
-    }
-    else {
+    } else {
       create
     }
   }
@@ -107,7 +105,7 @@ trait CachingDisabled extends CachingEnabled {
 }
 
 class PersistedProducer[T, -A <: Artifact](step: Producer[T], io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-  _artifact: A) extends Producer[T] {
+    _artifact: A) extends Producer[T] {
   self =>
 
   def artifact: Artifact = _artifact

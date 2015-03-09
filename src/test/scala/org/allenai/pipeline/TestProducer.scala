@@ -186,7 +186,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
       override def stepInfo =
         PipelineStepInfo.basic(this)
-            .addFields(this, "seed", "length")
+          .addFields(this, "seed", "length")
     }
 
     val rng1 = pipeline.Persist.Collection.asJson(new RNG(42, 100))

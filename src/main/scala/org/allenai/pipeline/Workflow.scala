@@ -3,7 +3,7 @@ package org.allenai.pipeline
 import org.allenai.common.Resource
 
 import spray.json.DefaultJsonProtocol._
-import spray.json.{JsString, JsValue, JsonFormat}
+import spray.json.{ JsString, JsValue, JsonFormat }
 
 import scala.io.Source
 
@@ -28,7 +28,8 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
 }
 
 /** Represents a PipelineStep without its dependencies */
-case class Node(className: String,
+case class Node(
+  className: String,
   classVersion: String = "",
   srcUrl: Option[URI] = None,
   binaryUrl: Option[URI] = None,
@@ -46,14 +47,16 @@ object Node {
         !persisted.artifact.exists
       case _ => false
     }
-    Node(stepInfo.className,
+    Node(
+      stepInfo.className,
       stepInfo.classVersion,
       stepInfo.srcUrl,
       stepInfo.binaryUrl,
       stepInfo.parameters,
       stepInfo.description,
       stepInfo.outputLocation,
-      outputMissing)
+      outputMissing
+    )
   }
 }
 
@@ -73,8 +76,8 @@ object Workflow {
     }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
-      s.dependencies.map { case (name, dep) => (dep.stepInfo, s, name)} ++
-          s.dependencies.flatMap(t => findLinks(t._2.stepInfo))
+      s.dependencies.map { case (name, dep) => (dep.stepInfo, s, name) } ++
+        s.dependencies.flatMap(t => findLinks(t._2.stepInfo))
 
     val nodes = nodeList.toMap
 
@@ -141,10 +144,10 @@ object Workflow {
         }.mkString(",")
         // A link is like a param but it hyperlinks somewhere.
         val links =
-        // An optional link to the source data.
+          // An optional link to the source data.
           info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++
-              // An optional link to the output data.
-              info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
+            // An optional link to the output data.
+            info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sourceNodes match {
           case _ if sourceNodes contains id => "sourceNode"
           case _ if sinkNodes contains id => "sinkNode"

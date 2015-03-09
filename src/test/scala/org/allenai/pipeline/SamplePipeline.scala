@@ -1,19 +1,19 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.allenai.pipeline.IoHelpers._
 
 import org.apache.commons.io.FileUtils
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
 import spray.json.DefaultJsonProtocol._
 
 import scala.util.Random
 
-import java.io.{File, InputStream}
+import java.io.{ File, InputStream }
 
 /** Test Pipeline functionality */
 class SamplePipeline extends UnitSpec
-with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
+    with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
 
   import org.allenai.pipeline.SamplePipeline._
 
@@ -40,7 +40,6 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
     // TSV format for label+features is <label><tab><comma-separated feature values>
     implicit val featureFormat = columnArrayFormat[Double](',')
     implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
-
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
@@ -103,7 +102,7 @@ with BeforeAndAfterEach with BeforeAndAfterAll with ScratchDirectory {
         pipeline.Persist.Collection.asText(new MeasureModel(model, testData))
       pipeline.run("SamplePipeline", measure)
       (new File(trainDataPersisted.artifact.url),
-          new File(measure.artifact.url))
+        new File(measure.artifact.url))
     }
 
     // Should use the same file to persist training data
@@ -202,7 +201,7 @@ object SamplePipeline {
   }
 
   object ParseDocumentsFromXML extends ArtifactIo[Iterator[ParsedDocument], StructuredArtifact]
-  with Ai2SimpleStepInfo {
+      with Ai2SimpleStepInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
     }
@@ -215,7 +214,8 @@ object SamplePipeline {
     override def toString: String = this.getClass.getSimpleName
   }
 
-  case class TrainModelPython(val data: PersistedProducer[Iterable[TrainingPoint], FileArtifact],
+  case class TrainModelPython(
+    val data: PersistedProducer[Iterable[TrainingPoint], FileArtifact],
     val modelReader: DeserializeFromArtifact[TrainedModel, FileArtifact]
   )
       extends Producer[TrainedModel] with Ai2StepInfo {
@@ -243,8 +243,7 @@ object SamplePipelineApp extends App with Pipeline {
   val outputDir = new File("pipeline-output")
   val artifactFactory = new RelativeFileSystem(outputDir)
 
-
-//  val featureFile = "features.txt"
+  //  val featureFile = "features.txt"
   val labelFile = "labels.txt"
 
   // Enable JSON serialization for our trained model object

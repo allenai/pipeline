@@ -28,7 +28,7 @@ trait Pipeline extends Logging {
         outputs.forall(_.isInstanceOf[PersistedProducer[_, _]]),
         s"Running a pipeline without persisting the output: ${
           outputs.filter(p => !p
-              .isInstanceOf[PersistedProducer[_, _]]).map(_.stepInfo.className).mkString(",")
+            .isInstanceOf[PersistedProducer[_, _]]).map(_.stepInfo.className).mkString(",")
         }}"
       )
 
@@ -40,7 +40,7 @@ trait Pipeline extends Logging {
       case e: Exception => logger.error("Untrapped exception", e)
     }
 
-    val title = rawTitle.replaceAll( """\s+""", "-")
+    val title = rawTitle.replaceAll("""\s+""", "-")
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
     val workflowArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.workflow.json")
@@ -53,12 +53,12 @@ trait Pipeline extends Logging {
     val signatureArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter
     val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
-    signatureArtifact.write { writer => writer.write(signatures.prettyPrint)}
+    signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
 
     logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
   }
 
-  def persist[T, A <: Artifact : ClassTag](
+  def persist[T, A <: Artifact: ClassTag](
     original: Producer[T],
     io: ArtifactIo[T, A],
     fileName: Option[String] = None,
@@ -87,49 +87,50 @@ trait Pipeline extends Logging {
   object Persist {
 
     object Iterator {
-      def asText[T: StringSerializable : ClassTag](
+      def asText[T: StringSerializable: ClassTag](
         step: Producer[Iterator[T]],
         path: Option[String] = None,
         suffix: String = ""
       ): PersistedProducer[Iterator[T], FlatArtifact] =
         persist(step, LineIteratorIo.text[T], path, suffix)
 
-      def asJson[T: JsonFormat : ClassTag](step: Producer[Iterator[T]],
+      def asJson[T: JsonFormat: ClassTag](
+        step: Producer[Iterator[T]],
         path: Option[String] = None,
-        suffix: String = "")(
-      ): PersistedProducer[Iterator[T], FlatArtifact] =
+        suffix: String = ""
+      )(): PersistedProducer[Iterator[T], FlatArtifact] =
         persist(step, LineIteratorIo.json[T], path, suffix)
     }
 
     object Collection {
-      def asText[T: StringSerializable : ClassTag](
+      def asText[T: StringSerializable: ClassTag](
         step: Producer[Iterable[T]],
         path: Option[String] = None,
-        suffix: String = "")(
-      ): PersistedProducer[Iterable[T], FlatArtifact] =
+        suffix: String = ""
+      )(): PersistedProducer[Iterable[T], FlatArtifact] =
         persist(step, LineCollectionIo.text[T], path, suffix)
 
-      def asJson[T: JsonFormat : ClassTag](
+      def asJson[T: JsonFormat: ClassTag](
         step: Producer[Iterable[T]],
         path: Option[String] = None,
-        suffix: String = "")(
-      ): PersistedProducer[Iterable[T], FlatArtifact] =
+        suffix: String = ""
+      )(): PersistedProducer[Iterable[T], FlatArtifact] =
         persist(step, LineCollectionIo.json[T], path, suffix)
     }
 
     object Singleton {
-      def asText[T: StringSerializable : ClassTag](
+      def asText[T: StringSerializable: ClassTag](
         step: Producer[T],
         path: Option[String] = None,
-        suffix: String = "")(
-      ): PersistedProducer[T, FlatArtifact] =
+        suffix: String = ""
+      )(): PersistedProducer[T, FlatArtifact] =
         persist(step, SingletonIo.text[T], path, suffix)
 
-      def asJson[T: JsonFormat : ClassTag](
+      def asJson[T: JsonFormat: ClassTag](
         step: Producer[T],
         path: Option[String] = None,
-        suffix: String = "")(
-      ): PersistedProducer[T, FlatArtifact] =
+        suffix: String = ""
+      )(): PersistedProducer[T, FlatArtifact] =
         persist(step, SingletonIo.json[T], path, suffix)
     }
 
@@ -159,7 +160,7 @@ trait ConfiguredPipeline extends Pipeline {
     ArtifactFactory.fromUrl(outputDirUrl)
   }
 
-  def optionallyPersist[T, A <: Artifact : ClassTag](
+  def optionallyPersist[T, A <: Artifact: ClassTag](
     original: Producer[T],
     stepName: String,
     io: ArtifactIo[T, A],
@@ -183,49 +184,50 @@ trait ConfiguredPipeline extends Pipeline {
   object OptionallyPersist {
 
     object Iterator {
-      def asText[T: StringSerializable : ClassTag](
+      def asText[T: StringSerializable: ClassTag](
         step: Producer[Iterator[T]],
         stepName: String,
         suffix: String = ""
       ): Producer[Iterator[T]] =
         optionallyPersist(step, stepName, LineIteratorIo.text[T], suffix)
 
-      def asJson[T: JsonFormat : ClassTag](
+      def asJson[T: JsonFormat: ClassTag](
         step: Producer[Iterator[T]],
         stepName: String,
-        suffix: String = ""): Producer[Iterator[T]] =
+        suffix: String = ""
+      ): Producer[Iterator[T]] =
         optionallyPersist(step, stepName, LineIteratorIo.json[T], suffix)
     }
 
     object Collection {
-      def asText[T: StringSerializable : ClassTag](
+      def asText[T: StringSerializable: ClassTag](
         step: Producer[Iterable[T]],
         stepName: String,
-        suffix: String = "")(
-      ): Producer[Iterable[T]] =
+        suffix: String = ""
+      )(): Producer[Iterable[T]] =
         optionallyPersist(step, stepName, LineCollectionIo.text[T], suffix)
 
-      def asJson[T: JsonFormat : ClassTag](
+      def asJson[T: JsonFormat: ClassTag](
         step: Producer[Iterable[T]],
         stepName: String,
-        suffix: String = "")(
-      ): Producer[Iterable[T]] =
+        suffix: String = ""
+      )(): Producer[Iterable[T]] =
         optionallyPersist(step, stepName, LineCollectionIo.json[T], suffix)
     }
 
     object Singleton {
-      def asText[T: StringSerializable : ClassTag](
+      def asText[T: StringSerializable: ClassTag](
         step: Producer[T],
         stepName: String,
-        suffix: String = "")(
-      ): Producer[T] =
+        suffix: String = ""
+      )(): Producer[T] =
         optionallyPersist(step, stepName, SingletonIo.text[T], suffix)
 
-      def asJson[T: JsonFormat : ClassTag](
+      def asJson[T: JsonFormat: ClassTag](
         step: Producer[T],
         stepName: String,
-        suffix: String = "")(
-      ): Producer[T] =
+        suffix: String = ""
+      )(): Producer[T] =
         optionallyPersist(step, stepName, SingletonIo.json[T], suffix)
     }
 
