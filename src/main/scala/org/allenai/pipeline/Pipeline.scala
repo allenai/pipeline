@@ -66,9 +66,11 @@ trait Pipeline extends Logging {
   ) = {
     val path = fileName.getOrElse {
       // Although the persistence method does not affect the signature
-      // (the same object will be returned in all cases), it is used 
+      // (the same object will be returned in all cases), it is used
       // to determine the output path, to avoid parsing incompatible data
-      val signature = original.stepInfo.copy(dependencies = original.stepInfo.dependencies + ("io" -> io)).signature
+      val signature = original.stepInfo.copy(
+        dependencies = original.stepInfo.dependencies + ("io" -> io)
+      ).signature
       s"${signature.name}.${signature.id}$suffix"
     }
     implicitly[ClassTag[A]].runtimeClass match {
@@ -85,7 +87,6 @@ trait Pipeline extends Logging {
   }
 
   object Persist {
-
     object Iterator {
       def asText[T: StringSerializable: ClassTag](
         step: Producer[Iterator[T]],

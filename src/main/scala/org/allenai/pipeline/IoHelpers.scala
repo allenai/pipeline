@@ -9,7 +9,10 @@ object IoHelpers extends ColumnFormats {
 
   object Read {
     /** General deserialization method. */
-    def fromArtifact[T, A <: Artifact](reader: DeserializeFromArtifact[T, A], artifact: A): Producer[T] =
+    def fromArtifact[T, A <: Artifact](
+      reader: DeserializeFromArtifact[T, A],
+      artifact: A
+    ): Producer[T] =
       new ReadFromArtifact(reader, artifact)
 
     /** Read single object from flat file */

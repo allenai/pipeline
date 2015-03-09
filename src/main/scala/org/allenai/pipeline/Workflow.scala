@@ -36,7 +36,8 @@ case class Node(
   parameters: Map[String, String] = Map(),
   description: Option[String] = None,
   outputLocation: Option[URI] = None,
-  outputMissing: Boolean = false
+  outputMissing: Boolean = false,
+  timeTakenMillis: Option[Long] = None
 )
 
 object Node {
@@ -47,6 +48,10 @@ object Node {
         !persisted.artifact.exists
       case _ => false
     }
+    val timeTaken = step match {
+      case producer: Producer[_] => producer.timeTaken map (_.toMillis)
+      case _ => None
+    }
     Node(
       stepInfo.className,
       stepInfo.classVersion,
@@ -55,7 +60,8 @@ object Node {
       stepInfo.parameters,
       stepInfo.description,
       stepInfo.outputLocation,
-      outputMissing
+      outputMissing,
+      timeTaken
     )
   }
 }
@@ -66,7 +72,10 @@ case class Link(fromId: String, toId: String, name: String)
 object Workflow {
   def forPipeline(steps: PipelineStep*): Workflow = {
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
-      Seq(s) ++ s.stepInfo.dependencies.flatMap(t => findNodes(t._2))
+      Seq(s) ++ s.stepInfo.dependencies.flatMap {
+        case (name, step) =>
+          findNodes(step)
+      }
 
     val nodeList = for {
       step <- steps
@@ -99,7 +108,7 @@ object Workflow {
           case s => sys.error(s"Invalid URI: $s")
         }
       }
-      jsonFormat8(Node.apply)
+      jsonFormat9(Node.apply)
     }
     jsonFormat2(Workflow.apply)
   }
@@ -159,7 +168,8 @@ object Workflow {
            |          class: "$clazz",
            |          labelType: "html",
            |          label: generateStepContent("${info.className}",
-           |            "${info.description.getOrElse("")}",
+           |            " ${info.description.getOrElse("")}",
+           |            ${info.timeTakenMillis.getOrElse("undefined")},
            |            [$paramsText],
            |            [$linksText])
            |        });""".stripMargin

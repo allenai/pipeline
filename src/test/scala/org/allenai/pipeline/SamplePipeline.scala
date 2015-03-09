@@ -133,11 +133,10 @@ object SamplePipeline {
   type TrainingPoint = (Boolean, Array[Double])
 
   case class JoinAndSplitData(
-    features: Producer[Iterable[Array[Double]]],
-    labels: Producer[Iterable[Boolean]],
-    testSizeRatio: Double
-  )
-      extends Producer[(Iterable[TrainingPoint], Iterable[TrainingPoint])] with Ai2StepInfo {
+      features: Producer[Iterable[Array[Double]]],
+      labels: Producer[Iterable[Boolean]],
+      testSizeRatio: Double
+  ) extends Producer[(Iterable[TrainingPoint], Iterable[TrainingPoint])] with Ai2StepInfo {
     def create: (Iterable[TrainingPoint], Iterable[TrainingPoint]) = {
       val rand = new Random
       val data = labels.get.zip(features.get)
@@ -165,10 +164,9 @@ object SamplePipeline {
 
   // Threshold, precision, recall
   case class MeasureModel(
-    val model: Producer[TrainedModel],
-    val testData: Producer[Iterable[TrainingPoint]]
-  )
-      extends Producer[PRMeasurement] with Ai2StepInfo {
+      val model: Producer[TrainedModel],
+      val testData: Producer[Iterable[TrainingPoint]]
+  ) extends Producer[PRMeasurement] with Ai2StepInfo {
     def create: PRMeasurement = {
       model.get
       // Just generate some dummy data
