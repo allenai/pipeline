@@ -11,12 +11,13 @@ import java.net.URI
   */
 trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
-  protected def create: T
+  def create: T
 
   /** Return the computed value. */
   def get: T = {
-    if (!cachingEnabled)
+    if (!cachingEnabled) {
       create
+    }
     else if (!initialized) {
       initialized = true
       cachedValue
