@@ -60,20 +60,24 @@ object Signature {
   }
 
   def apply(name: String, unchangedSinceVersion: String, params: (String, Any)*): Signature = {
-    val (deps, other) = params.partition(_._2.isInstanceOf[PipelineRunnerSupport])
-    val (containersWithDeps, pars) = other.partition(t => t._2.isInstanceOf[Iterable[_]] &&
-      t._2.asInstanceOf[Iterable[_]].forall(_.isInstanceOf[PipelineRunnerSupport]))
-    val containedDeps = for {
-      (id, depList: Iterable[_]) <- containersWithDeps
-      (d, i) <- depList.zipWithIndex
-    } yield (s"${id}_$i", d)
+    val pipelineRunners = collection.mutable.ListBuffer[(String, PipelineRunnerSupport)]()
+    val otherParams = collection.mutable.ListBuffer[(String, Any)]()
+    // parameters of the following types get treated as "dependencies":
+    // PipelineRunnerSupport, Iterable[PipelineRunnerSupport], Option[PipelineRunnerSupport]
+    params.foreach {
+      case (id, p: PipelineRunnerSupport) => pipelineRunners += ((id, p))
+      case (id, it: Iterable[PipelineRunnerSupport]) =>
+        pipelineRunners ++= it.zipWithIndex.map { case (p, i) => (s"${id}_$i", p)}
+      case (id, opt: Some[PipelineRunnerSupport]) =>
+        pipelineRunners += ((id, opt.get))
+      case (id, None) => // no-op: skip None
+      case x => otherParams += x
+    }
     Signature(
       name = name,
       unchangedSinceVersion = unchangedSinceVersion,
-      dependencies = (deps ++ containedDeps).map {
-      case (n, p: PipelineRunnerSupport) => (n, p)
-    }.toMap,
-      parameters = pars.map { case (n, value) => (n, String.valueOf(value)) }.toMap
+      dependencies = pipelineRunners.toMap,
+      parameters = otherParams.map { case (n, value) => (n, String.valueOf(value)) }.toMap
     )
   }
 
