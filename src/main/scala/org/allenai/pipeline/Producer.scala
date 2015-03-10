@@ -42,7 +42,7 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   private lazy val cachedValue: T = createAndTime
 
   /** Report the amount of time taken in milliseconds, or None if the value is cached
-    * or this stage has not been run yet.
+    * in memory or this stage has not been run yet.
     */
   def timeTaken: Option[Duration] = timing
 
