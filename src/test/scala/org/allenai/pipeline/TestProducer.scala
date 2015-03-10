@@ -143,17 +143,18 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     s1.id should not equal (s3.id)
   }
 
+  val prs1 = new PipelineRunnerSupport with UnknownCodeInfo {
+    override def signature = Signature("name", "version", "param1" -> 1)
+
+    override def outputLocation = None
+  }
+  val prs1a = new PipelineRunnerSupport with UnknownCodeInfo {
+    override def signature = Signature("name", "version", "param1" -> 1)
+
+    override def outputLocation = None
+  }
+
   "Signature id" should "change with dependencies" in {
-    val prs1 = new PipelineRunnerSupport with UnknownCodeInfo {
-      override def signature = Signature("name", "version", "param1" -> 1)
-
-      override def outputLocation = None
-    }
-    val prs1a = new PipelineRunnerSupport with UnknownCodeInfo {
-      override def signature = Signature("name", "version", "param1" -> 1)
-
-      override def outputLocation = None
-    }
     val prs2 = new PipelineRunnerSupport with UnknownCodeInfo {
       override def signature = Signature("name", "version", "param1" -> 2)
 
@@ -182,7 +183,48 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     prs3.signature.id should not equals (prs4.signature.id)
 
     // dependencies different instances with same signature
-    prs5.signature.id should equal(prs3.signature.id)
+    prs5.signature.id should equal (prs3.signature.id)
+  }
+
+  val prs6withDep = new PipelineRunnerSupport with UnknownCodeInfo {
+    override def signature = Signature("name", "version",
+      "param1" -> 4, "upstream" -> prs1)
+
+    override def outputLocation = None
+  }
+  val prs6withSomeDep = new PipelineRunnerSupport with UnknownCodeInfo {
+    override def signature = Signature("name", "version",
+      "param1" -> 4, "upstream" -> Some(prs1))
+
+    override def outputLocation = None
+  }
+  val prs6withSomeOtherDepSameSig = new PipelineRunnerSupport with UnknownCodeInfo {
+    override def signature = Signature("name", "version",
+      "param1" -> 4, "upstream" -> Some(prs1a))
+
+    override def outputLocation = None
+  }
+  val prs6withNoneDep = new PipelineRunnerSupport with UnknownCodeInfo {
+    override def signature = Signature("name", "version", "param1" -> 4, "upstream" -> None)
+
+    override def outputLocation = None
+  }
+  val prs6withoutDep = new PipelineRunnerSupport with UnknownCodeInfo {
+    override def signature = Signature("name", "version", "param1" -> 4)
+
+    override def outputLocation = None
+  }
+  "Signature with Option[Producer]" should "have the same signature as with just same Producer" in {
+    prs6withDep.signature.id should equal (prs6withSomeDep.signature.id)
+  }
+  "Signature with Some(p1)" should "have same sig as with Some(p2) if p1.sig.id == p2.sig.id" in {
+    prs6withDep.signature.id should equal (prs6withSomeOtherDepSameSig.signature.id)
+  }
+  "Signature with None as dep" should "have same sig as if dep not there at all" in {
+    prs6withNoneDep.signature.id should equal (prs6withoutDep.signature.id)
+  }
+  "Signature with None as dep" should "have different sig as with Some" in {
+    prs6withSomeDep.signature.id should not equal (prs6withNoneDep.signature.id)
   }
 
   "Signatures" should "determine unique paths" in {
@@ -221,6 +263,22 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     has3.signature.dependencies.size should equal(3)
 
     has2.signature.id should not equal (has3.signature.id)
+  }
+
+  case class CountOptionalDependencies(requiredProducer: Producer[Iterable[Double]],
+    optionalProducer: Option[Producer[Iterable[Double]]]) extends Producer[Double] with
+  Ai2Signature {
+    override def create: Double = requiredProducer.get.sum +
+        optionalProducer.map(_.get.sum).getOrElse(0d)
+  }
+
+  "Signature"  should "work on Option[Producer]" in {
+    val has2 = new CountOptionalDependencies(randomNumbers, Some(cachedRandomNumbers))
+    val has1 = new CountOptionalDependencies(cachedRandomNumbers, Some(randomNumbers))
+
+    val id2 = has2.signature.id
+    val id1 = has1.signature.id
+    id1 should not equal (id2)
   }
 
   override def beforeAll: Unit = {
