@@ -136,19 +136,16 @@ trait Ai2StepInfo extends Ai2SimpleStepInfo {
   */
 trait Ai2SimpleStepInfo extends PipelineStep {
   override def stepInfo =
-    Ai2CodeInfo(this, classVersion)
+    Ai2CodeInfo(this, classVersion = ("" +: versionHistory).last)
       .copy(description = descriptionOption)
 
   /** Whenever the logic of this class is updated, the corresponding release number should
     * be added to this list.  The unchangedSince field will be set to the latest version that is
     * still earlier than the version in the jar file.
     */
-  val versionHistory: Seq[String] = List()
+  def versionHistory: Seq[String] = List()
 
   def description: String = ""
   protected def descriptionOption =
     if (description != null && description.nonEmpty) Some(description) else None
-
-  protected val classVersion = ("" +: versionHistory).last
-
 }
