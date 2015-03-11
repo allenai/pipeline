@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.{Logging, Timing}
+import org.allenai.common.{ Logging, Timing }
 
 import scala.concurrent.duration.Duration
 
@@ -26,17 +26,14 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     if (!cachingEnabled) {
       logger.debug(s"$className caching disabled, recomputing")
       createAndTime
-    }
-    else if (!initialized) {
+    } else if (!initialized) {
       logger.debug(s"$className computing value")
       initialized = true
       cachedValue
-    }
-    else if (!cachedValue.isInstanceOf[Iterator[_]]) {
+    } else if (!cachedValue.isInstanceOf[Iterator[_]]) {
       logger.debug(s"$className reusing cached value")
       cachedValue
-    }
-    else {
+    } else {
       logger.debug(s"$className recomputing value of type Iterator")
       createAndTime
     }
@@ -146,12 +143,10 @@ class PersistedProducer[T, -A <: Artifact](
       if (result.isInstanceOf[Iterator[_]]) {
         logger.debug(s"$className reading type Iterator from $artifact using $io")
         io.read(_artifact)
-      }
-      else {
+      } else {
         result
       }
-    }
-    else {
+    } else {
       logger.debug(s"$className reading from $artifact using $io")
       io.read(_artifact)
     }

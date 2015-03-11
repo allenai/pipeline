@@ -94,8 +94,9 @@ case class PipelineStepInfo(
   // info =
   //   PipelineStepInfo.basic(this)
   //     .addObject(this)
-  def addObject[T <: Product : ClassTag](
-    obj: T): PipelineStepInfo = {
+  def addObject[T <: Product: ClassTag](
+    obj: T
+  ): PipelineStepInfo = {
     // Scala reflection is not thread-safe in 2.10:
     // http://docs.scala-lang.org/overviews/reflection/thread-safety.html
     synchronized {
@@ -139,7 +140,7 @@ trait Ai2StepInfo extends Ai2SimpleStepInfo {
 trait Ai2SimpleStepInfo extends PipelineStep {
   override def stepInfo =
     Ai2CodeInfo(this, classVersion)
-        .copy(description = descriptionOption)
+      .copy(description = descriptionOption)
 
   /** Whenever the logic of this class is updated, the corresponding release number should
     * be added to this list.  The unchangedSince field will be set to the latest version that is
