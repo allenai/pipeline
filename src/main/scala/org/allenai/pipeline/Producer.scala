@@ -14,7 +14,7 @@ import java.net.URI
   */
 trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
-  protected def create: T
+  def create: T
 
   /** Call `create` but store time taken. */
   def createAndTime: T = {
@@ -24,16 +24,21 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   }
 
   /** Return the computed value. */
-  final def get: T = {
+  def get: T = {
     if (!cachingEnabled) {
       createAndTime
-    } else if (!initialized) {
-      initialized = true
-      cachedValue
-    } else if (!cachedValue.isInstanceOf[Iterator[_]]) {
-      cachedValue
     } else {
-      createAndTime
+      cachedValue match {
+        case None =>
+          val result = createAndTime
+          // Iterators cannot be consumed multiple times, so don't cache them.
+          if (!result.isInstanceOf[Iterator[_]]) {
+            cachedValue = Some(result)
+          }
+          result
+        case Some(value) =>
+          value
+      }
     }
   }
 
