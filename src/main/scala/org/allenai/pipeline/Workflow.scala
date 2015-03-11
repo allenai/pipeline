@@ -3,7 +3,7 @@ package org.allenai.pipeline
 import org.allenai.common.Resource
 
 import spray.json.DefaultJsonProtocol._
-import spray.json.{JsString, JsValue, JsonFormat}
+import spray.json.{ JsString, JsValue, JsonFormat }
 
 import scala.io.Source
 
@@ -28,14 +28,16 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
 }
 
 /** Represents a PipelineStep without its dependencies */
-case class Node(className: String,
+case class Node(
+  className: String,
   classVersion: String = "",
   srcUrl: Option[URI] = None,
   binaryUrl: Option[URI] = None,
   parameters: Map[String, String] = Map(),
   description: Option[String] = None,
   outputLocation: Option[URI] = None,
-  outputMissing: Boolean = false
+  outputMissing: Boolean = false,
+  timeTakenMillis: Option[Long] = None
 )
 
 object Node {
@@ -46,14 +48,21 @@ object Node {
         !persisted.artifact.exists
       case _ => false
     }
-    Node(stepInfo.className,
+    val timeTaken = step match {
+      case producer: Producer[_] => producer.timeTaken map (_.toMillis)
+      case _ => None
+    }
+    Node(
+      stepInfo.className,
       stepInfo.classVersion,
       stepInfo.srcUrl,
       stepInfo.binaryUrl,
       stepInfo.parameters,
       stepInfo.description,
       stepInfo.outputLocation,
-      outputMissing)
+      outputMissing,
+      timeTaken
+    )
   }
 }
 
@@ -63,7 +72,10 @@ case class Link(fromId: String, toId: String, name: String)
 object Workflow {
   def forPipeline(steps: PipelineStep*): Workflow = {
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
-      Seq(s) ++ s.stepInfo.dependencies.flatMap(t => findNodes(t._2))
+      Seq(s) ++ s.stepInfo.dependencies.flatMap {
+        case (name, step) =>
+          findNodes(step)
+      }
 
     val nodeList = for {
       step <- steps
@@ -73,8 +85,8 @@ object Workflow {
     }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
-      s.dependencies.map { case (name, dep) => (dep.stepInfo, s, name)} ++
-          s.dependencies.flatMap(t => findLinks(t._2.stepInfo))
+      s.dependencies.map { case (name, dep) => (dep.stepInfo, s, name) } ++
+        s.dependencies.flatMap(t => findLinks(t._2.stepInfo))
 
     val nodes = nodeList.toMap
 
@@ -96,7 +108,7 @@ object Workflow {
           case s => sys.error(s"Invalid URI: $s")
         }
       }
-      jsonFormat8(Node.apply)
+      jsonFormat9(Node.apply)
     }
     jsonFormat2(Workflow.apply)
   }
@@ -141,10 +153,10 @@ object Workflow {
         }.mkString(",")
         // A link is like a param but it hyperlinks somewhere.
         val links =
-        // An optional link to the source data.
-          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++
-              // An optional link to the output data.
-              info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
+          // An optional link to the source data.
+          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++ // scalastyle:ignore
+            // An optional link to the output data.
+            info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sourceNodes match {
           case _ if sourceNodes contains id => "sourceNode"
           case _ if sinkNodes contains id => "sinkNode"
@@ -156,7 +168,8 @@ object Workflow {
            |          class: "$clazz",
            |          labelType: "html",
            |          label: generateStepContent("${info.className}",
-           |            "${info.description.getOrElse("")}",
+           |            " ${info.description.getOrElse("")}",
+           |            ${info.timeTakenMillis.getOrElse("undefined")},
            |            [$paramsText],
            |            [$linksText])
            |        });""".stripMargin

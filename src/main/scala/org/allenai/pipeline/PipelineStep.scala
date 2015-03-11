@@ -9,26 +9,25 @@ trait PipelineStep {
   def stepInfo: PipelineStepInfo
 }
 
-/**
- *
- * @param className Name of implementing class
- * @param classVersion Version ID of implementing class
- * @param parameters Configuration parameters
- * @param dependencies Input steps
- * @param description Optional, short description string for this step.
- * @param outputLocation If this step has been Persisted, the URL of the Artifact
- *                       where the data was written.  Specifying a value will not cause a step to be persisted.
- *                       Rather, when a step is persisted via Producer.persist, this field will be populated appropriately.
- */
+/** @param className Name of implementing class
+  * @param classVersion Version ID of implementing class
+  * @param parameters Configuration parameters
+  * @param dependencies Input steps (name -> step pairs) required to run this step
+  * @param description Optional, short description string for this step.
+  * @param outputLocation If this step has been Persisted, the URL of the Artifact
+  *                       where the data was written.  Specifying a value will not cause a step to
+  *                       be persisted.  Rather, when a step is persisted via Producer.persist,
+  *                       this field will be populated appropriately.
+  */
 case class PipelineStepInfo(
-  className: String,
-  classVersion: String = "",
-  srcUrl: Option[URI] = None,
-  binaryUrl: Option[URI] = None,
-  parameters: Map[String, String] = Map(),
-  dependencies: Map[String, PipelineStep] = Map(),
-  description: Option[String] = None,
-  outputLocation: Option[URI] = None
+    className: String,
+    classVersion: String = "",
+    srcUrl: Option[URI] = None,
+    binaryUrl: Option[URI] = None,
+    parameters: Map[String, String] = Map(),
+    dependencies: Map[String, PipelineStep] = Map(),
+    description: Option[String] = None,
+    outputLocation: Option[URI] = None
 ) {
   /** Represents a digest of the logic that will uniquely determine the output of this Producer
     * Includes the inputs (other Producer instances feeding into this one)
@@ -50,22 +49,27 @@ case class PipelineStepInfo(
   //   PipelineStepInfo.basic(this)
   //     .addParameters("seed" -> 117, "upstream" -> inputProducer)
   def addParameters(params: (String, Any)*): PipelineStepInfo = {
-    val (deps, other) = params.partition(_._2.isInstanceOf[PipelineStep])
-    val (containersWithDeps, pars) = other.partition(t => t._2.isInstanceOf[Iterable[_]] &&
-        t._2.asInstanceOf[Iterable[_]].forall(_.isInstanceOf[PipelineStep]))
+    val (deps, other) = params.partition { case (name, param) => param.isInstanceOf[PipelineStep] }
+    val (containersWithDeps, pars) = other.partition {
+      case (name, param) =>
+        param.isInstanceOf[Iterable[_]] &&
+          param.asInstanceOf[Iterable[_]].forall(_.isInstanceOf[PipelineStep])
+    }
     val containedDeps = for {
       (id, depList: Iterable[_]) <- containersWithDeps
       (d, i) <- depList.zipWithIndex
     } yield (s"${id}_$i", d)
-    val depMap = (deps ++ containedDeps).map {
-      case (n, p: PipelineStep) => (n, p)
-    }.toMap
-    val paramMap = pars.map { case (n, value) => (n, String.valueOf(value))}.toMap
+    // cast because partition doesn't maintain the type
+    val depsSeq: Seq[(String, PipelineStep)] = (deps ++ containedDeps).map {
+      case (n, p) => (n, p.asInstanceOf[PipelineStep])
+    }
+    val depMap = depsSeq.toMap
+    val paramMap = pars.map { case (name, value) => (name, String.valueOf(value)) }.toMap
     copy(
       parameters = this.parameters ++ paramMap,
-      dependencies = this.dependencies ++ depMap)
+      dependencies = this.dependencies ++ depMap
+    )
   }
-
 
   // Add parameters and dependencies using the named fields of the given object
   // Example usage:

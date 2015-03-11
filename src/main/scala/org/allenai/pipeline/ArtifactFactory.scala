@@ -18,7 +18,8 @@ trait ArtifactFactory[T] extends FlatArtifactFactory[T] with StructuredArtifactF
 object ArtifactFactory {
   def fromUrl(outputUrl: URI): ArtifactFactory[String] = {
     outputUrl match {
-      case url if url.getScheme == "s3" || url.getScheme == "s3n" => new S3(S3Config(url.getHost), Some(url.getPath))
+      case url if url.getScheme == "s3" || url.getScheme == "s3n" =>
+        new S3(S3Config(url.getHost), Some(url.getPath))
       case url if url.getScheme == "file" || url.getScheme == null =>
         new RelativeFileSystem(new File(url.getPath))
       case _ => sys.error(s"Illegal dir: $outputUrl")

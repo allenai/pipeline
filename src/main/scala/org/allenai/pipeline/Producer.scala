@@ -1,6 +1,8 @@
 package org.allenai.pipeline
 
-import org.allenai.common.Logging
+import org.allenai.common.{Logging, Timing}
+
+import scala.concurrent.duration.Duration
 
 /** An individual step in a data processing pipeline.
   * A lazily evaluated calculation, with support for in-memory caching and persistence.
@@ -11,12 +13,19 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
   def create: T
 
+  /** Call `create` but store time taken. */
+  def createAndTime: T = {
+    val (result, duration) = Timing.time(this.create)
+    timing = Some(duration)
+    result
+  }
+
   /** Return the computed value. */
   def get: T = {
     val className = stepInfo.className
     if (!cachingEnabled) {
       logger.debug(s"$className caching disabled, recomputing")
-      create
+      createAndTime
     }
     else if (!initialized) {
       logger.debug(s"$className computing value")
@@ -29,12 +38,18 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     }
     else {
       logger.debug(s"$className recomputing value of type Iterator")
-      create
+      createAndTime
     }
   }
 
   private var initialized = false
-  private lazy val cachedValue: T = create
+  private var timing: Option[Duration] = None
+  private lazy val cachedValue: T = createAndTime
+
+  /** Report the amount of time taken in milliseconds, or None if the value is cached
+    * in memory or this stage has not been run yet.
+    */
+  def timeTaken: Option[Duration] = timing
 
   /** Persist the result of this step.
     * Once computed, write the result to the given artifact.
@@ -81,6 +96,7 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     val _create = create
     val _stepInfo = stepInfo
     val _cachingEnabled = cachingEnabled
+    val _timing = timing
     new Producer[T2] {
       override def create: T2 = _create()
 
@@ -97,9 +113,11 @@ object Producer {
     override def create: T = data
 
     override def stepInfo: PipelineStepInfo =
-      super.stepInfo.copy(className = data.getClass.getName, classVersion = data.hashCode.toHexString)
+      super.stepInfo.copy(
+        className = data.getClass.getName,
+        classVersion = data.hashCode.toHexString
+      )
   }
-
 }
 
 trait CachingEnabled {
@@ -110,8 +128,11 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact](step: Producer[T], io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-  _artifact: A) extends Producer[T] {
+class PersistedProducer[T, -A <: Artifact](
+    step: Producer[T],
+    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    _artifact: A
+) extends Producer[T] {
   self =>
 
   def artifact: Artifact = _artifact

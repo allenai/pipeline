@@ -19,15 +19,15 @@ import spray.json._
   *                   methods that are consistent with .equals.
   */
 case class Signature(
-  name: String,
-  unchangedSinceVersion: String,
-  dependencies: Map[String, PipelineStep],
-  parameters: Map[String, String]
+    name: String,
+    unchangedSinceVersion: String,
+    dependencies: Map[String, PipelineStep],
+    parameters: Map[String, String]
 ) {
 
   def id: String = {
     val hashString = this.toJson.compactPrint
-    val hashCodeLong = hashString.foldLeft(0L) { (hash, char) => hash * 31 + char}
+    val hashCodeLong = hashString.foldLeft(0L) { (hash, char) => hash * 31 + char }
     hashCodeLong.toHexString
   }
 
@@ -45,7 +45,7 @@ object Signature {
     def write(s: Signature): JsValue = {
       // Sort keys in dependencies and parameters so that json format is identical for equal objects
       val deps = s.dependencies.toList.map(t => (t._1, jsonWriter.write(t._2.stepInfo.signature))).
-          sortBy(_._1).toJson
+        sortBy(_._1).toJson
       val params = s.parameters.toList.sortBy(_._1).toJson
       JsObject(
         (NAME, JsString(s.name)),
@@ -55,7 +55,6 @@ object Signature {
       )
     }
   }
-
 
 }
 
