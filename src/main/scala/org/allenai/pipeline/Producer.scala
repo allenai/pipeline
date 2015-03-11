@@ -11,12 +11,15 @@ import scala.concurrent.duration.Duration
   */
 trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
+  /** Calling this method directly is dangerous because timing information
+    * will not be accurate.
+    */
   def create: T
 
   /** Call `create` but store time taken. */
   def createAndTime: T = {
     val (result, duration) = Timing.time(this.create)
-    timing = Some(duration)
+    this.setSource(Producer.Computed(duration)) // May be reset by `create`.
     result
   }
 
@@ -40,13 +43,18 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   }
 
   private var initialized = false
-  private var timing: Option[Duration] = None
+  private[pipeline] var sourceVar: Producer.Source = Producer.Untouched
   private lazy val cachedValue: T = createAndTime
 
-  /** Report the amount of time taken in milliseconds, or None if the value is cached
-    * in memory or this stage has not been run yet.
-    */
-  def timeTaken: Option[Duration] = timing
+  /** Only set the source if it's previously untouched. */
+  private[pipeline] def setSource(source: Producer.Source): Unit = {
+    if (this.sourceVar == Producer.Untouched) {
+      this.sourceVar = source
+    }
+  }
+
+  /** Public method for getting the source. */
+  def source: Producer.Source = sourceVar
 
   /** Persist the result of this step.
     * Once computed, write the result to the given artifact.
@@ -88,18 +96,21 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   def copy[T2](
     create: () => T2 = self.create _,
     stepInfo: () => PipelineStepInfo = self.stepInfo _,
-    cachingEnabled: () => Boolean = self.cachingEnabled _
+    cachingEnabled: () => Boolean = self.cachingEnabled _,
+    source: () => Producer.Source = self.source _
   ): Producer[T2] = {
     val _create = create
     val _stepInfo = stepInfo
     val _cachingEnabled = cachingEnabled
-    val _timing = timing
+    val _source = source
     new Producer[T2] {
       override def create: T2 = _create()
 
       override def stepInfo = _stepInfo()
 
       override def cachingEnabled = _cachingEnabled()
+
+      override def source = _source()
     }
   }
 }
@@ -114,6 +125,23 @@ object Producer {
         className = data.getClass.getName,
         classVersion = data.hashCode.toHexString
       )
+  }
+
+  sealed abstract class Source {
+    def name: String
+    def timeTaken: Option[Duration]
+  }
+  case class Computed(val timing: Duration) extends Source {
+    override val name = "Computed"
+    override val timeTaken = Some(timing)
+  }
+  case class Disk(val timing: Duration) extends Source {
+    override val name = "Disk"
+    override val timeTaken = Some(timing)
+  }
+  case object Untouched extends Source {
+    override val name = "Untouched"
+    override val timeTaken = None
   }
 }
 
@@ -141,18 +169,26 @@ class PersistedProducer[T, -A <: Artifact](
       logger.debug(s"$className writing to $artifact using $io")
       io.write(result, _artifact)
       if (result.isInstanceOf[Iterator[_]]) {
+        // An iterator is usable only once, so we need to re-read it from disk.
         logger.debug(s"$className reading type Iterator from $artifact using $io")
         io.read(_artifact)
       } else {
         result
       }
     } else {
-      logger.debug(s"$className reading from $artifact using $io")
-      io.read(_artifact)
+      val (result, duration) = Timing.time {
+        logger.debug(s"$className reading from $artifact using $io")
+        io.read(_artifact)
+      }
+
+      this.setSource(Producer.Disk(duration))
+      result
     }
   }
 
   override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
+
+  override def source = step.source
 }
 
 //

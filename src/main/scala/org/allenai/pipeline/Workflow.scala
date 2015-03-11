@@ -37,7 +37,8 @@ case class Node(
   description: Option[String] = None,
   outputLocation: Option[URI] = None,
   outputMissing: Boolean = false,
-  timeTakenMillis: Option[Long] = None
+  timeTakenMillis: Option[Long] = None,
+  source: String
 )
 
 object Node {
@@ -49,8 +50,12 @@ object Node {
       case _ => false
     }
     val timeTaken = step match {
-      case producer: Producer[_] => producer.timeTaken map (_.toMillis)
-      case _ => None
+      case producer: Producer[_] => producer.source.timeTaken map (_.toMillis)
+      case _ => throw new IllegalStateException("All elements in Workflow must be Producers.")
+    }
+    val source = step match {
+      case producer: Producer[_] => producer.source.name.toLowerCase
+      case _ => throw new IllegalStateException("All elements in Workflow must be Producers.")
     }
     Node(
       stepInfo.className,
@@ -61,7 +66,8 @@ object Node {
       stepInfo.description,
       stepInfo.outputLocation,
       outputMissing,
-      timeTaken
+      timeTaken,
+      source
     )
   }
 }
@@ -82,6 +88,18 @@ object Workflow {
       childStep <- findNodes(step)
     } yield {
       (childStep.stepInfo.signature.id, Node.apply(childStep))
+    }
+
+    for {
+      step <- steps
+    } {
+      println(step.stepInfo.className + " ->> " + step.asInstanceOf[Producer[_]].source)
+    }
+
+    for {
+      node <- nodeList
+    } {
+      println(node._2.className + " -> " + node._2.timeTakenMillis)
     }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
@@ -108,7 +126,7 @@ object Workflow {
           case s => sys.error(s"Invalid URI: $s")
         }
       }
-      jsonFormat9(Node.apply)
+      jsonFormat10(Node.apply)
     }
     jsonFormat2(Workflow.apply)
   }
@@ -168,8 +186,9 @@ object Workflow {
            |          class: "$clazz",
            |          labelType: "html",
            |          label: generateStepContent("${info.className}",
-           |            " ${info.description.getOrElse("")}",
+           |            "${info.description.getOrElse("")}",
            |            ${info.timeTakenMillis.getOrElse("undefined")},
+           |            "${info.source}",
            |            [$paramsText],
            |            [$linksText])
            |        });""".stripMargin
