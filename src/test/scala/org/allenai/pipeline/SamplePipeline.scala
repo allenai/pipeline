@@ -269,8 +269,6 @@ object SamplePipelineApp extends App with Pipeline {
   val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
   val measure: Producer[PRMeasurement] =
     Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
-  println(trainData.source)
-  println(testData.source)
   run("Sample Pipeline", measure)
 
   println(s"Pipeline files written to ${outputDir.getAbsolutePath}")

@@ -5,9 +5,11 @@ import org.allenai.common.Resource
 import spray.json.DefaultJsonProtocol._
 import spray.json.{ JsString, JsValue, JsonFormat }
 
+import scala.concurrent.duration.Duration
 import scala.io.Source
 
 import java.net.URI
+import java.util.concurrent.TimeUnit
 
 /** DAG representation of the execution of a set of Producers.
   */
@@ -37,7 +39,7 @@ case class Node(
   description: Option[String] = None,
   outputLocation: Option[URI] = None,
   outputMissing: Boolean = false,
-  timeTakenMillis: Option[Long] = None,
+  timeTaken: Option[String] = None,
   source: String
 )
 
@@ -50,7 +52,20 @@ object Node {
       case _ => false
     }
     val timeTaken = step match {
-      case producer: Producer[_] => producer.source.timeTaken map (_.toMillis)
+      case producer: Producer[_] =>
+        producer.source.timeTaken.map { duration =>
+          var time: String = duration.toMillis + " millis"
+          if (duration.toUnit(TimeUnit.DAYS) > 1.0) {
+            time = duration.toUnit(TimeUnit.DAYS) + " days"
+          } else if (duration.toUnit(TimeUnit.HOURS) > 1.0) {
+            time = duration.toUnit(TimeUnit.HOURS) + " hours"
+          } else if (duration.toUnit(TimeUnit.MINUTES) > 1.0) {
+            time = duration.toUnit(TimeUnit.MINUTES) + " minutes"
+          } else if (duration.toUnit(TimeUnit.SECONDS) > 1.0) {
+            time = duration.toUnit(TimeUnit.SECONDS) + " seconds"
+          }
+          time
+        }
       case _ => throw new IllegalStateException("All elements in Workflow must be Producers.")
     }
     val source = step match {
@@ -88,18 +103,6 @@ object Workflow {
       childStep <- findNodes(step)
     } yield {
       (childStep.stepInfo.signature.id, Node.apply(childStep))
-    }
-
-    for {
-      step <- steps
-    } {
-      println(step.stepInfo.className + " ->> " + step.asInstanceOf[Producer[_]].source)
-    }
-
-    for {
-      node <- nodeList
-    } {
-      println(node._2.className + " -> " + node._2.timeTakenMillis)
     }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
@@ -187,7 +190,7 @@ object Workflow {
            |          labelType: "html",
            |          label: generateStepContent("${info.className}",
            |            "${info.description.getOrElse("")}",
-           |            ${info.timeTakenMillis.getOrElse("undefined")},
+           |            ${info.timeTaken.map("\"" + _ + "\"").getOrElse("undefined")},
            |            "${info.source}",
            |            [$paramsText],
            |            [$linksText])
