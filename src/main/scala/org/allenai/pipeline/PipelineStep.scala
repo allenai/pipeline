@@ -41,7 +41,13 @@ case class PipelineStepInfo(
     parameters = parameters
   )
 
+  // Below are convenience methods for building PipelineStepInfo objects by inspecting classes
+
   // Add parameters and dependencies, inferring the type dynamically
+  // Example usage:
+  // info =
+  //   PipelineStepInfo.basic(this)
+  //     .addParameters("seed" -> 117, "upstream" -> inputProducer)
   def addParameters(params: (String, Any)*): PipelineStepInfo = {
     val (deps, other) = params.partition { case (name, param) => param.isInstanceOf[PipelineStep] }
     val (containersWithDeps, pars) = other.partition {
@@ -66,6 +72,10 @@ case class PipelineStepInfo(
   }
 
   // Add parameters and dependencies using the named fields of the given object
+  // Example usage:
+  // info =
+  //  PipelineStepInfo.basic(this)
+  //    .addFields(this, "seed", "upstream")
   def addFields(
     obj: Any,
     fieldNames: String*
@@ -78,13 +88,14 @@ case class PipelineStepInfo(
     this.addParameters(params: _*)
   }
 
-  // The most magical of the factory methods
   // If the target class is a case class, inspects the class definition
   // to extract the fields named in the constructor
-  // and adds them to the parameters and dependencies
-  def addObject[T <: Product: ClassTag](
-    obj: T
-  ): PipelineStepInfo = {
+  // Example usage:
+  // info =
+  //   PipelineStepInfo.basic(this)
+  //     .addObject(this)
+  def addObject[T <: Product : ClassTag](
+    obj: T): PipelineStepInfo = {
     // Scala reflection is not thread-safe in 2.10:
     // http://docs.scala-lang.org/overviews/reflection/thread-safety.html
     synchronized {
@@ -100,7 +111,6 @@ case class PipelineStepInfo(
 
 object PipelineStepInfo {
   def basic(target: Any) = PipelineStepInfo(target.getClass.getSimpleName)
-
 }
 
 /** Producer implementations that do not need to be executed by PipelineRunner can mix in this
@@ -111,7 +121,9 @@ trait BasicPipelineStepInfo extends PipelineStep {
   def stepInfo = PipelineStepInfo.basic(this)
 }
 
-/** For convenience, case classes can mix in this single trait to implement PipelineStep
+/** For maximum convenience, a Producer implementation that is a case class
+  * can mix in this trait to implement PipelineStep.  The resulting PipelineStepInfo
+  * will contain all inputs to the constructor in either the parameters or the dependencies
   */
 trait Ai2StepInfo extends Ai2SimpleStepInfo {
   this: Product =>
@@ -120,9 +132,14 @@ trait Ai2StepInfo extends Ai2SimpleStepInfo {
     super.stepInfo.addObject(this)
 }
 
+/** Any class can mix in this trait to implement PipelineStep.  The resulting PipelineStepInfo
+  * will contain only className and classVersion information.  Any parameter or dependency info
+  * needs to be added by one of the PipelineStepInfo convenience methods
+  */
 trait Ai2SimpleStepInfo extends PipelineStep {
-  override def stepInfo = Ai2CodeInfo(this, classVersion)
-    .copy(description = descriptionOption)
+  override def stepInfo =
+    Ai2CodeInfo(this, classVersion)
+        .copy(description = descriptionOption)
 
   /** Whenever the logic of this class is updated, the corresponding release number should
     * be added to this list.  The unchangedSince field will be set to the latest version that is
@@ -131,9 +148,9 @@ trait Ai2SimpleStepInfo extends PipelineStep {
   val versionHistory: Seq[String] = List()
 
   def description: String = ""
-  private def descriptionOption =
-    if (description.nonEmpty) Some(description) else None
+  protected def descriptionOption =
+    if (description != null && description.nonEmpty) Some(description) else None
 
-  private val classVersion = ("" +: versionHistory).last
+  protected val classVersion = ("" +: versionHistory).last
 
 }
