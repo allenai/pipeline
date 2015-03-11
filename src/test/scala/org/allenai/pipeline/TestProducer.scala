@@ -143,37 +143,65 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     s1.id should not equal (s3.id)
   }
 
-  "Signature id" should "change with dependencies" in {
-    val base = PipelineStepInfo("name", "version")
-    val prs1 = new PipelineStep {
-      override def stepInfo = base.addParameters("param1" -> 1)
-    }
-    val prs1a = new PipelineStep {
-      override def stepInfo = base.addParameters("param1" -> 1)
-    }
-    val prs2 = new PipelineStep {
-      override def stepInfo = base.addParameters("param1" -> 2)
-    }
-    val prs3 = new PipelineStep {
-      override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs1)
-    }
-    val prs4 = new PipelineStep {
-      override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs2)
-    }
-    val prs5 = new PipelineStep {
-      override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs1a)
-    }
+  val base = PipelineStepInfo("name", "version")
+  val prs1 = new PipelineStep {
+    override def stepInfo = base.addParameters("param1" -> 1)
+  }
+  val prs1a = new PipelineStep {
+    override def stepInfo = base.addParameters("param1" -> 1)
+  }
+  val prs2 = new PipelineStep {
+    override def stepInfo = base.addParameters("param1" -> 2)
+  }
+  val prs3 = new PipelineStep {
+    override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs1)
+  }
+  val prs4 = new PipelineStep {
+    override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs2)
+  }
+  val prs5 = new PipelineStep {
+    override def stepInfo = base.addParameters("param1" -> 3, "upstream" -> prs1a)
+  }
 
-    // parameters are different
+  "Signature id" should "change with differeing param values" in {
     prs1.stepInfo.signature.id should not equal (prs2.stepInfo.signature.id)
-
-    // parameters same, dependencies different
+  }
+  "Signature id" should "change with same params but different dependencies" in {
     prs3.stepInfo.signature.id should not equals (prs4.stepInfo.signature.id)
-
-    // dependencies different instances with same signature
+  }
+  "Signature id" should "be the same if params and dependency signatures are the same" in {
     prs5.stepInfo.signature.id should equal(prs3.stepInfo.signature.id)
   }
 
+  val prs6withDep = new PipelineStep {
+    override def stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4, "upstream" -> prs1)
+  }
+  val prs6withSomeDep = new PipelineStep {
+    override def stepInfo: PipelineStepInfo =
+      base.addParameters("param1" -> 4, "upstream" -> Some(prs1))
+  }
+  val prs6withSomeOtherDepSameSig = new PipelineStep {
+    override def stepInfo: PipelineStepInfo =
+      base.addParameters("param1" -> 4, "upstream" -> Some(prs1a))
+  }
+  val prs6withNoneDep = new PipelineStep {
+    override def stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4, "upstream" -> None)
+  }
+  val prs6withoutDep = new PipelineStep {
+    override def stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4)
+  }
+  "Signature with Option[Producer]" should "have the same signature as with just same Producer" in {
+     prs6withDep.stepInfo.signature.id should equal (prs6withSomeDep.stepInfo.signature.id)
+  }
+  "Signature with Some(p1)" should "have same sig as with Some(p2) if p1.sig.id == p2.sig.id" in {
+     prs6withDep.stepInfo.signature.id should equal (prs6withSomeOtherDepSameSig.stepInfo.signature.id)
+  }
+  "Signature with None as dep" should "have same sig as if dep not there at all" in {
+     prs6withNoneDep.stepInfo.signature.id should equal (prs6withoutDep.stepInfo.signature.id)
+  }
+  "Signature with None as dep" should "have different sig as with Some" in {
+    prs6withSomeDep.stepInfo.signature.id should not equal (prs6withNoneDep.stepInfo.signature.id)
+  }
   "Signatures" should "determine unique paths" in {
     import spray.json._
     import DefaultJsonProtocol._
