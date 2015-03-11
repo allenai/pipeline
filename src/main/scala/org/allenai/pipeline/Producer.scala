@@ -68,8 +68,11 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   def persisted[A <: Artifact](
     io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     artifactSource: => A
-  ): PersistedProducer[T, A] =
-    new PersistedProducer(this, io, artifactSource)
+  ): PersistedProducer[T, A] = {
+    val persistedProducer = new PersistedProducer(this, io, artifactSource)
+    persistedProducer.setSource(this.source)
+    persistedProducer
+  }
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
     *
@@ -153,7 +156,7 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact](
+class PersistedProducer[T, -A <: Artifact] private[pipeline] (
     step: Producer[T],
     io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     _artifact: A
@@ -187,8 +190,6 @@ class PersistedProducer[T, -A <: Artifact](
   }
 
   override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
-
-  override def source = step.source
 }
 
 //
