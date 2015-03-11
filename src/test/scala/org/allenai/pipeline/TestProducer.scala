@@ -231,11 +231,25 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     override def create: Int = listGenerators.size
   }
 
+  case class CountDependenciesWithList(listGenerators: List[Producer[Iterable[Double]]], intList: Iterable[Int])
+      extends Producer[Int] with Ai2StepInfo {
+    override def create: Int = listGenerators.size
+  }
+
+  case class CountDependenciesWithOption(listGenerators: List[Producer[Iterable[Double]]], intOption: Option[Int])
+      extends Producer[Int] with Ai2StepInfo {
+    override def create: Int = listGenerators.size
+  }
+
   "Signatures with dependencies in containers" should "identify dependencies" in {
     val has2 = new CountDependencies(List(randomNumbers, cachedRandomNumbers))
+    val has2PlusList = new CountDependenciesWithList(List(randomNumbers, cachedRandomNumbers), List(1,2,3))
+    val has2PlusOption = new CountDependenciesWithOption(List(randomNumbers, cachedRandomNumbers), Some(5))
     val has3 = new CountDependencies(List(randomNumbers, cachedRandomNumbers, randomNumbers))
 
     has2.stepInfo.signature.dependencies.size should equal(2)
+    has2PlusList.stepInfo.signature.dependencies.size should equal(2)
+    has2PlusOption.stepInfo.signature.dependencies.size should equal(2)
     has3.stepInfo.signature.dependencies.size should equal(3)
 
     has2.stepInfo.signature.id should not equal (has3.stepInfo.signature.id)
