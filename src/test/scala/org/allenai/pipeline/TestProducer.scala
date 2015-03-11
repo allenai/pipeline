@@ -191,13 +191,13 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     override def stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4)
   }
   "Signature with Option[Producer]" should "have the same signature as with just same Producer" in {
-     prs6withDep.stepInfo.signature.id should equal (prs6withSomeDep.stepInfo.signature.id)
+    prs6withDep.stepInfo.signature.id should equal(prs6withSomeDep.stepInfo.signature.id)
   }
   "Signature with Some(p1)" should "have same sig as with Some(p2) if p1.sig.id == p2.sig.id" in {
-     prs6withDep.stepInfo.signature.id should equal (prs6withSomeOtherDepSameSig.stepInfo.signature.id)
+    prs6withDep.stepInfo.signature.id should equal(prs6withSomeOtherDepSameSig.stepInfo.signature.id)
   }
   "Signature with None as dep" should "have same sig as if dep not there at all" in {
-     prs6withNoneDep.stepInfo.signature.id should equal (prs6withoutDep.stepInfo.signature.id)
+    prs6withNoneDep.stepInfo.signature.id should equal(prs6withoutDep.stepInfo.signature.id)
   }
   "Signature with None as dep" should "have different sig as with Some" in {
     prs6withSomeDep.stepInfo.signature.id should not equal (prs6withNoneDep.stepInfo.signature.id)

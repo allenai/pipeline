@@ -50,13 +50,13 @@ case class PipelineStepInfo(
   //     .addParameters("seed" -> 117, "upstream" -> inputProducer)
   def addParameters(params: (String, Any)*): PipelineStepInfo = {
     val pipelineSteps = collection.mutable.ListBuffer[(String, PipelineStep)]()
-    val otherPars =  collection.mutable.ListBuffer[(String, Any)]()
+    val otherPars = collection.mutable.ListBuffer[(String, Any)]()
     // parameters of the following types get treated as "dependencies":
     // PipelineStep, Iterable[PipelineStep], Option[PipelineStep]
     params.foreach {
       case (id, p: PipelineStep) => pipelineSteps += ((id, p))
       case (id, it: Iterable[PipelineStep]) =>
-        pipelineSteps ++= it.zipWithIndex.map { case (p,i) => (s"${id}_$i", p) }
+        pipelineSteps ++= it.zipWithIndex.map { case (p, i) => (s"${id}_$i", p) }
       case (id, opt: Some[PipelineStep]) =>
         pipelineSteps += ((id, opt.get))
       case (id, None) => // no-op: skip None
