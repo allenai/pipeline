@@ -12,7 +12,6 @@ lazy val buildSettings = Seq(
   scmInfo := Some(ScmInfo(
     url("https://github.com/allenai/pipeline"),
     "https://github.com/allenai/pipeline.git")),
-  ReleaseKeys.publishArtifactsAction := PgpKeys.publishSigned.value,
   pomExtra := (
     <developers>
       <developer>
@@ -21,8 +20,8 @@ lazy val buildSettings = Seq(
         <email>dev-role@allenai.org</email>
       </developer>
     </developers>),
-  dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5") ++ 
-  PublishTo.sonatype
+  dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5") ++
+  PublishTo.ai2Public
 
 lazy val pipeline = Project(
   id = "allenai-pipeline",
