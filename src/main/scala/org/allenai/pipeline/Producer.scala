@@ -2,8 +2,6 @@ package org.allenai.pipeline
 
 import org.allenai.common.Logging
 
-import java.net.URI
-
 /** An individual step in a data processing pipeline.
   * A lazily evaluated calculation, with support for in-memory caching and persistence.
   *
@@ -15,17 +13,22 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
 
   /** Return the computed value. */
   def get: T = {
+    val className = stepInfo.className
     if (!cachingEnabled) {
+      logger.debug(s"$className caching disabled, recomputing")
       create
     }
     else if (!initialized) {
+      logger.debug(s"$className computing value")
       initialized = true
       cachedValue
     }
     else if (!cachedValue.isInstanceOf[Iterator[_]]) {
+      logger.debug(s"$className reusing cached value")
       cachedValue
     }
     else {
+      logger.debug(s"$className recomputing value of type Iterator")
       create
     }
   }
@@ -114,13 +117,23 @@ class PersistedProducer[T, -A <: Artifact](step: Producer[T], io: SerializeToArt
   def artifact: Artifact = _artifact
 
   def create: T = {
+    val className = stepInfo.className
     if (!artifact.exists) {
       val result = step.get
-      logger.debug(s"Writing to $artifact using $io")
+      logger.debug(s"$className writing to $artifact using $io")
       io.write(result, _artifact)
+      if (result.isInstanceOf[Iterator[_]]) {
+        logger.debug(s"$className reading type Iterator from $artifact using $io")
+        io.read(_artifact)
+      }
+      else {
+        result
+      }
     }
-    logger.debug(s"Reading from $artifact using $io")
-    io.read(_artifact)
+    else {
+      logger.debug(s"$className reading from $artifact using $io")
+      io.read(_artifact)
+    }
   }
 
   override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
