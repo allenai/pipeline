@@ -49,25 +49,22 @@ case class PipelineStepInfo(
   //   PipelineStepInfo.basic(this)
   //     .addParameters("seed" -> 117, "upstream" -> inputProducer)
   def addParameters(params: (String, Any)*): PipelineStepInfo = {
-    val (deps, other) = params.partition { case (name, param) => param.isInstanceOf[PipelineStep] }
-    val (containersWithDeps, pars) = other.partition {
-      case (name, param) =>
-        param.isInstanceOf[Iterable[_]] &&
-          param.asInstanceOf[Iterable[_]].forall(_.isInstanceOf[PipelineStep])
+    val pipelineSteps = collection.mutable.ListBuffer[(String, PipelineStep)]()
+    val otherPars =  collection.mutable.ListBuffer[(String, Any)]()
+    // parameters of the following types get treated as "dependencies":
+    // PipelineStep, Iterable[PipelineStep], Option[PipelineStep]
+    params.foreach {
+      case (id, p: PipelineStep) => pipelineSteps += ((id, p))
+      case (id, it: Iterable[PipelineStep]) =>
+        pipelineSteps ++= it.zipWithIndex.map { case (p,i) => (s"${id}_$i", p) }
+      case (id, opt: Some[PipelineStep]) =>
+        pipelineSteps += ((id, opt.get))
+      case (id, None) => // no-op: skip None
+      case x => otherPars += x
     }
-    val containedDeps = for {
-      (id, depList: Iterable[_]) <- containersWithDeps
-      (d, i) <- depList.zipWithIndex
-    } yield (s"${id}_$i", d)
-    // cast because partition doesn't maintain the type
-    val depsSeq: Seq[(String, PipelineStep)] = (deps ++ containedDeps).map {
-      case (n, p) => (n, p.asInstanceOf[PipelineStep])
-    }
-    val depMap = depsSeq.toMap
-    val paramMap = pars.map { case (name, value) => (name, String.valueOf(value)) }.toMap
     copy(
-      parameters = this.parameters ++ paramMap,
-      dependencies = this.dependencies ++ depMap
+      parameters = this.parameters ++ otherPars.map { case (n, v) => (n, String.valueOf(v)) }.toMap,
+      dependencies = this.dependencies ++ pipelineSteps.toMap
     )
   }
 
