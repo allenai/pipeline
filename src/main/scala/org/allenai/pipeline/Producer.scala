@@ -11,7 +11,13 @@ import scala.concurrent.duration.Duration
   */
 trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
+  /** Produces the data, if not already produced and cached. */
   def create: T
+
+  /** Configures the persistence location of the data produced.
+    * REVIEW: how does that work? Cursory search for stepInfo in this file did not bring much clarity.
+    */
+  override def stepInfo: PipelineStepInfo
 
   /** Call `create` but store time taken. */
   def createAndTime: T = {
