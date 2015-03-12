@@ -139,7 +139,7 @@ object Workflow {
     val errorNodes = w.errorNodes()
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
-      (id, info) <- w.nodes.toList
+      (id, info) <- w.nodes.toList.sortBy(_._2.className)
       path <- info.outputLocation
     } yield {
       s"""<a href="$path">${info.className}</a>"""
