@@ -27,14 +27,16 @@ lazy val buildSettings = Seq(
   nextVersion <<= (versionBump) { bumpType: sbtrelease.Version.Bump =>
     ver => sbtrelease.Version(ver).map(_.bump(bumpType).asSnapshot.string).getOrElse(sbtrelease.versionFormatError)
   },
+  releaseVersion := { ver =>
+    sbtrelease.Version(ver).map(_.withoutQualifier.string).getOrElse(sbtrelease.versionFormatError)
+  },
   dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5") ++
   PublishTo.ai2Public
 
 lazy val pipeline = Project(
   id = "allenai-pipeline",
-  base = file("."),
-  settings = buildSettings
-).enablePlugins(LibraryPlugin)
+  base = file(".")
+).enablePlugins(LibraryPlugin).settings(buildSettings: _*)
 
 libraryDependencies ++= Seq(sprayJson,
   awsJavaSdk,
