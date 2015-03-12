@@ -243,7 +243,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   "Signatures with dependencies in containers" should "identify dependencies" in {
     val has2 = new CountDependencies(List(randomNumbers, cachedRandomNumbers))
-    val has2PlusList = new CountDependenciesWithList(List(randomNumbers, cachedRandomNumbers), List(1,2,3))
+    val has2PlusList = new CountDependenciesWithList(List(randomNumbers, cachedRandomNumbers), List(1, 2, 3))
     val has2PlusOption = new CountDependenciesWithOption(List(randomNumbers, cachedRandomNumbers), Some(5))
     val has3 = new CountDependencies(List(randomNumbers, cachedRandomNumbers, randomNumbers))
 

@@ -20,14 +20,14 @@ trait PipelineStep {
   *                       this field will be populated appropriately.
   */
 case class PipelineStepInfo(
-  className: String,
-  classVersion: String = "",
-  srcUrl: Option[URI] = None,
-  binaryUrl: Option[URI] = None,
-  parameters: Map[String, String] = Map(),
-  dependencies: Map[String, PipelineStep] = Map(),
-  description: Option[String] = None,
-  outputLocation: Option[URI] = None
+    className: String,
+    classVersion: String = "",
+    srcUrl: Option[URI] = None,
+    binaryUrl: Option[URI] = None,
+    parameters: Map[String, String] = Map(),
+    dependencies: Map[String, PipelineStep] = Map(),
+    description: Option[String] = None,
+    outputLocation: Option[URI] = None
 ) {
   /** Represents a digest of the logic that will uniquely determine the output of this Producer
     * Includes the inputs (other Producer instances feeding into this one)
@@ -57,16 +57,16 @@ case class PipelineStepInfo(
       case (id, p: PipelineStep) => pipelineSteps += ((id, p))
       case (id, it: Iterable[_]) if it.forall(_.isInstanceOf[PipelineStep]) =>
         pipelineSteps ++=
-            it.map(_.asInstanceOf[PipelineStep])
-                .zipWithIndex
-                .map { case (p, i) => (s"${id}_$i", p)}
+          it.map(_.asInstanceOf[PipelineStep])
+          .zipWithIndex
+          .map { case (p, i) => (s"${id}_$i", p) }
       case (id, Some(step: PipelineStep)) =>
         pipelineSteps += ((id, step))
       case (id, None) => // no-op: skip None
       case x => otherPars += x
     }
     copy(
-      parameters = this.parameters ++ otherPars.map { case (n, v) => (n, String.valueOf(v))}.toMap,
+      parameters = this.parameters ++ otherPars.map { case (n, v) => (n, String.valueOf(v)) }.toMap,
       dependencies = this.dependencies ++ pipelineSteps.toMap
     )
   }
@@ -94,7 +94,7 @@ case class PipelineStepInfo(
   // info =
   //   PipelineStepInfo.basic(this)
   //     .addObject(this)
-  def addObject[T <: Product : ClassTag](
+  def addObject[T <: Product: ClassTag](
     obj: T
   ): PipelineStepInfo = {
     // Scala reflection is not thread-safe in 2.10:
@@ -140,7 +140,7 @@ trait Ai2StepInfo extends Ai2SimpleStepInfo {
 trait Ai2SimpleStepInfo extends PipelineStep {
   override def stepInfo =
     Ai2CodeInfo(this, classVersion = ("" +: versionHistory).last)
-        .copy(description = descriptionOption)
+      .copy(description = descriptionOption)
 
   /** Whenever the logic of this class is updated, the corresponding release number should
     * be added to this list.  The unchangedSince field will be set to the latest version that is
