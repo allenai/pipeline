@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.{ Logging, Timing }
+import org.allenai.common.{Logging, Timing}
 
 import scala.concurrent.duration.Duration
 
@@ -29,20 +29,23 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   /** Return the computed value. */
   def get: T = {
     val className = stepInfo.className
-    if (!cachingEnabled) {
-      logger.debug(s"$className caching disabled, recomputing")
-      createAndTime
-    } else if (!initialized) {
-      logger.debug(s"$className computing value")
-      initialized = true
-      cachedValue
-    } else if (!cachedValue.isInstanceOf[Iterator[_]]) {
-      logger.debug(s"$className reusing cached value")
-      cachedValue
-    } else {
-      logger.debug(s"$className recomputing value of type Iterator")
-      createAndTime
-    }
+    val returnValue =
+      if (!cachingEnabled) {
+        logger.debug(s"$className caching disabled, recomputing")
+        createAndTime
+      } else if (!initialized) {
+        logger.debug(s"$className computing value")
+        initialized = true
+        cachedValue
+      } else if (!cachedValue.isInstanceOf[Iterator[_]]) {
+        logger.debug(s"$className reusing cached value")
+        cachedValue
+      } else {
+        logger.debug(s"$className recomputing value of type Iterator")
+        createAndTime
+      }
+    logger.debug(s"$className returning value")
+    returnValue
   }
 
   private var initialized = false
@@ -139,9 +142,9 @@ trait CachingDisabled extends CachingEnabled {
 }
 
 class PersistedProducer[T, -A <: Artifact](
-    step: Producer[T],
-    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-    _artifact: A
+  step: Producer[T],
+  io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+  _artifact: A
 ) extends Producer[T] {
   self =>
 
