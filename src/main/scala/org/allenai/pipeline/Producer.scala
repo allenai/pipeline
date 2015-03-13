@@ -11,14 +11,20 @@ import scala.concurrent.duration.Duration
   */
 trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
-  def create: T
+  /** Produces the data, if not already produced and cached. */
+  protected def create: T
 
-  /** Call `create` but store time taken. */
-  def createAndTime: T = {
-    val (result, duration) = Timing.time(this.create)
-    timing = Some(duration)
-    result
-  }
+  /** Describes the persistence location of the data produced.
+    *
+    * The user code should provide the className, classVersion, parameters and dependencies.
+    * Usually these are provided via one of the convenience mixins: Ai2StepInfo, Ai2SparkStepInfo.
+    *
+    * When persisted via Pipeline.persist, the fileid is determined as
+    * s"${stepInfo.className}.${stepInfo.signature.id}. The fileid may mean different things
+    * in different contexts, for example, if T is an RDD, many files may be persisted under the
+    * fileid/.* path.
+    */
+  override def stepInfo: PipelineStepInfo
 
   /** Return the computed value. */
   def get: T = {
@@ -47,6 +53,13 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     * in memory or this stage has not been run yet.
     */
   def timeTaken: Option[Duration] = timing
+
+  /** Call `create` but store time taken. */
+  private def createAndTime: T = {
+    val (result, duration) = Timing.time(this.create)
+    timing = Some(duration)
+    result
+  }
 
   /** Persist the result of this step.
     * Once computed, write the result to the given artifact.
