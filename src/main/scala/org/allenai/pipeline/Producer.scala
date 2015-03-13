@@ -43,11 +43,11 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   }
 
   private var initialized = false
-  private[pipeline] var sourceVar: Producer.Source = Producer.Untouched
+  private var sourceVar: Producer.Source = Producer.Untouched
   private lazy val cachedValue: T = createAndTime
 
   /** Only set the source if it's previously untouched. */
-  private[pipeline] def setSource(source: Producer.Source): Unit = {
+  protected def setSource(source: Producer.Source): Unit = {
     if (this.sourceVar == Producer.Untouched) {
       this.sourceVar = source
     }
@@ -156,7 +156,7 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact] private[pipeline] (
+class PersistedProducer[T, -A <: Artifact] (
     step: Producer[T],
     io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     _artifact: A
