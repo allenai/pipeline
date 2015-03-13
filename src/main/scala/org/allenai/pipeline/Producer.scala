@@ -11,17 +11,21 @@ import scala.concurrent.duration.Duration
   */
 trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
-  /** Calling this method directly is dangerous because timing information
-    * will not be accurate.
-    */
-  def create: T
 
-  /** Call `create` but store time taken. */
-  def createAndTime: T = {
-    val (result, duration) = Timing.time(this.create)
-    this.setSource(Producer.Computed(duration)) // May be reset by `create`.
-    result
-  }
+  /** Produces the data, if not already produced and cached. */
+  protected def create: T
+
+  /** Describes the persistence location of the data produced.
+    *
+    * The user code should provide the className, classVersion, parameters and dependencies.
+    * Usually these are provided via one of the convenience mixins: Ai2StepInfo, Ai2SparkStepInfo.
+    *
+    * When persisted via Pipeline.persist, the fileid is determined as
+    * s"${stepInfo.className}.${stepInfo.signature.id}. The fileid may mean different things
+    * in different contexts, for example, if T is an RDD, many files may be persisted under the
+    * fileid/.* path.
+    */
+  override def stepInfo: PipelineStepInfo
 
   /** Return the computed value. */
   def get: T = {
@@ -55,6 +59,13 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
 
   /** Public method for getting the source. */
   def source: Producer.Source = sourceVar
+
+  /** Call `create` but store time taken. */
+  def createAndTime: T = {
+    val (result, duration) = Timing.time(this.create)
+    this.setSource(Producer.Computed(duration)) // May be reset by `create`.
+    result
+  }
 
   /** Persist the result of this step.
     * Once computed, write the result to the given artifact.
@@ -156,7 +167,7 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact] (
+class PersistedProducer[T, -A <: Artifact](
     step: Producer[T],
     io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     _artifact: A
