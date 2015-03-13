@@ -158,9 +158,9 @@ object Workflow {
             // An optional link to the output data.
             info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sourceNodes match {
+          case _ if errorNodes contains id => "errorNode"
           case _ if sourceNodes contains id => "sourceNode"
           case _ if sinkNodes contains id => "sinkNode"
-          case _ if errorNodes contains id => "errorNode"
           case _ => ""
         }
         val linksText = links.mkString(",")
