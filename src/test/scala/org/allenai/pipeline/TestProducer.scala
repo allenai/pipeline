@@ -80,10 +80,10 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     }
     val fs = new LocalFlatFileSystem(outputDir.getAbsolutePath)
     implicit val format = IoHelpers.asStringSerializable(jsonFormat1(Doubles.apply))
-    val persisted = producer.explicitlyPersisted("savedNumbers.txt", fs, fs.flat[Doubles])
+    val persisted = producer.explicitlyPersisted("savedNumbers2.txt", fs, fs.flat[Doubles])
     assert(persisted.get === persisted.get)
 
-    val otherPersisted = producer.explicitlyPersisted("savedNumbers.txt", fs, fs.flat[Doubles])
+    val otherPersisted = producer.explicitlyPersisted("savedNumbers2.txt", fs, fs.flat[Doubles])
     assert(otherPersisted.get === persisted.get)
   }
 

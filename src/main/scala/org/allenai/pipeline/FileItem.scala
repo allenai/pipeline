@@ -52,8 +52,9 @@ abstract class ArtifactFlatFileSystem extends FlatFileSystem {
   }
 }
 class LocalFlatFileSystem(prefixDir: String) extends ArtifactFlatFileSystem {
-  protected override def newArtifact(path: String) =
-    new FileArtifact(new File(s"$prefixDir/$path/data"))
+  protected override def newArtifact(path: String) = {
+    new FileArtifact(new File(s"$prefixDir/$path"))
+  }
 }
 class S3FlatFileSystem(
     s3: AmazonS3, bucket: String, prefixDir: String

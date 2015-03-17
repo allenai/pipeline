@@ -212,7 +212,7 @@ class PersistedProducer2[T](
     // See https://github.com/allenai/s2-offline/blob/cf0998aa1bda08d77fede1f2eb77067e70a56c3b/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/S3SequenceFileArtifact.scala#L20.
     implicit val metaFormat = IoHelpers.asStringSerializable(jsonFormat1(Status.apply))
     val meta = metaFs.flat[Status].withPath(s"$path/_SUCCESS")
-    val data = partialData.withPath(path)
+    val data = partialData.withPath(s"$path/data")
     if (!meta.exists) {
       val result = step.get
       logger.debug(s"${stepInfo.className} writing to $data")
