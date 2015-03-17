@@ -32,13 +32,13 @@ trait FlatFileSystem {
   def flat[T: StringSerializable: ClassTag]: PartialFileItem[T]
 }
 
-/** Simple implementatin of FlatFileSystem using Artifact library. */
+/** Simple implementation of FlatFileSystem using Artifact library. */
 abstract class ArtifactFlatFileSystem extends FlatFileSystem {
   protected def newArtifact(path: String): FlatArtifact
 
   def flat[T: StringSerializable: ClassTag]: PartialFileItem[T] = new PartialFileItem[T] {
     def withPath(path: String): FileItem[T] = new FileItem[T] {
-      def artifact = newArtifact(path)
+      val artifact = newArtifact(path)
       def exists: Boolean = {
         artifact.exists
       }

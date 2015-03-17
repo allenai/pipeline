@@ -53,6 +53,5 @@ libraryDependencies ++= Seq(
   commonsIO,
   ai2Common,
   allenAiTestkit,
-  scalaReflection,
-  sparkCore
+  scalaReflection
 )

@@ -83,6 +83,11 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   /** Wrap the Producer into a PersistedProducer, which will persist the data when using .get
     * method.
     */
+  // REVIEW data is essentially io + artifactSource, rolled into one. However, flexibility
+  // makes it increasingly hard for users to figure out how to configure the system.
+  // I'm not aware of a use-case that requires changing both the serialization and the "artifact"
+  // independently. Even if there is, chances are it can be hidden behind a properly constructed
+  // PartialFileItem.
   def persisted(metaFs: FlatFileSystem, data: PartialFileItem[T]) = {
     // See https://github.com/allenai/s2-offline/blob/1b48a5b569094f2cd6b5e543f585340455320327/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/SparkPipeline.scala#L51
     val path = s"${stepInfo.className}.${stepInfo.signature.id}"
@@ -187,7 +192,16 @@ class PersistedProducer[T, -A <: Artifact](
 
 case class Status(status: String)
 
-// TODO(*) What is the value of having Producers that are not persisted?
+/** Wraps a Producer into a persistence layer, which will write the disk on first execution,
+  * then read cached data from disk on subsequent executions.
+  *
+  * We ensure writes fully complete by adding a meta file to each write, the presence of
+  * which guarantees a fully complete data write.
+  *
+  * path is treated as a directory, all meta and data files will reside within the path directory.
+  */
+// REVIEW What is the value / use-case of having Producers that are not persisted?
+// Can we merge Producer + PersistedProducer and always persist the data?
 class PersistedProducer2[T](
     step: Producer[T],
     path: String,
