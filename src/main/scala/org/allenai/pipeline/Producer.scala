@@ -1,8 +1,9 @@
 package org.allenai.pipeline
 
-import org.allenai.common.{Logging, Timing}
+import org.allenai.common.{ Logging, Timing }
 
 import scala.concurrent.duration.Duration
+import spray.json.DefaultJsonProtocol._
 
 /** An individual step in a data processing pipeline.
   * A lazily evaluated calculation, with support for in-memory caching and persistence.
@@ -79,6 +80,19 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   ): PersistedProducer[T, A] =
     new PersistedProducer(this, io, artifactSource)
 
+  /** Wrap the Producer into a PersistedProducer, which will persist the data when using .get
+    * method.
+    */
+  def persisted(metaFs: FlatFileSystem, data: PartialFileItem[T]) = {
+    // See https://github.com/allenai/s2-offline/blob/1b48a5b569094f2cd6b5e543f585340455320327/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/SparkPipeline.scala#L51
+    val path = s"${stepInfo.className}.${stepInfo.signature.id}"
+    explicitlyPersisted(path, metaFs, data)
+  }
+
+  def explicitlyPersisted(path: String, metaFs: FlatFileSystem, data: PartialFileItem[T]) = {
+    new PersistedProducer2(this, path, metaFs, data)
+  }
+
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
     *
     * When caching is enabled, an in-memory reference is stored to the output object so
@@ -142,9 +156,9 @@ trait CachingDisabled extends CachingEnabled {
 }
 
 class PersistedProducer[T, -A <: Artifact](
-  step: Producer[T],
-  io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-  _artifact: A
+    step: Producer[T],
+    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    _artifact: A
 ) extends Producer[T] {
   self =>
 
@@ -169,6 +183,35 @@ class PersistedProducer[T, -A <: Artifact](
   }
 
   override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
+}
+
+case class Status(status: String)
+
+// TODO(*) What is the value of having Producers that are not persisted?
+class PersistedProducer2[T](
+    step: Producer[T],
+    path: String,
+    metaFs: FlatFileSystem,
+    partialData: PartialFileItem[T]
+) extends Producer[T] {
+  def create: T = {
+    // See https://github.com/allenai/s2-offline/blob/cf0998aa1bda08d77fede1f2eb77067e70a56c3b/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/S3SequenceFileArtifact.scala#L20.
+    implicit val metaFormat = IoHelpers.asStringSerializable(jsonFormat1(Status.apply))
+    val meta = metaFs.flat[Status].withPath(s"$path/_SUCCESS")
+    val data = partialData.withPath(path)
+    if (!meta.exists) {
+      val result = step.get
+      logger.debug(s"${stepInfo.className} writing to $data")
+      data.write(result)
+      meta.write(Status("DONE"))
+      result
+    } else {
+      logger.debug(s"${stepInfo.className} reading from $data")
+      data.read
+    }
+  }
+
+  override def stepInfo = step.stepInfo
 }
 
 //
