@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.{Logging, Timing}
+import org.allenai.common.{ Logging, Timing }
 
 import scala.concurrent.duration.Duration
 
@@ -142,9 +142,9 @@ trait CachingDisabled extends CachingEnabled {
 }
 
 class PersistedProducer[T, -A <: Artifact](
-  step: Producer[T],
-  io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-  _artifact: A
+    step: Producer[T],
+    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    _artifact: A
 ) extends Producer[T] {
   self =>
 

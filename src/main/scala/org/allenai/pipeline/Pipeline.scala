@@ -24,12 +24,13 @@ trait Pipeline extends Logging {
 
   def run(rawTitle: String, outputs: Producer[_]*): Unit = {
     try {
+      val outputInfo = outputs.map(_.stepInfo)
       require(
-        outputs.forall(_.isInstanceOf[PersistedProducer[_, _]]),
+        outputInfo.forall(_.outputLocation.isDefined),
         s"Running a pipeline without persisting the output: ${
-          outputs.filter(p => !p
-            .isInstanceOf[PersistedProducer[_, _]]).map(_.stepInfo.className).mkString(",")
-        }}"
+          outputInfo.filter(_.outputLocation.isEmpty)
+            .map(_.className).mkString(",")
+        }"
       )
 
       val start = System.currentTimeMillis
