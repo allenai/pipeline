@@ -1,7 +1,6 @@
 package org.allenai.pipeline
 
 import org.allenai.common.testkit.UnitSpec
-import org.allenai.pipeline.LineCollectionIo
 
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfterAll
