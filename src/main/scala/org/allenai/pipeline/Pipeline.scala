@@ -232,7 +232,5 @@ trait ConfiguredPipeline extends Pipeline {
       )(): Producer[T] =
         optionallyPersist(step, stepName, SingletonIo.json[T], suffix)
     }
-
   }
-
 }

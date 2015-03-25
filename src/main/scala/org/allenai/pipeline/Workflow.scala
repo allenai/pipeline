@@ -5,9 +5,11 @@ import org.allenai.common.Resource
 import spray.json.DefaultJsonProtocol._
 import spray.json.{ JsString, JsValue, JsonFormat }
 
+import scala.concurrent.duration.Duration
 import scala.io.Source
 
 import java.net.URI
+import java.util.concurrent.TimeUnit
 
 /** DAG representation of the execution of a set of Producers.
   */
@@ -37,7 +39,8 @@ case class Node(
   description: Option[String] = None,
   outputLocation: Option[URI] = None,
   outputMissing: Boolean = false,
-  timeTakenMillis: Option[Long] = None
+  timeTaken: Option[String] = None,
+  source: String
 )
 
 object Node {
@@ -49,8 +52,25 @@ object Node {
       case _ => false
     }
     val timeTaken = step match {
-      case producer: Producer[_] => producer.timeTaken map (_.toMillis)
+      case producer: Producer[_] =>
+        producer.source.timeTaken.map { duration =>
+          var time: String = duration.toMillis + " millis"
+          if (duration.toUnit(TimeUnit.DAYS) > 1.0) {
+            time = duration.toUnit(TimeUnit.DAYS) + " days"
+          } else if (duration.toUnit(TimeUnit.HOURS) > 1.0) {
+            time = duration.toUnit(TimeUnit.HOURS) + " hours"
+          } else if (duration.toUnit(TimeUnit.MINUTES) > 1.0) {
+            time = duration.toUnit(TimeUnit.MINUTES) + " minutes"
+          } else if (duration.toUnit(TimeUnit.SECONDS) > 1.0) {
+            time = duration.toUnit(TimeUnit.SECONDS) + " seconds"
+          }
+          time
+        }
       case _ => None
+    }
+    val source = step match {
+      case producer: Producer[_] => producer.source.name.toLowerCase
+      case _ => ""
     }
     Node(
       stepInfo.className,
@@ -61,7 +81,8 @@ object Node {
       stepInfo.description,
       stepInfo.outputLocation,
       outputMissing,
-      timeTaken
+      timeTaken,
+      source
     )
   }
 }
@@ -108,7 +129,7 @@ object Workflow {
           case s => sys.error(s"Invalid URI: $s")
         }
       }
-      jsonFormat9(Node.apply)
+      jsonFormat10(Node.apply)
     }
     jsonFormat2(Workflow.apply)
   }
@@ -168,8 +189,9 @@ object Workflow {
            |          class: "$clazz",
            |          labelType: "html",
            |          label: generateStepContent("${info.className}",
-           |            " ${info.description.getOrElse("")}",
-           |            ${info.timeTakenMillis.getOrElse("undefined")},
+           |            "${info.description.getOrElse("")}",
+           |            ${info.timeTaken.map("\"" + _ + "\"").getOrElse("undefined")},
+           |            "${info.source}",
            |            [$paramsText],
            |            [$linksText])
            |        });""".stripMargin
