@@ -88,14 +88,14 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   // I'm not aware of a use-case that requires changing both the serialization and the "artifact"
   // independently. Even if there is, chances are it can be hidden behind a properly constructed
   // PartialFileItem.
-  def persisted(metaFs: FlatFileSystem, data: PartialFileItem[T]) = {
+  def persisted(itemFactory: PersistedItemFactory[T]) = {
     // See https://github.com/allenai/s2-offline/blob/1b48a5b569094f2cd6b5e543f585340455320327/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/SparkPipeline.scala#L51
     val path = s"${stepInfo.className}.${stepInfo.signature.id}"
-    explicitlyPersisted(path, metaFs, data)
+    explicitlyPersisted(path, itemFactory)
   }
 
-  def explicitlyPersisted(path: String, metaFs: FlatFileSystem, data: PartialFileItem[T]) = {
-    new PersistedProducer2(this, path, metaFs, data)
+  def explicitlyPersisted(path: String, itemFactory: PersistedItemFactory[T]) = {
+    new PersistedProducer2(this, itemFactory.withPath(path))
   }
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
@@ -204,24 +204,16 @@ case class Status(status: String)
 // Can we merge Producer + PersistedProducer and always persist the data?
 class PersistedProducer2[T](
     step: Producer[T],
-    path: String,
-    metaFs: FlatFileSystem,
-    partialData: PartialFileItem[T]
+    item: PersistedItem[T]
 ) extends Producer[T] {
   def create: T = {
-    // See https://github.com/allenai/s2-offline/blob/cf0998aa1bda08d77fede1f2eb77067e70a56c3b/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/S3SequenceFileArtifact.scala#L20.
-    implicit val metaFormat = IoHelpers.asStringSerializable(jsonFormat1(Status.apply))
-    val meta = metaFs.flat[Status].withPath(s"$path/_SUCCESS")
-    val data = partialData.withPath(s"$path/data")
-    if (!meta.exists) {
+    if (!item.exists) {
       val result = step.get
-      logger.debug(s"${stepInfo.className} writing to $data")
-      data.write(result)
-      meta.write(Status("DONE"))
+      // See https://github.com/allenai/s2-offline/blob/cf0998aa1bda08d77fede1f2eb77067e70a56c3b/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/S3SequenceFileArtifact.scala#L20 for how to implement safe writes.
+      item.write(result)
       result
     } else {
-      logger.debug(s"${stepInfo.className} reading from $data")
-      data.read
+      item.read
     }
   }
 

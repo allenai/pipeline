@@ -78,12 +78,12 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
       def stepInfo = PipelineStepInfo(className = "RNG")
     }
-    val fs = new LocalFlatFileSystem(outputDir.getAbsolutePath)
+    val fs = new LocalFlatStorage(outputDir.getAbsolutePath)
     implicit val format = IoHelpers.asStringSerializable(jsonFormat1(Doubles.apply))
-    val persisted = producer.explicitlyPersisted("savedNumbers2.txt", fs, fs.flat[Doubles])
+    val persisted = producer.explicitlyPersisted("savedNumbers2.txt", fs.flat[Doubles])
     assert(persisted.get === persisted.get)
 
-    val otherPersisted = producer.explicitlyPersisted("savedNumbers2.txt", fs, fs.flat[Doubles])
+    val otherPersisted = producer.explicitlyPersisted("savedNumbers2.txt", fs.flat[Doubles])
     assert(otherPersisted.get === persisted.get)
   }
 

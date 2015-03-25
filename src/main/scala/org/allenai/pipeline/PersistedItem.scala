@@ -13,31 +13,31 @@ import java.io.File
   * The content of a FileItem is unreliable in presence of write interruptions.
   * Use a Producer[T].persisted(...) to ensure write atomicity.
   */
-trait FileItem[T] {
+trait PersistedItem[T] {
   def exists: Boolean
   def read: T
   def write(t: T)
 }
 /** Partial FileItem, still needing the relative path. */
-trait PartialFileItem[T] {
-  def withPath(path: String): FileItem[T]
+trait PersistedItemFactory[T] {
+  def withPath(path: String): PersistedItem[T]
 }
 /** Operations on files. */
-trait FileSystem {
+trait Storage {
   // TODO(cristipp) Implement this using logic from RddPersister.
   def prefixScan(prefix: String): Seq[String] = Seq()
 }
 /** Factory for PartialFileItems containing one structured element. */
-trait FlatFileSystem {
-  def flat[T: StringSerializable: ClassTag]: PartialFileItem[T]
+trait FlatStorage {
+  def flat[T: StringSerializable: ClassTag]: PersistedItemFactory[T]
 }
 
 /** Simple implementation of FlatFileSystem using Artifact library. */
-abstract class ArtifactFlatFileSystem extends FlatFileSystem {
+abstract class ArtifactFlatStorage extends FlatStorage {
   protected def newArtifact(path: String): FlatArtifact
 
-  def flat[T: StringSerializable: ClassTag]: PartialFileItem[T] = new PartialFileItem[T] {
-    def withPath(path: String): FileItem[T] = new FileItem[T] {
+  def flat[T: StringSerializable: ClassTag]: PersistedItemFactory[T] = new PersistedItemFactory[T] {
+    def withPath(path: String): PersistedItem[T] = new PersistedItem[T] {
       val artifact = newArtifact(path)
       def exists: Boolean = {
         artifact.exists
@@ -51,14 +51,12 @@ abstract class ArtifactFlatFileSystem extends FlatFileSystem {
     }
   }
 }
-class LocalFlatFileSystem(prefixDir: String) extends ArtifactFlatFileSystem {
+class LocalFlatStorage(prefixDir: String) extends ArtifactFlatStorage {
   protected override def newArtifact(path: String) = {
     new FileArtifact(new File(s"$prefixDir/$path"))
   }
 }
-class S3FlatFileSystem(
-    s3: AmazonS3, bucket: String, prefixDir: String
-) extends ArtifactFlatFileSystem {
+class S3FlatStorage(s3: AmazonS3, bucket: String, prefixDir: String) extends ArtifactFlatStorage {
   protected override def newArtifact(path: String) =
     new S3FlatArtifact(s"$prefixDir/$path", S3Config(new AmazonS3Client(), bucket))
 }
