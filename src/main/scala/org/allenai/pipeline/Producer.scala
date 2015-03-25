@@ -3,6 +3,7 @@ package org.allenai.pipeline
 import org.allenai.common.{ Logging, Timing }
 
 import scala.concurrent.duration.Duration
+import spray.json.DefaultJsonProtocol._
 
 /** An individual step in a data processing pipeline.
   * A lazily evaluated calculation, with support for in-memory caching and persistence.
@@ -78,6 +79,24 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     artifactSource: => A
   ): PersistedProducer[T, A] =
     new PersistedProducer(this, io, artifactSource)
+
+  /** Wrap the Producer into a PersistedProducer, which will persist the data when using .get
+    * method.
+    */
+  // REVIEW data is essentially io + artifactSource, rolled into one. However, flexibility
+  // makes it increasingly hard for users to figure out how to configure the system.
+  // I'm not aware of a use-case that requires changing both the serialization and the "artifact"
+  // independently. Even if there is, chances are it can be hidden behind a properly constructed
+  // PartialFileItem.
+  def persisted(itemFactory: PersistedItemFactory[T]) = {
+    // See https://github.com/allenai/s2-offline/blob/1b48a5b569094f2cd6b5e543f585340455320327/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/SparkPipeline.scala#L51
+    val path = s"${stepInfo.className}.${stepInfo.signature.id}"
+    explicitlyPersisted(path, itemFactory)
+  }
+
+  def explicitlyPersisted(path: String, itemFactory: PersistedItemFactory[T]) = {
+    new PersistedProducer2(this, itemFactory.withPath(path))
+  }
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
     *
@@ -169,6 +188,36 @@ class PersistedProducer[T, -A <: Artifact](
   }
 
   override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
+}
+
+case class Status(status: String)
+
+/** Wraps a Producer into a persistence layer, which will write the disk on first execution,
+  * then read cached data from disk on subsequent executions.
+  *
+  * We ensure writes fully complete by adding a meta file to each write, the presence of
+  * which guarantees a fully complete data write.
+  *
+  * path is treated as a directory, all meta and data files will reside within the path directory.
+  */
+// REVIEW What is the value / use-case of having Producers that are not persisted?
+// Can we merge Producer + PersistedProducer and always persist the data?
+class PersistedProducer2[T](
+    step: Producer[T],
+    item: PersistedItem[T]
+) extends Producer[T] {
+  def create: T = {
+    if (!item.exists) {
+      val result = step.get
+      // See https://github.com/allenai/s2-offline/blob/cf0998aa1bda08d77fede1f2eb77067e70a56c3b/pipeline/src/main/scala/org/allenai/scholar/pipeline/spark/S3SequenceFileArtifact.scala#L20 for how to implement safe writes.
+      item.write(result)
+      result
+    } else {
+      item.read
+    }
+  }
+
+  override def stepInfo = step.stepInfo
 }
 
 //

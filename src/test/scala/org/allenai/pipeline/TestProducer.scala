@@ -7,6 +7,8 @@ import org.scalatest.BeforeAndAfterAll
 
 import scala.util.Random
 
+import spray.json.DefaultJsonProtocol._
+
 import java.io.File
 
 /** Created by rodneykinney on 8/19/14.
@@ -65,6 +67,24 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
       new FileArtifact(new File(outputDir, "savedNumbers.txt"))
     )
     otherStep.get should equal(pStep.get)
+  }
+
+  "PersistedProducer2" should "read from file if exists" in {
+    case class Doubles(elems: Seq[Double])
+    val producer = new Producer[Doubles] with CachingDisabled {
+      def create = {
+        Doubles(for (i <- (0 until 20)) yield rand.nextDouble)
+      }
+
+      def stepInfo = PipelineStepInfo(className = "RNG")
+    }
+    val fs = new LocalFlatStorage(outputDir.getAbsolutePath)
+    implicit val format = IoHelpers.asStringSerializable(jsonFormat1(Doubles.apply))
+    val persisted = producer.explicitlyPersisted("savedNumbers2.txt", fs.flat[Doubles])
+    assert(persisted.get === persisted.get)
+
+    val otherPersisted = producer.explicitlyPersisted("savedNumbers2.txt", fs.flat[Doubles])
+    assert(otherPersisted.get === persisted.get)
   }
 
   "CachedProducer" should "use cached value" in {
