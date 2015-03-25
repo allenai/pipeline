@@ -109,7 +109,6 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     val _create = create
     val _stepInfo = stepInfo
     val _cachingEnabled = cachingEnabled
-    val _timing = timing
     new Producer[T2] {
       override def create: T2 = _create()
 
@@ -169,6 +168,22 @@ class PersistedProducer[T, -A <: Artifact](
   }
 
   override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
+
+  override def withCachingDisabled = {
+    if (cachingEnabled) {
+      new PersistedProducer(step, io, _artifact) with CachingDisabled
+    } else {
+      this
+    }
+  }
+
+  override def withCachingEnabled: Producer[T] = {
+    if (cachingEnabled) {
+      this
+    } else {
+      new PersistedProducer(step, io, _artifact) with CachingEnabled
+    }
+  }
 }
 
 //
