@@ -27,13 +27,6 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     */
   override def stepInfo: PipelineStepInfo
 
-  /** Call `create` but store time taken. */
-  private def createAndTime: T = {
-    val (result, duration) = Timing.time(this.create)
-    this.setSource(Producer.Computed(duration)) // May be reset by `create`.
-    result
-  }
-
   /** Return the computed value. */
   def get: T = {
     val className = stepInfo.className
