@@ -66,11 +66,11 @@ object Node {
           }
           time
         }
-      case _ => throw new IllegalStateException("All elements in Workflow must be Producers.")
+      case _ => None
     }
     val source = step match {
       case producer: Producer[_] => producer.source.name.toLowerCase
-      case _ => throw new IllegalStateException("All elements in Workflow must be Producers.")
+      case _ => ""
     }
     Node(
       stepInfo.className,

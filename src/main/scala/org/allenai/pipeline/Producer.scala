@@ -11,8 +11,8 @@ import scala.concurrent.duration.Duration
   */
 trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   self =>
-  /** Produces the data, if not already produced and cached. 
-    * Client code should call get, not create. */
+
+  /** Produces the data, if not already produced and cached. */
   protected def create: T
 
   /** Describes the persistence location of the data produced.
@@ -54,11 +54,11 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   }
 
   private var initialized = false
-  private[pipeline] var sourceVar: Producer.Source = Producer.Untouched
+  private var sourceVar: Producer.Source = Producer.Untouched
   private lazy val cachedValue: T = createAndTime
 
   /** Only set the source if it's previously untouched. */
-  private[pipeline] def setSource(source: Producer.Source): Unit = {
+  protected def setSource(source: Producer.Source): Unit = {
     if (this.sourceVar == Producer.Untouched) {
       this.sourceVar = source
     }
@@ -66,6 +66,13 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
 
   /** Public method for getting the source. */
   def source: Producer.Source = sourceVar
+
+  /** Call `create` but store time taken. */
+  def createAndTime: T = {
+    val (result, duration) = Timing.time(this.create)
+    this.setSource(Producer.Computed(duration)) // May be reset by `create`.
+    result
+  }
 
   /** Persist the result of this step.
     * Once computed, write the result to the given artifact.
@@ -167,7 +174,7 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact] private[pipeline] (
+class PersistedProducer[T, -A <: Artifact](
     step: Producer[T],
     io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     _artifact: A
