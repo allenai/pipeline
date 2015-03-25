@@ -160,7 +160,7 @@ object Workflow {
     val errorNodes = w.errorNodes()
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
-      (id, info) <- w.nodes.toList
+      (id, info) <- w.nodes.toList.sortBy(_._2.className)
       path <- info.outputLocation
     } yield {
       s"""<a href="$path">${info.className}</a>"""
@@ -179,9 +179,9 @@ object Workflow {
             // An optional link to the output data.
             info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sourceNodes match {
+          case _ if errorNodes contains id => "errorNode"
           case _ if sourceNodes contains id => "sourceNode"
           case _ if sinkNodes contains id => "sinkNode"
-          case _ if errorNodes contains id => "errorNode"
           case _ => ""
         }
         val linksText = links.mkString(",")
