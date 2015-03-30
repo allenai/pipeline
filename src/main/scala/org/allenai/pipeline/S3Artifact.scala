@@ -4,9 +4,9 @@ import org.allenai.common.Logging
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.services.s3.model.{CannedAccessControlList, ObjectMetadata, PutObjectRequest}
+import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata, PutObjectRequest }
 
-import java.io.{File, FileOutputStream, InputStream}
+import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URI
 
 case class S3Config(initService: () => AmazonS3Client, bucket: String) {
@@ -133,7 +133,7 @@ trait S3Artifact[A <: Artifact] extends Logging {
         cacheDir.exists && cacheDir.isDirectory,
         s"Unable to create cache directory ${cacheDir.getCanonicalPath}"
       )
-      val downloadFile = new File(cacheDir, path.replaceAll( """/""", """\$"""))
+      val downloadFile = new File(cacheDir, path.replaceAll("""/""", """\$"""))
       if (exists && !downloadFile.exists) {
         logger.debug(s"Downloading $bucket/$path to $downloadFile")
         val tmpFile = File.createTempFile(downloadFile.getName, "tmp", downloadFile.getParentFile)
