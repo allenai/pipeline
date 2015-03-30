@@ -67,6 +67,22 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     otherStep.get should equal(pStep.get)
   }
 
+  "PersistedProducer" should "always read from file if caching disabled" in {
+    val outputFile = output.flatArtifact("savedNumbersWithChanges.txt")
+    val io = LineCollectionIo.text[Double]
+    val pStep = randomNumbers.persisted(
+      io,
+      outputFile
+    ).withCachingDisabled
+
+    val result1 = pStep.get
+
+    val result2 = randomNumbers.get
+    io.write(result2, outputFile)
+
+    pStep.get should equal(result2)
+  }
+
   "CachedProducer" should "use cached value" in {
     cachedRandomNumbers.get should equal(cachedRandomNumbers.get)
 

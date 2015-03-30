@@ -25,6 +25,64 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
   def errorNodes() = nodes.filter {
     case (nodeId, node) => node.outputMissing
   }
+
+  lazy val renderHtml: String = {
+    import Workflow._
+    //    val w = this
+    val sources = sourceNodes()
+    val sinks = sinkNodes()
+    val errors = errorNodes()
+    // Collect nodes with output paths to be displayed in the upper-left.
+    val outputNodeLinks = for {
+      (id, info) <- nodes.toList.sortBy(_._2.className)
+      path <- info.outputLocation
+    } yield {
+      s"""<a href="$path">${info.className}</a>"""
+    }
+    val addNodes =
+      for ((id, info) <- nodes) yield {
+        // Params show up as line items in the pipeline diagram node.
+        val paramsText = info.parameters.toList.map {
+          case (key, value) =>
+            s""""$key=${limitLength(value)}""""
+        }.mkString(",")
+        // A link is like a param but it hyperlinks somewhere.
+        val links =
+          // An optional link to the source data.
+          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++ // scalastyle:ignore
+            // An optional link to the output data.
+            info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
+        val clazz = sources match {
+          case _ if errors contains id => "errorNode"
+          case _ if sources contains id => "sourceNode"
+          case _ if sinks contains id => "sinkNode"
+          case _ => ""
+        }
+        val linksText = links.mkString(",")
+        s"""        g.setNode("$id", {
+           |          class: "$clazz",
+           |          labelType: "html",
+           |          label: generateStepContent("${info.className}",
+           |            " ${info.description.getOrElse("")}",
+           |            ${info.timeTakenMillis.getOrElse("undefined")},
+           |            [$paramsText],
+           |            [$linksText])
+           |        });""".stripMargin
+      }
+    val addEdges =
+      for (Link(from, to, name) <- links) yield {
+        s"""        g.setEdge("$from", "$to", {label: "$name"}); """
+      }
+
+    val resourceName = "pipelineSummary.html"
+    val resourceUrl = this.getClass.getResource(resourceName)
+    require(resourceUrl != null, s"Could not find resource: ${resourceName}")
+    val template = Resource.using(Source.fromURL(resourceUrl)) { source =>
+      source.mkString
+    }
+    val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
+    template.format(outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
+  }
 }
 
 /** Represents a PipelineStep without its dependencies */
@@ -110,7 +168,7 @@ object Workflow {
       }
       jsonFormat9(Node.apply)
     }
-    jsonFormat2(Workflow.apply)
+    jsonFormat(Workflow.apply, "nodes", "links")
   }
 
   private def link(uri: URI) = uri.getScheme match {
@@ -133,59 +191,4 @@ object Workflow {
       s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
     }
 
-  def renderHtml(w: Workflow): String = {
-    val sourceNodes = w.sourceNodes()
-    val sinkNodes = w.sinkNodes()
-    val errorNodes = w.errorNodes()
-    // Collect nodes with output paths to be displayed in the upper-left.
-    val outputNodeLinks = for {
-      (id, info) <- w.nodes.toList.sortBy(_._2.className)
-      path <- info.outputLocation
-    } yield {
-      s"""<a href="$path">${info.className}</a>"""
-    }
-    val addNodes =
-      for ((id, info) <- w.nodes) yield {
-        // Params show up as line items in the pipeline diagram node.
-        val paramsText = info.parameters.toList.map {
-          case (key, value) =>
-            s""""$key=${limitLength(value)}""""
-        }.mkString(",")
-        // A link is like a param but it hyperlinks somewhere.
-        val links =
-          // An optional link to the source data.
-          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++ // scalastyle:ignore
-            // An optional link to the output data.
-            info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
-        val clazz = sourceNodes match {
-          case _ if errorNodes contains id => "errorNode"
-          case _ if sourceNodes contains id => "sourceNode"
-          case _ if sinkNodes contains id => "sinkNode"
-          case _ => ""
-        }
-        val linksText = links.mkString(",")
-        s"""        g.setNode("$id", {
-           |          class: "$clazz",
-           |          labelType: "html",
-           |          label: generateStepContent("${info.className}",
-           |            " ${info.description.getOrElse("")}",
-           |            ${info.timeTakenMillis.getOrElse("undefined")},
-           |            [$paramsText],
-           |            [$linksText])
-           |        });""".stripMargin
-      }
-    val addEdges =
-      for (Link(from, to, name) <- w.links) yield {
-        s"""        g.setEdge("$from", "$to", {label: "$name"}); """
-      }
-
-    val resourceName = "pipelineSummary.html"
-    val resourceUrl = this.getClass.getResource(resourceName)
-    require(resourceUrl != null, s"Could not find resource: ${resourceName}")
-    val template = Resource.using(Source.fromURL(resourceUrl)) { source =>
-      source.mkString
-    }
-    val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
-    template.format(outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
-  }
 }
