@@ -10,16 +10,14 @@ import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata
 import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URI
 
-case class S3Config(initService: () => AmazonS3Client, bucket: String) {
-  @transient lazy val service = initService()
-}
+case class S3Config(service: AmazonS3Client, bucket: String)
 
 object S3Config {
   def apply(accessKey: String, secretAccessKey: String, bucket: String): S3Config = {
-    S3Config(() => new AmazonS3Client(new BasicAWSCredentials(accessKey, secretAccessKey)), bucket)
+    S3Config(new AmazonS3Client(new BasicAWSCredentials(accessKey, secretAccessKey)), bucket)
   }
   def apply(bucket: String): S3Config = {
-    S3Config(() => new AmazonS3Client(), bucket)
+    S3Config(new AmazonS3Client(), bucket)
   }
 }
 
@@ -84,8 +82,7 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   override def url: URI = new URI("s3", bucket, s"/$path", null)
 
-  protected val service = config.service
-  protected val bucket = config.bucket
+  protected val S3Config(service, bucket) = config
 
   override def exists: Boolean = {
     val result = try {
