@@ -1,23 +1,22 @@
 package org.allenai.pipeline
 
 import org.allenai.common.Logging
-import org.allenai.pipeline
 
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.services.s3.model.{ CannedAccessControlList, PutObjectRequest, ObjectMetadata }
+import com.amazonaws.services.s3.model.{CannedAccessControlList, ObjectMetadata, PutObjectRequest}
 
-import java.io.{ InputStream, File, FileOutputStream }
+import java.io.{File, FileOutputStream, InputStream}
 import java.net.URI
 
-case class S3Config(service: AmazonS3Client, bucket: String)
+case class S3Config(initService: () => AmazonS3Client, bucket: String) {
+  @transient lazy val service = initService()
+}
 
 object S3Config {
-  def apply(accessKey: String, secretAccessKey: String, bucket: String): S3Config =
-    S3Config(new AmazonS3Client(new BasicAWSCredentials(accessKey, secretAccessKey)), bucket)
-
-  def apply(bucket: String): S3Config = S3Config(new AmazonS3Client(), bucket)
+  def apply(bucket: String): S3Config = {
+    S3Config(() => new AmazonS3Client(), bucket)
+  }
 }
 
 /** Artifact implementations using S3 storage. */
@@ -81,7 +80,8 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   override def url: URI = new URI("s3", bucket, s"/$path", null)
 
-  protected val S3Config(service, bucket) = config
+  protected val service = config.service
+  protected val bucket = config.bucket
 
   override def exists: Boolean = {
     val result = try {
@@ -133,7 +133,7 @@ trait S3Artifact[A <: Artifact] extends Logging {
         cacheDir.exists && cacheDir.isDirectory,
         s"Unable to create cache directory ${cacheDir.getCanonicalPath}"
       )
-      val downloadFile = new File(cacheDir, path.replaceAll("""/""", """\$"""))
+      val downloadFile = new File(cacheDir, path.replaceAll( """/""", """\$"""))
       if (exists && !downloadFile.exists) {
         logger.debug(s"Downloading $bucket/$path to $downloadFile")
         val tmpFile = File.createTempFile(downloadFile.getName, "tmp", downloadFile.getParentFile)

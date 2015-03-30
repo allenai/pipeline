@@ -1,15 +1,16 @@
 package org.allenai.pipeline
 
-import org.allenai.common.Logging
-import org.allenai.pipeline.IoHelpers._
 import org.allenai.common.Config._
+import org.allenai.common.Logging
 
 import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
+import org.allenai.pipeline.IoHelpers._
 
 import scala.reflect.ClassTag
 
+import java.io.File
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -159,13 +160,26 @@ trait ConfiguredPipeline extends Pipeline {
 
   override def run(rawTitle: String, outputs: Producer[_]*): Unit = {
     config.get[Boolean]("dry-run") match {
-      case Some(true) =>
+      case Some(true) => dryRun(new File(System.getProperty("user.dir")), rawTitle, outputs: _*)
       case _ => super.run(rawTitle: String, outputs: _*)
     }
   }
 
-  def dryRun(rawTitle: String, output: Producer[_]*): Unit = {
+  def dryRun(outputDir: File, rawTitle: String, outputs: Producer[_]*): Unit = {
+    val title = s"${rawTitle.replaceAll( """\s+""", "-")}-dryRun"
+    val workflowArtifact = new FileArtifact(new File(outputDir, s"$title.workflow.json"))
+    val workflow = Workflow.forPipeline(outputs: _*)
+    SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
+    val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
+    SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
+
+    val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
+    val signatureFormat = Signature.jsonWriter
+    val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
+    signatureArtifact.write { writer => writer.write(signatures.prettyPrint)}
+
+    logger.info(s"Summary written to $outputDir")
   }
 
   override lazy val artifactFactory = {

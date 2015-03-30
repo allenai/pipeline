@@ -168,7 +168,7 @@ object Workflow {
       }
       jsonFormat9(Node.apply)
     }
-    jsonFormat2(Workflow.apply)
+    jsonFormat(Workflow.apply, "nodes", "links")
   }
 
   private def link(uri: URI) = uri.getScheme match {
