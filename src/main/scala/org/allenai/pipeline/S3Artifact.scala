@@ -3,6 +3,7 @@ package org.allenai.pipeline
 import org.allenai.common.Logging
 
 import com.amazonaws.AmazonServiceException
+import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata, PutObjectRequest }
 
@@ -14,6 +15,9 @@ case class S3Config(initService: () => AmazonS3Client, bucket: String) {
 }
 
 object S3Config {
+  def apply(accessKey: String, secretAccessKey: String, bucket: String): S3Config = {
+    S3Config(() => new AmazonS3Client(new BasicAWSCredentials(accessKey, secretAccessKey)), bucket)
+  }
   def apply(bucket: String): S3Config = {
     S3Config(() => new AmazonS3Client(), bucket)
   }
