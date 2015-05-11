@@ -8,12 +8,15 @@ import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 import org.allenai.pipeline.IoHelpers._
 
+import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
 import java.io.File
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
+
+import scala.util.control.NonFatal
 
 /** A fully-configured end-to-end pipeline
   * A top-level main can be constructed as:
@@ -24,23 +27,51 @@ import java.util.Date
 trait Pipeline extends Logging {
   def artifactFactory: FlatArtifactFactory[String] with StructuredArtifactFactory[String]
 
-  def run(rawTitle: String, outputs: Producer[_]*): Unit = {
-    try {
-      val outputInfo = outputs.map(_.stepInfo)
-      require(
-        outputInfo.forall(_.outputLocation.isDefined),
-        s"Running a pipeline without persisting the output: ${
-          outputInfo.filter(_.outputLocation.isEmpty)
-            .map(_.className).mkString(",")
-        }"
-      )
+  private[this] val persistedSteps: ListBuffer[Producer[_]] = ListBuffer()
 
+  /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
+  def run(title: String): Unit = {
+    run(title, persistedSteps.toSeq)
+  }
+
+  /** Run only specified steps in the pipeline.  Upstream dependencies must exist already.  They will not be computed */
+  def runOnly(title: String, runOnlyTargets: Producer[_]*) {
+    val targets = runOnlyTargets.flatMap(s => persistedSteps.find(_.stepInfo.signature == s.stepInfo.signature))
+    require(targets.size == runOnlyTargets.size, "Specified targets are not members of this pipeline")
+
+    val persistedStepsInfo = persistedSteps.map(_.stepInfo).toSet
+    val overridenStepsInfo = targets.map(_.stepInfo).toSet
+    val nonPersistedTargets = overridenStepsInfo -- persistedStepsInfo
+    require(
+      nonPersistedTargets.size == 0,
+      s"Running a pipeline without persisting the output: [${nonPersistedTargets.map(_.className).mkString(",")}]"
+    )
+    val allDependencies = targets.flatMap(Workflow.upstreamDependencies)
+    val nonExistentDependencies =
+      for {
+        p <- allDependencies if p.isInstanceOf[PersistedProducer[_, _ <: Artifact]]
+        pp = p.asInstanceOf[PersistedProducer[_, _ <: Artifact]]
+        if !overridenStepsInfo(pp.stepInfo)
+        if !pp.artifact.exists
+      } yield pp.stepInfo
+    require(
+      nonExistentDependencies.size == 0,
+      s"""
+         |Cannot run steps [${overridenStepsInfo.map(_.className).mkString(",")}].
+                                                                                  |Upstream dependencies [${nonExistentDependencies.map(_.className).mkString(",")}] have not been computed)
+                                                                                                                                                                     |""".stripMargin
+    )
+    run(title, targets)
+  }
+
+  private def run(rawTitle: String, outputs: Seq[Producer[_]]): Unit = {
+    try {
       val start = System.currentTimeMillis
       outputs.foreach(_.get)
       val duration = (System.currentTimeMillis - start) / 1000.0
       logger.info(f"Ran pipeline in $duration%.3f s")
     } catch {
-      case e: Exception => logger.error("Untrapped exception", e)
+      case NonFatal(e) => logger.error("Untrapped exception", e)
     }
 
     val title = rawTitle.replaceAll("""\s+""", "-")
@@ -76,17 +107,20 @@ trait Pipeline extends Logging {
       ).signature
       s"${signature.name}.${signature.id}$suffix"
     }
-    implicitly[ClassTag[A]].runtimeClass match {
-      case c if c == classOf[FlatArtifact] => original.persisted(
-        io,
-        artifactFactory.flatArtifact(s"data/$path").asInstanceOf[A]
-      )
-      case c if c == classOf[StructuredArtifact] => original.persisted(
-        io,
-        artifactFactory.structuredArtifact(s"data/$path").asInstanceOf[A]
-      )
-      case _ => sys.error(s"Cannot persist using io class of unknown type $io")
-    }
+    val persisted =
+      implicitly[ClassTag[A]].runtimeClass match {
+        case c if c == classOf[FlatArtifact] =>
+          val artifact = ArtifactFactory.flatArtifactFromAbsoluteUrl(path)
+            .getOrElse(artifactFactory.flatArtifact(s"data/$path")).asInstanceOf[A]
+          original.persisted(io, artifact)
+        case c if c == classOf[StructuredArtifact] =>
+          val artifact = ArtifactFactory.structuredArtifactFromAbsoluteUrl(path)
+            .getOrElse(artifactFactory.structuredArtifact(s"data/$path")).asInstanceOf[A]
+          original.persisted(io, artifact)
+        case _ => sys.error(s"Cannot persist using io class of unknown type $io")
+      }
+    persistedSteps += persisted
+    persisted
   }
 
   object Persist {
@@ -153,19 +187,9 @@ trait Pipeline extends Logging {
       case _ => url
     }
   }
-}
 
-trait ConfiguredPipeline extends Pipeline {
-  def config: Config
-
-  override def run(rawTitle: String, outputs: Producer[_]*): Unit = {
-    config.get[Boolean]("dry-run") match {
-      case Some(true) => dryRun(new File(System.getProperty("user.dir")), rawTitle, outputs: _*)
-      case _ => super.run(rawTitle: String, outputs: _*)
-    }
-  }
-
-  def dryRun(outputDir: File, rawTitle: String, outputs: Producer[_]*): Unit = {
+  def dryRun(outputDir: File, rawTitle: String): Unit = {
+    val outputs = persistedSteps.toList
     val title = s"${rawTitle.replaceAll("""\s+""", "-")}-dryRun"
     val workflowArtifact = new FileArtifact(new File(outputDir, s"$title.workflow.json"))
     val workflow = Workflow.forPipeline(outputs: _*)
@@ -180,6 +204,17 @@ trait ConfiguredPipeline extends Pipeline {
     signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
 
     logger.info(s"Summary written to $outputDir")
+  }
+}
+
+trait ConfiguredPipeline extends Pipeline {
+  def config: Config
+
+  override def run(rawTitle: String): Unit = {
+    config.get[Boolean]("dry-run") match {
+      case Some(true) => dryRun(new File(System.getProperty("user.dir")), rawTitle)
+      case _ => super.run(rawTitle: String)
+    }
   }
 
   override lazy val artifactFactory = {
