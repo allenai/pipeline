@@ -54,13 +54,11 @@ trait Pipeline extends Logging {
         if !overridenStepsInfo(pp.stepInfo)
         if !pp.artifact.exists
       } yield pp.stepInfo
-    require(
-      nonExistentDependencies.size == 0,
-      s"""
-         |Cannot run steps [${overridenStepsInfo.map(_.className).mkString(",")}].
-                                                                                  |Upstream dependencies [${nonExistentDependencies.map(_.className).mkString(",")}] have not been computed)
-                                                                                                                                                                     |""".stripMargin
-    )
+    require(nonExistentDependencies.size == 0, {
+      val targetNames = overridenStepsInfo.map(_.className).mkString(",")
+      val dependencyNames = nonExistentDependencies.map(_.className).mkString(",")
+      s"Cannot run steps [$targetNames]. Upstream dependencies [$dependencyNames] have not been computed"
+    })
     run(title, targets)
   }
 
