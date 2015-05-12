@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
 trait Pipeline extends Logging {
   def artifactFactory: FlatArtifactFactory[String] with StructuredArtifactFactory[String]
 
-  private[this] val persistedSteps: ListBuffer[Producer[_]] = ListBuffer()
+  protected[this] val persistedSteps: ListBuffer[Producer[_]] = ListBuffer()
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
   def run(title: String) = {
@@ -228,7 +228,7 @@ trait Pipeline extends Logging {
 trait ConfiguredPipeline extends Pipeline {
   def config: Config
 
-  private[this] val persistedStepsByConfigKey =
+  protected[this] val persistedStepsByConfigKey =
     scala.collection.mutable.Map.empty[String, Producer[_]]
 
   private lazy val runOnlySteps = config.get[String]("runOnly").map(_.split(",").toSet).getOrElse(Set.empty[String])
