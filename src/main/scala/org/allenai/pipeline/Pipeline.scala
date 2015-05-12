@@ -31,12 +31,15 @@ trait Pipeline extends Logging {
   private[this] val persistedSteps: ListBuffer[Producer[_]] = ListBuffer()
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
-  def run(title: String): Unit = {
-    run(title, persistedSteps.toSeq)
+  def run(title: String) = {
+    runPipelineReturnResults(title, persistedSteps.toSeq)
   }
 
+  def runOne[T](target: Producer[T]) =
+    runOnly(target.stepInfo.className, List(target): _*).toList(0).asInstanceOf[T]
+
   /** Run only specified steps in the pipeline.  Upstream dependencies must exist already.  They will not be computed */
-  def runOnly(title: String, runOnlyTargets: Producer[_]*) {
+  def runOnly(title: String, runOnlyTargets: Producer[_]*) = {
     val targets = runOnlyTargets.flatMap(s => persistedSteps.find(_.stepInfo.signature == s.stepInfo.signature))
     require(targets.size == runOnlyTargets.size, "Specified targets are not members of this pipeline")
 
@@ -60,17 +63,20 @@ trait Pipeline extends Logging {
       val dependencyNames = nonExistentDependencies.map(_.className).mkString(",")
       s"Cannot run steps [$targetNames]. Upstream dependencies [$dependencyNames] have not been computed"
     })
-    run(title, targets)
+    runPipelineReturnResults(title, targets)
   }
 
-  private def run(rawTitle: String, outputs: Iterable[Producer[_]]): Unit = {
-    try {
+  private def runPipelineReturnResults(rawTitle: String, outputs: Iterable[Producer[_]]) = {
+    val result = try {
       val start = System.currentTimeMillis
-      outputs.foreach(_.get)
+      val result = outputs.map(_.get)
       val duration = (System.currentTimeMillis - start) / 1000.0
       logger.info(f"Ran pipeline in $duration%.3f s")
+      result
     } catch {
-      case NonFatal(e) => logger.error("Untrapped exception", e)
+      case NonFatal(e) =>
+        logger.error("Untrapped exception", e)
+        List()
     }
 
     val title = rawTitle.replaceAll("""\s+""", "-")
@@ -89,6 +95,7 @@ trait Pipeline extends Logging {
     signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
 
     logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
+    result
   }
 
   def persist[T, A <: Artifact: ClassTag](
@@ -198,7 +205,7 @@ trait Pipeline extends Logging {
     }
   }
 
-  def dryRun(outputDir: File, rawTitle: String): Unit = {
+  def dryRun(outputDir: File, rawTitle: String): Iterable[Any] = {
     val outputs = persistedSteps.toList
     val title = s"${rawTitle.replaceAll("""\s+""", "-")}-dryRun"
     val workflowArtifact = new FileArtifact(new File(outputDir, s"$title.workflow.json"))
@@ -214,6 +221,7 @@ trait Pipeline extends Logging {
     signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
 
     logger.info(s"Summary written to $outputDir")
+    List()
   }
 }
 
@@ -224,10 +232,10 @@ trait ConfiguredPipeline extends Pipeline {
     scala.collection.mutable.Map.empty[String, Producer[_]]
 
   private lazy val runOnlySteps = config.get[String]("runOnly").map(_.split(",").toSet).getOrElse(Set.empty[String])
-  private lazy val tempOutput = config.get[String]("tempOutput").map(s => ArtifactFactory.fromUrl(new URI(s)))
+  private lazy val tmpOutput = config.get[String]("tmpOutput").map(s => ArtifactFactory.fromUrl(new URI(s)))
   def isRunOnlyStep(stepName: String) = runOnlySteps(stepName)
 
-  override def run(rawTitle: String): Unit = {
+  override def run(rawTitle: String) = {
     config.get[Boolean]("dryRun") match {
       case Some(true) => dryRun(new File(System.getProperty("user.dir")), rawTitle)
       case _ =>
@@ -267,16 +275,16 @@ trait ConfiguredPipeline extends Pipeline {
       config.getValue(configKey).unwrapped() match {
         case java.lang.Boolean.TRUE =>
           val p =
-            if (isRunOnlyStep(stepName) && tempOutput.isDefined) {
-              makePersisted(original, io, signaturePath(original, io, suffix), tempOutput.get)
+            if (isRunOnlyStep(stepName) && tmpOutput.isDefined) {
+              makePersisted(original, io, signaturePath(original, io, suffix), tmpOutput.get)
             } else {
               persist(original, io, None, suffix)
             }
           persistedStepsByConfigKey(stepName) = p
           p
         case path: String =>
-          val p = if (isRunOnlyStep(stepName) && tempOutput.isDefined) {
-            makePersisted(original, io, path, tempOutput.get)
+          val p = if (isRunOnlyStep(stepName) && tmpOutput.isDefined) {
+            makePersisted(original, io, path, tmpOutput.get)
           } else {
             persist(original, io, Some(path))
           }
