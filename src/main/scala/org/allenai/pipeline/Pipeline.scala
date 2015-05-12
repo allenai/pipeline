@@ -9,6 +9,7 @@ import spray.json.JsonFormat
 import org.allenai.pipeline.IoHelpers._
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.parallel.mutable
 import scala.reflect.ClassTag
 
 import java.io.File
@@ -62,7 +63,7 @@ trait Pipeline extends Logging {
     run(title, targets)
   }
 
-  private def run(rawTitle: String, outputs: Seq[Producer[_]]): Unit = {
+  private def run(rawTitle: String, outputs: Iterable[Producer[_]]): Unit = {
     try {
       val start = System.currentTimeMillis
       outputs.foreach(_.get)
@@ -76,7 +77,7 @@ trait Pipeline extends Logging {
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
     val workflowArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.workflow.json")
-    val workflow = Workflow.forPipeline(outputs: _*)
+    val workflow = Workflow.forPipeline(outputs.toSeq: _*)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = artifactFactory.flatArtifact(s"summary/$title-$today.html")
@@ -95,16 +96,26 @@ trait Pipeline extends Logging {
     io: ArtifactIo[T, A],
     fileName: Option[String] = None,
     suffix: String = ""
-  ) = {
-    val path = fileName.getOrElse {
-      // Although the persistence method does not affect the signature
-      // (the same object will be returned in all cases), it is used
-      // to determine the output path, to avoid parsing incompatible data
-      val signature = original.stepInfo.copy(
-        dependencies = original.stepInfo.dependencies + ("io" -> io)
-      ).signature
-      s"${signature.name}.${signature.id}$suffix"
-    }
+  ): PersistedProducer[T, A] = {
+    makePersisted(original, io, fileName.getOrElse(signaturePath(original, io, suffix)), artifactFactory)
+  }
+
+  protected def signaturePath[T, A <: Artifact](p: Producer[T], io: ArtifactIo[T, A], suffix: String) = {
+    // Although the persistence method does not affect the signature
+    // (the same object will be returned in all cases), it is used
+    // to determine the output path, to avoid parsing incompatible data
+    val signature = p.stepInfo.copy(
+      dependencies = p.stepInfo.dependencies + ("io" -> io)
+    ).signature
+    s"${signature.name}.${signature.id}$suffix"
+  }
+
+  protected def makePersisted[T, A <: Artifact: ClassTag](
+    original: Producer[T],
+    io: ArtifactIo[T, A],
+    path: String,
+    artifactFactory: FlatArtifactFactory[String] with StructuredArtifactFactory[String]
+  ): PersistedProducer[T, A] = {
     val persisted =
       implicitly[ClassTag[A]].runtimeClass match {
         case c if c == classOf[FlatArtifact] =>
@@ -119,6 +130,7 @@ trait Pipeline extends Logging {
       }
     persistedSteps += persisted
     persisted
+
   }
 
   object Persist {
@@ -208,10 +220,31 @@ trait Pipeline extends Logging {
 trait ConfiguredPipeline extends Pipeline {
   def config: Config
 
+  private[this] val persistedStepsByConfigKey =
+    scala.collection.mutable.Map.empty[String, Producer[_]]
+
+  private lazy val runOnlySteps = config.get[String]("runOnly").map(_.split(",").toSet).getOrElse(Set.empty[String])
+  private lazy val tempOutput = config.get[String]("tempOutput").map(s => ArtifactFactory.fromUrl(new URI(s)))
+  def isRunOnlyStep(stepName: String) = runOnlySteps(stepName)
+
   override def run(rawTitle: String): Unit = {
-    config.get[Boolean]("dry-run") match {
+    config.get[Boolean]("dryRun") match {
       case Some(true) => dryRun(new File(System.getProperty("user.dir")), rawTitle)
-      case _ => super.run(rawTitle: String)
+      case _ =>
+        config.get[String]("runOnly") match {
+          case Some(stepConfigKeys) =>
+            val (matchedNames, unmatchedNames) = runOnlySteps.partition(persistedStepsByConfigKey.contains)
+            unmatchedNames.size match {
+              case 0 =>
+                val matches = matchedNames.map(persistedStepsByConfigKey)
+                runOnly(rawTitle, matches.toList: _*)
+              case 1 =>
+                sys.error(s"Unknown step name: ${unmatchedNames.head}")
+              case _ =>
+                sys.error(s"Unknown step names: [${unmatchedNames.mkString(",")}]")
+            }
+          case _ => super.run(rawTitle)
+        }
     }
   }
 
@@ -233,9 +266,22 @@ trait ConfiguredPipeline extends Pipeline {
     if (config.hasPath(configKey)) {
       config.getValue(configKey).unwrapped() match {
         case java.lang.Boolean.TRUE =>
-          persist(original, io, None, suffix)
+          val p =
+            if (isRunOnlyStep(stepName) && tempOutput.isDefined) {
+              makePersisted(original, io, signaturePath(original, io, suffix), tempOutput.get)
+            } else {
+              persist(original, io, None, suffix)
+            }
+          persistedStepsByConfigKey(stepName) = p
+          p
         case path: String =>
-          persist(original, io, Some(path))
+          val p = if (isRunOnlyStep(stepName) && tempOutput.isDefined) {
+            makePersisted(original, io, path, tempOutput.get)
+          } else {
+            persist(original, io, Some(path))
+          }
+          persistedStepsByConfigKey(stepName) = p
+          p
         case _ => original
       }
     } else {
