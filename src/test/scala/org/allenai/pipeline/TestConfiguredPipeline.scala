@@ -87,7 +87,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
     val config = baseConfig
       .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
       .withValue("runOnly", ConfigValueFactory.fromAnyRef("Step3"))
-      .withValue("tempOutput", ConfigValueFactory.fromAnyRef(tempOutput.getCanonicalPath))
+      .withValue("tmpOutput", ConfigValueFactory.fromAnyRef(tempOutput.getCanonicalPath))
 
     // config specifies runOnly for step3 with no persisted upstream dependencies
     val pipeline = ConfiguredPipeline(config)
