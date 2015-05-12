@@ -155,6 +155,11 @@ object Workflow {
     Workflow(nodes, links)
   }
 
+  def upstreamDependencies(step: PipelineStep): Set[PipelineStep] = {
+    val parents = step.stepInfo.dependencies.map(_._2).toSet
+    parents ++ parents.flatMap(upstreamDependencies)
+  }
+
   implicit val jsFormat = {
     implicit val linkFormat = jsonFormat3(Link)
     implicit val nodeFormat = {

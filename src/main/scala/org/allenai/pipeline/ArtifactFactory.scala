@@ -25,6 +25,28 @@ object ArtifactFactory {
       case _ => sys.error(s"Illegal dir: $outputUrl")
     }
   }
+  def flatArtifactFromAbsoluteUrl(s: String): Option[FlatArtifact] = {
+    val url = new URI(s)
+    url.getScheme() match {
+      case "file" =>
+        Some(new FileArtifact(new File(url.getPath)))
+      case "s3" | "s3n" =>
+        Some(new S3FlatArtifact(url.getPath.dropWhile(_ == '/'), S3Config(url.getHost)))
+      case _ => None
+    }
+  }
+  def structuredArtifactFromAbsoluteUrl(s: String): Option[StructuredArtifact] = {
+    val url = new URI(s)
+    url.getScheme() match {
+      case "file" if s.endsWith(".zip") =>
+        Some(new ZipFileArtifact(new File(url.getPath)))
+      case "file" =>
+        Some(new DirectoryArtifact(new File(url.getPath)))
+      case "s3" | "s3n" =>
+        Some(new S3ZipArtifact(url.getPath.dropWhile(_ == '/'), S3Config(url.getHost)))
+      case _ => None
+    }
+  }
 }
 
 class RelativeFileSystem(rootDir: File)
@@ -74,9 +96,7 @@ class S3(config: S3Config, rootPath: Option[String] = None)
       s"$base/$path"
   }
 
-  override def flatArtifact(path: String): FlatArtifact =
-    new S3FlatArtifact(toPath(path), config)
+  override def flatArtifact(path: String): FlatArtifact = new S3FlatArtifact(toPath(path), config)
 
-  override def structuredArtifact(path: String): StructuredArtifact =
-    new S3ZipArtifact(toPath(path), config)
+  override def structuredArtifact(path: String): StructuredArtifact = new S3ZipArtifact(toPath(path), config)
 }

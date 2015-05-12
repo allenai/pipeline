@@ -53,7 +53,7 @@ class SamplePipeline extends UnitSpec
     val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
     val measure: Producer[PRMeasurement] =
       pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
-    pipeline.run("SamplePipeline", measure)
+    pipeline.run("SamplePipeline")
 
     assert(findFile(outputDataDir, "JoinAndSplitData_train", ".txt"), "Training data file created")
     assert(findFile(outputDataDir, "TrainModel", ".json"), "Json file created")
@@ -77,7 +77,7 @@ class SamplePipeline extends UnitSpec
     val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
     val measure =
       pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
-    val experimentSummary = pipeline.run("Sample Experiment", measure)
+    val experimentSummary = pipeline.run("Sample Experiment")
 
     val trainDataFile = new File(trainDataPersisted.artifact.url)
     val measureFile = new File(measure.artifact.url)
@@ -100,7 +100,7 @@ class SamplePipeline extends UnitSpec
       ), None, ".json")
       val measure: PersistedProducer[PRMeasurement, FlatArtifact] =
         pipeline.Persist.Collection.asText(new MeasureModel(model, testData))
-      pipeline.run("SamplePipeline", measure)
+      pipeline.run("SamplePipeline")
       (new File(trainDataPersisted.artifact.url),
         new File(measure.artifact.url))
     }
@@ -269,7 +269,7 @@ object SamplePipelineApp extends App with Pipeline {
   val model = Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
   val measure: Producer[PRMeasurement] =
     Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
-  run("Sample Pipeline", measure)
+  run("Sample Pipeline")
 
   println(s"Pipeline files written to ${outputDir.getAbsolutePath}")
 }
