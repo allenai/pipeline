@@ -342,3 +342,10 @@ trait ConfiguredPipeline extends Pipeline {
   }
 
 }
+
+object ConfiguredPipeline {
+  def apply(cfg: Config): ConfiguredPipeline =
+    new ConfiguredPipeline {
+      val config = cfg
+    }
+}
