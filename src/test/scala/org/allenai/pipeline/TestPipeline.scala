@@ -5,19 +5,14 @@ import java.io.File
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
 class TestPipeline extends UnitSpec with ScratchDirectory {
+  case class AddOne(input: Producer[Int]) extends Producer[Int] with Ai2StepInfo {
+    override def create = input.get + 1
+  }
   "Pipeline" should "run all persisted targets" in {
-    val p1 = new Producer[Int] with Ai2SimpleStepInfo {
-      override def create = 1
-    }
-    val p2 = new Producer[Int] with Ai2SimpleStepInfo {
-      override def create = 2
-    }
-    val p3 = new Producer[Int] with Ai2SimpleStepInfo {
-      override def create = 3
-    }
-    val p4 = new Producer[Int] with Ai2SimpleStepInfo {
-      override def create = 4
-    }
+    val p1 = Producer.fromMemory(1)
+    val p2 = Producer.fromMemory(2)
+    val p3 = Producer.fromMemory(3)
+    val p4 = Producer.fromMemory(4)
     val outputDir = new File(scratchDir, "test1")
     val pipeline = new Pipeline {
       val artifactFactory = new RelativeFileSystem(outputDir)
@@ -31,10 +26,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val p4Persisted = pipeline.persist(p4, format, Some("prod4"))
 
     an[IllegalArgumentException] should be thrownBy {
-      val p5 = new Producer[Int] with Ai2SimpleStepInfo {
-        override def create = 5
-        override def stepInfo = super.stepInfo.addParameters(("upstream", p4Persisted))
-      }
+      val p5 = AddOne(p4Persisted)
       pipeline.persist(p5, format, Some("prod5"))
       // p5 has p4 as a dependency, but p4 has not been computed yet
       pipeline.runOnly("test", p5)
@@ -50,9 +42,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     new File(outputDir, "data/prod4") should exist
 
     an[IllegalArgumentException] should be thrownBy {
-      val p5 = new Producer[Int] with Ai2SimpleStepInfo {
-        override def create = 5
-      }
+      val p5 = Producer.fromMemory(5)
       // p5 has not been persisted, so we should not specify it as an output
       pipeline.runOnly("test", p5)
     }
@@ -66,13 +56,9 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     pipeline.runOnly("test", p5)
   }
 
-  "Pipeline" should "respect both relative and absolute persistence paths" in {
-    val p1 = new Producer[Int] with Ai2SimpleStepInfo {
-      override def create = 1
-    }
-    val p2 = new Producer[Int] with Ai2SimpleStepInfo {
-      override def create = 2
-    }
+  it should "respect both relative and absolute persistence paths" in {
+    val p1 = Producer.fromMemory(1)
+    val p2 = Producer.fromMemory(2)
 
     val outputDir = new File(scratchDir, "test2")
     val pipeline = new Pipeline {
@@ -86,6 +72,25 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
 
     pipeline.run("test")
     new File(scratchDir, "absolute-path/prod2") should exist
+  }
+
+  it should "respect tmpOutput argument in runOne()" in {
+    val p1 = Producer.fromMemory(1)
+
+    val outputDir = new File(scratchDir, "testRunOne")
+    val pipeline = new Pipeline {
+      val artifactFactory = new RelativeFileSystem(outputDir)
+    }
+
+    import IoHelpers._
+    val format = SingletonIo.text[Int]
+    val p2 = pipeline.persist(AddOne(p1), format, Some("prod2"))
+
+    val tmpOutput = new File(outputDir, "temp-output/prod2")
+    pipeline.runOne(p2, Some(tmpOutput.toURI.toString))
+
+    new File(outputDir, "data/prod2") should not(exist)
+    tmpOutput should exist
   }
 
 }

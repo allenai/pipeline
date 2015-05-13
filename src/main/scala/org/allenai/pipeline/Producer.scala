@@ -141,8 +141,8 @@ trait CachingDisabled extends CachingEnabled {
 }
 
 class PersistedProducer[T, -A <: Artifact](
-    step: Producer[T],
-    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    val step: Producer[T],
+    val io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     _artifact: A
 ) extends Producer[T] {
   self =>
