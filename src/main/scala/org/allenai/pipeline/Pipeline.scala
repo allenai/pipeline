@@ -48,7 +48,7 @@ trait Pipeline extends Logging {
 
   /** Run only specified steps in the pipeline.  Upstream dependencies must exist already.  They will not be computed */
   def runOnly(title: String, runOnlyTargets: Producer[_]*) = {
-    val (persistedTargets, unpersistedTargets) = runOnlyTargets.partition(_.isInstanceOf[PersistedProducer[_, _ <: Artifact]])
+    val (persistedTargets, unpersistedTargets) = runOnlyTargets.partition(_.isInstanceOf[PersistedProducer[_, _]])
     val targets = persistedTargets ++
       unpersistedTargets.flatMap(s => persistedSteps.find(_.stepInfo.signature == s.stepInfo.signature))
     require(targets.size == runOnlyTargets.size, "Specified targets are not members of this pipeline")
@@ -63,7 +63,7 @@ trait Pipeline extends Logging {
     val allDependencies = targets.flatMap(Workflow.upstreamDependencies)
     val nonExistentDependencies =
       for {
-        p <- allDependencies if p.isInstanceOf[PersistedProducer[_, _ <: Artifact]]
+        p <- allDependencies if p.isInstanceOf[PersistedProducer[_, _]]
         pp = p.asInstanceOf[PersistedProducer[_, _ <: Artifact]]
         if !overridenStepsInfo(pp.stepInfo)
         if !pp.artifact.exists
