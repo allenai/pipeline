@@ -33,16 +33,11 @@ trait Pipeline extends Logging {
     runPipelineReturnResults(title, persistedSteps.toSeq)
   }
 
-  def runOne[T, A <: Artifact](target: Producer[T], outputLocationOverride: Option[A] = None) = {
+  def runOne[T, A <: Artifact](target: PersistedProducer[T, A], outputLocationOverride: Option[A] = None) = {
     val targetWithOverriddenLocation: Producer[T] =
       outputLocationOverride match {
         case Some(tmp) =>
-          target match {
-            case p: PersistedProducer[T, A] =>
-              new PersistedProducer[T, A](p.step, p.io, tmp)
-            case _ =>
-              sys.error(s"Unrecognized persistence: $target")
-          }
+          new PersistedProducer[T, A](target.step, target.io, tmp)
         case None => target
       }
     runOnly(
