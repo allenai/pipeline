@@ -19,7 +19,6 @@ class SamplePipeline extends UnitSpec
 
   val inputDir = new File("src/test/resources/pipeline")
   val outputDataDir = new File(scratchDir, "data")
-  val input = new RelativeFileSystem(inputDir)
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
 
@@ -32,9 +31,7 @@ class SamplePipeline extends UnitSpec
   implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] =
     tuple3ColumnFormat[Double, Double, Double](',')
 
-  val pipeline = new Pipeline {
-    def artifactFactory = new RelativeFileSystem(scratchDir)
-  }
+  val pipeline = Pipeline.saveToFileSystem(scratchDir)
 
   "Sample Experiment" should "complete" in {
     // TSV format for label+features is <label><tab><comma-separated feature values>
@@ -47,7 +44,7 @@ class SamplePipeline extends UnitSpec
 
     // Define pipeline
     val labelData: Producer[Iterable[Boolean]] =
-      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+      Read.Collection.fromText[Boolean](new FileArtifact(new File(inputDir, labelFile)))
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
     val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
     val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
@@ -71,7 +68,7 @@ class SamplePipeline extends UnitSpec
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
 
     val labelData: Producer[Iterable[Boolean]] =
-      Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+      Read.Collection.fromText[Boolean](new FileArtifact(new File(inputDir, labelFile)))
     val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
     val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
     val model = pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
@@ -91,7 +88,7 @@ class SamplePipeline extends UnitSpec
       val docFeatures = new FeaturizeDocuments(docs)
 
       val labelData: Producer[Iterable[Boolean]] =
-        Read.Collection.fromText[Boolean](input.flatArtifact(labelFile))
+        Read.Collection.fromText[Boolean](new FileArtifact(new File(inputDir, labelFile)))
       val Producer2(trainData, testData) = new JoinAndSplitData(docFeatures, labelData, 0.2) -> (("train", "test"))
       val trainDataPersisted = pipeline.Persist.Collection.asText(trainData, None, ".txt")
       val model = pipeline.Persist.Singleton.asJson(new TrainModelPython(
@@ -239,7 +236,6 @@ object SamplePipelineApp extends App with Pipeline {
 
   val inputDir = new File("src/test/resources/pipeline")
   val outputDir = new File("pipeline-output")
-  val artifactFactory = new RelativeFileSystem(outputDir)
 
   //  val featureFile = "features.txt"
   val labelFile = "labels.txt"
