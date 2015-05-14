@@ -64,6 +64,9 @@ object CreateFileArtifact {
     case (path, c) if c.isAssignableFrom(classOf[FileArtifact])
       && "file" == new URI(path).getScheme =>
       new FileArtifact(new File(new URI(path))).asInstanceOf[A]
+    case (path, c) if c.isAssignableFrom(classOf[FileArtifact])
+      && null == new URI(path).getScheme =>
+      new FileArtifact(new File(path)).asInstanceOf[A]
   }
   def flatRelative[A <: Artifact](rootDir: File): PartialFunction[(String, Class[A]), A] = {
     case (path, c) if c.isAssignableFrom(classOf[FileArtifact])
@@ -75,6 +78,9 @@ object CreateFileArtifact {
     case (path, c) if c.isAssignableFrom(classOf[ZipFileArtifact])
       && "file" == new URI(path).getScheme =>
       new ZipFileArtifact(new File(new URI(path))).asInstanceOf[A]
+    case (path, c) if c.isAssignableFrom(classOf[ZipFileArtifact])
+      && null == new URI(path).getScheme =>
+      new ZipFileArtifact(new File(path)).asInstanceOf[A]
   }
   def structuredRelative[A <: Artifact](rootDir: File): PartialFunction[(String, Class[A]), A] = {
     case (path, c) if c.isAssignableFrom(classOf[ZipFileArtifact])

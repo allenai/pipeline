@@ -1,9 +1,7 @@
-AI2 Pipeline Framework
-=========================
+#AI2 Pipeline Framework
 
 
-Design Goals
-============
+#Design Goals
 
 A common pain point in analysis-driven software development is the
 management of data sets and experimental results.  In the absence of an
@@ -32,25 +30,22 @@ developers in a consistent way.  Such a framework should:
 6.  Support streaming calculations on out-of-RAM datasets
 7.  Support easy swapping of storage implementations
 
-Pipeline Abstractions
-=====================
+#Pipeline Abstractions
 
 There are three central abstractions in the data pipeline framework.
 
-Data Transformation
--------------------
+##Data Transformation
 
 The most essential abstraction is the logic transforming one data
 structure into another.  This is represented in the framework by the
 Producer[T] trait.  A Producer[T] provides a lazily-computed value of
 type T returned by the get method.  Only the output type is
 parameterized, because different producers may require different inputs.
- An implementation may specify a default for whether the result is
-cached in memory, but this can be overridden when using is in a
+An implementation may specify a default for whether the result is
+cached in memory, but this can be overridden when using it in a
 pipeline.  
 
-Data Storage
-------------
+##Data Storage
 
 A data structure saved in persistent storage is represented by the
 Artifact trait.  An artifact may represent a flat file, a directory, a
@@ -62,8 +57,7 @@ expensive calculations are transparently cached to disk when necessary.
  The author of a pipeline specifies which data structures should be
 persisted and select the desired persistence mechanism and path names.
 
-Data Serialization
-------------------
+##Data Serialization
 
 Serialization of a data structure of type T into an artifact of type
 A is represented by the ArtifactIo[T,A] trait.  Because common cases,
@@ -74,14 +68,12 @@ implementations of ArtifactIo, can be specified when the pipeline is
 constructed, while the Artifact instance specifies the physical location
 where the data will be stored.
 
-Example Pipeline 
-================
+#Example Pipeline 
 
 The complete code for this example can be found in
 src/test/scala/org/allenai/pipeline/SamplePipeline.scala
 
-The Basic Pipeline
-------------------
+##The Basic Pipeline
 
 As an example let us take the familiar case of training and measuring a
 classification model.  Our pipeline consists of the following steps:
@@ -151,8 +143,7 @@ of the final step
 
     val result = measure.get
 
-Persisting the Output 
----------------------
+##Persisting the Output 
 
 At this point, the result of the calculation has been created in memory,
 but is not being persisted.  We would like to persist not only the final
@@ -191,8 +182,7 @@ expected location, the result will be deserialized from the store rather
 than re-computed from its inputs.  In the "Tracking Overlapping Pipelines" section we 
 will see how this is used for pipelines that have some shared computations.
 
-Out-of-Core Datasets 
---------------------
+##Out-of-Core Datasets 
 
 Instead of reading feature data from disk, suppose now that we compute
 it on the fly by processing XML documents from a source directory,
@@ -235,8 +225,7 @@ feature data we had originally read from TSV
     val docFeatures = new FeaturizeDocuments(docs) 
     // use in place of featureData above
 
-Out-of-Process Computation
---------------------------
+## Out-of-Process Computation
 
 Most data transformations are assumed to be implemented in Scala code.
  However, it is sometimes necessary for components in a pipeline to be
@@ -278,9 +267,8 @@ Producer of the appropriate Artifact type, so that a a downstream out-of-JVM ste
     val measure: Producer[PRMeasurement] 
         = Persist.Collection.asText(new MeasureModel(model, testData), "PR.txt")
 
-Tracking Overlapping Pipelines
-------------------------------
-The source code for this example is found in src/test/scala/org/allenai/pipeline/SampleExperiment.scala
+## Tracking Overlapping Pipelines
+The source code for this example is found in src/test/scala/org/allenai/pipeline/SamplePipeline.scala
 
 For most projects, we would expect to run many variants of a core pipeline, 
 specifying different parameters, different featurizations, etc., but all producing the same 
@@ -347,8 +335,7 @@ many different contributors.  Users running experiments can re-use data, even fr
 run on different machines.  The HTML pages stored into S3 are visible in a browser and serve as
 a record of results of the group as a whole.
 
-Summary
-=======
+#Summary
 
 The sample pipeline illustrates many of the benefits of the framework
 for managing a pipeline.  Here is a summary:

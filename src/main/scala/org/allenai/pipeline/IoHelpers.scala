@@ -43,7 +43,7 @@ object IoHelpers extends ColumnFormats {
     }
 
     /** Read a collection of arrays of a single type from a flat file. */
-    object ArrayCollection {
+    object CollectionOfArrays {
       def fromText[T: StringSerializable: ClassTag](
         artifact: FlatArtifact,
         sep: Char = '\t'
@@ -58,7 +58,7 @@ object IoHelpers extends ColumnFormats {
     }
 
     /** Read an iterator of arrays of a single type from a flat file. */
-    object ArrayIterator {
+    object IteratorOfArrays {
       def fromText[T: StringSerializable: ClassTag](
         artifact: FlatArtifact,
         sep: Char = '\t'

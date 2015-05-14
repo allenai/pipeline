@@ -19,18 +19,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 /** A fully-configured end-to-end pipeline */
-trait Pipeline extends Logging {
+class Pipeline extends Logging {
 
   protected[this] def tryCreateArtifact[A <: Artifact]: PartialFunction[(String, Class[A]), A] =
     ArtifactFactory.fromAbsoluteUrl[A]
 
   def createArtifact[A <: Artifact: ClassTag](path: String): A = {
-    val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
+    val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
     val fn = tryCreateArtifact[A]
-    val args = (path, c)
-    if (!fn.isDefinedAt(args)) {
-      sys.error(s"Unrecognized artifact type: $c")
-    }
+    val args = (path, clazz)
+    require(fn.isDefinedAt(args), s"Could not create artifact [$clazz] for path $path")
     fn(args)
   }
 
@@ -41,18 +39,17 @@ trait Pipeline extends Logging {
     runPipelineReturnResults(title, persistedSteps.toSeq)
   }
 
-  def runOne[T, A <: Artifact](target: PersistedProducer[T, A], outputLocationOverride: Option[A] = None) = {
+  def runOne[T, A <: Artifact: ClassTag](target: PersistedProducer[T, A], outputLocationOverride: Option[String] = None) = {
     val targetWithOverriddenLocation: Producer[T] =
       outputLocationOverride match {
         case Some(tmp) =>
-          new PersistedProducer[T, A](target.step, target.io, tmp)
+          new PersistedProducer[T, A](target.step, target.io, createArtifact[A](tmp))
         case None => target
       }
-
     runOnly(
       targetWithOverriddenLocation.stepInfo.className,
       List(targetWithOverriddenLocation): _*
-    ).toList(0).asInstanceOf[T]
+    ).head.asInstanceOf[T]
   }
 
   /** Run only specified steps in the pipeline.  Upstream dependencies must exist already.  They will not be computed */
@@ -257,10 +254,15 @@ object Pipeline {
         CreateFileArtifact.structuredRelative[A](rootDir) orElse
         super.tryCreateArtifact[A]
   }
+  def saveToS3(cfg: S3Config, rootPath: String) = new Pipeline {
+    override def tryCreateArtifact[A <: Artifact] =
+      CreateS3Artifact.flatRelative[A](cfg, rootPath) orElse
+        CreateS3Artifact.structuredRelative[A](cfg, rootPath) orElse
+        super.tryCreateArtifact[A]
+  }
 }
 
-trait ConfiguredPipeline extends Pipeline {
-  def config: Config
+class ConfiguredPipeline(config: Config) extends Pipeline {
 
   override protected[this] def tryCreateArtifact[A <: Artifact]: PartialFunction[(String, Class[A]), A] = {
     val createRelativeArtifact: PartialFunction[(String, Class[A]), A] =
@@ -389,11 +391,4 @@ trait ConfiguredPipeline extends Pipeline {
 
   }
 
-}
-
-object ConfiguredPipeline {
-  def apply(cfg: Config): ConfiguredPipeline =
-    new ConfiguredPipeline {
-      val config = cfg
-    }
 }

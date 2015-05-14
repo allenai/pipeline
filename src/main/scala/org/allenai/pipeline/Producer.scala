@@ -140,30 +140,28 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact](
+class PersistedProducer[T, A <: Artifact](
     val step: Producer[T],
     val io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-    _artifact: A
+    val artifact: A
 ) extends Producer[T] {
   self =>
-
-  def artifact: Artifact = _artifact
 
   def create: T = {
     val className = stepInfo.className
     if (!artifact.exists) {
       val result = step.get
       logger.debug(s"$className writing to $artifact using $io")
-      io.write(result, _artifact)
+      io.write(result, artifact)
       if (result.isInstanceOf[Iterator[_]]) {
         logger.debug(s"$className reading type Iterator from $artifact using $io")
-        io.read(_artifact)
+        io.read(artifact)
       } else {
         result
       }
     } else {
       logger.debug(s"$className reading from $artifact using $io")
-      io.read(_artifact)
+      io.read(artifact)
     }
   }
 
@@ -171,7 +169,7 @@ class PersistedProducer[T, -A <: Artifact](
 
   override def withCachingDisabled = {
     if (cachingEnabled) {
-      new PersistedProducer(step, io, _artifact) with CachingDisabled
+      new PersistedProducer(step, io, artifact) with CachingDisabled
     } else {
       this
     }
@@ -181,7 +179,7 @@ class PersistedProducer[T, -A <: Artifact](
     if (cachingEnabled) {
       this
     } else {
-      new PersistedProducer(step, io, _artifact) with CachingEnabled
+      new PersistedProducer(step, io, artifact) with CachingEnabled
     }
   }
 }

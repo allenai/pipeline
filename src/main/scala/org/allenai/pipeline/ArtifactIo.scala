@@ -54,11 +54,14 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     _.write(implicitly[StringSerializable[T]].toString(data))
   }
 
-  override def stepInfo: PipelineStepInfo =
+  override def stepInfo: PipelineStepInfo = {
+    val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
-      className = s"SingletonIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]",
-      parameters = Map("charSet" -> codec.charSet.toString)
+      className = s"SingletonIo[$className]",
+      parameters = Map("charSet" -> codec.charSet.toString),
+      description = Some(s"Read [$className] into memory")
     )
+  }
 }
 
 object SingletonIo {
@@ -82,11 +85,14 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
   override def write(data: Iterable[T], artifact: FlatArtifact): Unit =
     delegate.write(data.iterator, artifact)
 
-  override def stepInfo: PipelineStepInfo =
+  override def stepInfo: PipelineStepInfo = {
+    val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
-      className = s"LineCollectionIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]",
-      parameters = Map("charSet" -> codec.charSet.toString)
+      className = s"LineCollectionIo[$className]",
+      parameters = Map("charSet" -> codec.charSet.toString),
+      description = Some(s"Read collection of [$className] into memory")
     )
+  }
 
 }
 
@@ -124,12 +130,15 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     }
   }
 
-  override def stepInfo: PipelineStepInfo =
+  override def stepInfo: PipelineStepInfo = {
+    val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
       className =
-      s"LineIteratorIo[${scala.reflect.classTag[T].runtimeClass.getSimpleName}]",
-      parameters = Map("charSet" -> codec.charSet.toString)
+      s"LineIteratorIo[$className]",
+      parameters = Map("charSet" -> codec.charSet.toString),
+      description = Some(s"Stream iterator of [$className]")
     )
+  }
 }
 
 object LineIteratorIo {

@@ -26,7 +26,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
   it should "optionally persist" in {
     val outputDir = new File(scratchDir, "testOptionallyPersist")
-    val pipeline = ConfiguredPipeline(
+    val pipeline = new ConfiguredPipeline(
       baseConfig
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
     )
@@ -39,7 +39,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
   it should "recognize dryRun flag" in {
     val outputDir = new File(scratchDir, "testDryRun")
-    val pipeline = ConfiguredPipeline(
+    val pipeline = new ConfiguredPipeline(
       baseConfig
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
         .withValue("dryRun", ConfigValueFactory.fromAnyRef(true))
@@ -58,7 +58,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
       .withValue("runOnly", ConfigValueFactory.fromAnyRef("Step3"))
 
     // config specifies runOnly for step3 with no persisted upstream dependencies
-    val pipeline = ConfiguredPipeline(config)
+    val pipeline = new ConfiguredPipeline(config)
     val step2 = AddOne(step1)
     pipeline.optionallyPersist(AddOne(step2), "Step3", format)
     pipeline.run("test")
@@ -74,7 +74,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
     // config specifies runOnly for step3 but step2 is not persisted
     an[IllegalArgumentException] should be thrownBy {
-      val pipeline = ConfiguredPipeline(config)
+      val pipeline = new ConfiguredPipeline(config)
       val step2 = pipeline.optionallyPersist(AddOne(step1), "Step2", format)
       pipeline.optionallyPersist(AddOne(step2), "Step3", format)
       pipeline.run("test")
@@ -90,7 +90,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
       .withValue("tmpOutput", ConfigValueFactory.fromAnyRef(tempOutput.getCanonicalPath))
 
     // config specifies runOnly for step3 with no persisted upstream dependencies
-    val pipeline = ConfiguredPipeline(config)
+    val pipeline = new ConfiguredPipeline(config)
     val step2 = AddOne(step1)
     pipeline.optionallyPersist(AddOne(step2), "Step3", format)
     pipeline.run("test")
