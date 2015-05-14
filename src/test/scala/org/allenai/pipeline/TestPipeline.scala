@@ -78,7 +78,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val p2 = pipeline.Persist.Singleton.asText(AddOne(p1), Some("prod2"))
 
     val tmpOutput = new File(outputDir, "temp-output/prod2")
-    pipeline.runOne[Int, FlatArtifact](p2, Some(tmpOutput.toURI.toString))
+    pipeline.runOne(p2, Some(tmpOutput.toURI.toString))
 
     new File(outputDir, "data/prod2") should not(exist)
     tmpOutput should exist

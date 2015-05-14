@@ -49,7 +49,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
         // A link is like a param but it hyperlinks somewhere.
         val links =
           // An optional link to the source data.
-          info.srcUrl.map(uri => s"""new Link("${link(uri)}","v${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++ // scalastyle:ignore
+          info.srcUrl.map(uri => s"""new Link("${link(uri)}","${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++ // scalastyle:ignore
             // An optional link to the output data.
             info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
         val clazz = sources match {

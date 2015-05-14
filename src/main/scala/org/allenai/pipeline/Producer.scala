@@ -77,7 +77,7 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     artifactSource: => A
   ): PersistedProducer[T, A] =
-    new PersistedProducer(this, io, artifactSource)
+    new ProducerWithPersistence(this, io, artifactSource)
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
     *
@@ -140,17 +140,35 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, A <: Artifact](
-    val step: Producer[T],
+/** A Producer that will be stored in a specified Artifact
+  * using the specified serialization logic
+  */
+trait PersistedProducer[T, A <: Artifact] extends Producer[T] {
+  def original: Producer[T]
+  def io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A]
+  def artifact: A
+
+  def changePersistence[A2 <: Artifact](
+    io: SerializeToArtifact[T, A2] with DeserializeFromArtifact[T, A2],
+    artifact: A2
+  ): PersistedProducer[T, A2]
+}
+
+/** Implements persistence of a Producer.
+  * If the artifact exists when create() is called, reads from the artifact.
+  * If the artifact does not exist, compute the result, store it in the artifact and return the result
+  */
+class ProducerWithPersistence[T, A <: Artifact](
+    val original: Producer[T],
     val io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
     val artifact: A
-) extends Producer[T] {
+) extends PersistedProducer[T, A] {
   self =>
 
   def create: T = {
     val className = stepInfo.className
     if (!artifact.exists) {
-      val result = step.get
+      val result = original.get
       logger.debug(s"$className writing to $artifact using $io")
       io.write(result, artifact)
       if (result.isInstanceOf[Iterator[_]]) {
@@ -165,11 +183,11 @@ class PersistedProducer[T, A <: Artifact](
     }
   }
 
-  override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
+  override def stepInfo = original.stepInfo.copy(outputLocation = Some(artifact.url))
 
   override def withCachingDisabled = {
     if (cachingEnabled) {
-      new PersistedProducer(step, io, artifact) with CachingDisabled
+      new ProducerWithPersistence(original, io, artifact) with CachingDisabled
     } else {
       this
     }
@@ -179,9 +197,16 @@ class PersistedProducer[T, A <: Artifact](
     if (cachingEnabled) {
       this
     } else {
-      new PersistedProducer(step, io, artifact) with CachingEnabled
+      new ProducerWithPersistence(original, io, artifact) with CachingEnabled
     }
   }
+
+  override def changePersistence[A2 <: Artifact](
+    io: SerializeToArtifact[T, A2] with DeserializeFromArtifact[T, A2],
+    artifact: A2
+  ) =
+    new ProducerWithPersistence[T, A2](original, io, artifact)
+
 }
 
 //

@@ -1,35 +1,32 @@
 package org.allenai.pipeline
 
-import org.allenai.common.Config._
-import org.allenai.common.Logging
-import org.allenai.pipeline.IoHelpers._
-
-import com.typesafe.config.Config
-import spray.json.DefaultJsonProtocol._
-import spray.json.JsonFormat
-
-import scala.collection.mutable.ListBuffer
-import scala.reflect.ClassTag
-import scala.util.Try
-import scala.util.control.NonFatal
-
 import java.io.File
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import com.typesafe.config.Config
+import org.allenai.common.Config._
+import org.allenai.common.Logging
+import org.allenai.pipeline.IoHelpers._
+import spray.json.DefaultJsonProtocol._
+import spray.json.JsonFormat
+
+import scala.collection.mutable.ListBuffer
+import scala.reflect.ClassTag
+import scala.util.control.NonFatal
+
 /** A fully-configured end-to-end pipeline */
 class Pipeline extends Logging {
 
-  protected[this] def tryCreateArtifact[A <: Artifact]: PartialFunction[(String, Class[A]), A] =
-    ArtifactFactory.fromAbsoluteUrl[A]
+  val awsCredentials = S3Artifact.environmentCredentials _
+
+  protected[this] def tryCreateArtifact[A <: Artifact: ClassTag]: PartialFunction[String, A] =
+    ArtifactFactory.fromAbsoluteUrl[A](awsCredentials)
 
   def createArtifact[A <: Artifact: ClassTag](path: String): A = {
-    val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
     val fn = tryCreateArtifact[A]
-    val args = (path, clazz)
-    require(fn.isDefinedAt(args), s"Could not create artifact [$clazz] for path $path")
-    fn(args)
+    ArtifactFactory(fn)(path)
   }
 
   protected[this] val persistedSteps: ListBuffer[Producer[_]] = ListBuffer()
@@ -43,7 +40,7 @@ class Pipeline extends Logging {
     val targetWithOverriddenLocation: Producer[T] =
       outputLocationOverride match {
         case Some(tmp) =>
-          new PersistedProducer[T, A](target.step, target.io, createArtifact[A](tmp))
+          target.changePersistence(target.io, createArtifact[A](tmp))
         case None => target
       }
     runOnly(
@@ -114,12 +111,12 @@ class Pipeline extends Logging {
     result
   }
 
-  def persist[T, A <: Artifact: ClassTag](
+  def persist[T, A <: Artifact: ClassTag, AO <: A](
     original: Producer[T],
     io: ArtifactIo[T, A],
     fileName: Option[String] = None,
     suffix: String = "",
-    makeArtifactOverride: PartialFunction[String, A] = PartialFunction.empty
+    makeArtifactOverride: PartialFunction[String, AO] = PartialFunction.empty
   ): PersistedProducer[T, A] = {
     val path = fileName.map(s =>
       if (new URI(s).getScheme != null) {
@@ -249,25 +246,25 @@ class Pipeline extends Logging {
 
 object Pipeline {
   def saveToFileSystem(rootDir: File) = new Pipeline {
-    override def tryCreateArtifact[A <: Artifact] =
+    override def tryCreateArtifact[A <: Artifact: ClassTag] =
       CreateFileArtifact.flatRelative[A](rootDir) orElse
         CreateFileArtifact.structuredRelative[A](rootDir) orElse
         super.tryCreateArtifact[A]
   }
   def saveToS3(cfg: S3Config, rootPath: String) = new Pipeline {
-    override def tryCreateArtifact[A <: Artifact] =
+    override def tryCreateArtifact[A <: Artifact: ClassTag] =
       CreateS3Artifact.flatRelative[A](cfg, rootPath) orElse
         CreateS3Artifact.structuredRelative[A](cfg, rootPath) orElse
         super.tryCreateArtifact[A]
   }
 }
 
-class ConfiguredPipeline(config: Config) extends Pipeline {
+class ConfiguredPipeline(val config: Config) extends Pipeline {
 
-  override protected[this] def tryCreateArtifact[A <: Artifact]: PartialFunction[(String, Class[A]), A] = {
-    val createRelativeArtifact: PartialFunction[(String, Class[A]), A] =
+  override protected[this] def tryCreateArtifact[A <: Artifact: ClassTag]: PartialFunction[String, A] = {
+    val createRelativeArtifact: PartialFunction[String, A] =
       config.get[String]("output.dir") match {
-        case Some(s) => ArtifactFactory.fromRelativeUrl(s)
+        case Some(s) => ArtifactFactory.fromRelativeUrl(s, awsCredentials)
         case None => PartialFunction.empty
       }
     createRelativeArtifact orElse super.tryCreateArtifact[A]
@@ -281,10 +278,7 @@ class ConfiguredPipeline(config: Config) extends Pipeline {
     if (isRunOnlyStep(stepName)) {
       val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       config.get[String]("tmpOutput").map { s =>
-        val appendClass: PartialFunction[String, (String, Class[A])] = {
-          case s: String => (s, clazz)
-        }
-        appendClass andThen ArtifactFactory.fromRelativeUrl[A](s)
+        ArtifactFactory.fromRelativeUrl[A](s, awsCredentials)
       }
         .getOrElse(PartialFunction.empty)
     } else {

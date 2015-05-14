@@ -3,22 +3,15 @@ package org.allenai.pipeline
 import org.allenai.common.Logging
 
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.auth.BasicAWSCredentials
+import com.amazonaws.auth.{ EnvironmentVariableCredentialsProvider, BasicAWSCredentials }
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata, PutObjectRequest }
 
 import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URI
 
-case class S3Config(service: AmazonS3Client, bucket: String)
-
-object S3Config {
-  def apply(accessKey: String, secretAccessKey: String, bucket: String): S3Config = {
-    S3Config(new AmazonS3Client(new BasicAWSCredentials(accessKey, secretAccessKey)), bucket)
-  }
-  def apply(bucket: String): S3Config = {
-    S3Config(new AmazonS3Client(), bucket)
-  }
+case class S3Config(bucket: String, credentials: BasicAWSCredentials) {
+  lazy val service = new AmazonS3Client(credentials)
 }
 
 /** Artifact implementations using S3 storage. */
@@ -82,11 +75,12 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   override def url: URI = new URI("s3", bucket, s"/$path", null)
 
-  protected val S3Config(service, bucket) = config
+  val service = config.service
+  val bucket = config.bucket
 
   override def exists: Boolean = {
     val result = try {
-      val resp = service.getObjectMetadata(bucket, path)
+      val resp = service.getObjectMetadata(config.bucket, path)
       true
     } catch {
       case e: AmazonServiceException if e.getStatusCode == 404 => false
@@ -153,5 +147,14 @@ trait S3Artifact[A <: Artifact] extends Logging {
       }
       cachedFile = Some(makeLocalArtifact(downloadFile))
       cachedFile.get
+  }
+}
+
+object S3Artifact {
+  def environmentCredentials(): BasicAWSCredentials = {
+    val credentials = new EnvironmentVariableCredentialsProvider().getCredentials
+    val accessKey = credentials.getAWSAccessKeyId
+    val secretKey = credentials.getAWSSecretKey
+    new BasicAWSCredentials(accessKey, secretKey)
   }
 }
