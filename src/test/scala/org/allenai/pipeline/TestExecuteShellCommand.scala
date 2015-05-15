@@ -73,4 +73,10 @@ class TestExecuteShellCommand extends UnitSpec with ScratchDirectory {
     Workflow.upstreamDependencies(copy).size should equal(2)
     copy.stepInfo.dependencies.head._2.stepInfo.parameters("cmd") should equal("cp <input> <output>")
   }
+
+  it should "pipe stdin to stdout" in {
+    val echo = new ExecuteShellCommand(List("echo", "hello", "world"))
+    val wc = new ExecuteShellCommand(List("wc", "-c"), stdin = echo.run().stdout)
+    IOUtils.readLines(wc.run().stdout()).asScala.head.trim().toInt should equal(11)
+  }
 }

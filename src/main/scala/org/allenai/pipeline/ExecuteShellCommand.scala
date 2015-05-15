@@ -1,7 +1,8 @@
 package org.allenai.pipeline
 
-import java.io.{ File, FileWriter, InputStream }
+import java.io.{ ByteArrayInputStream, File, FileWriter, InputStream }
 import java.nio.file.Files
+import java.util.UUID
 
 import org.allenai.common.Resource
 import org.allenai.pipeline.ExecuteShellCommand._
@@ -24,7 +25,8 @@ import scala.collection.JavaConverters._
   */
 class ExecuteShellCommand(
     val commandTokens: Seq[CommandToken],
-    val inputs: Iterable[DataStream] = List()
+    val inputs: Iterable[InputDataSource] = List(),
+    stdin: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)
 ) {
   {
     val inputNames = inputs.map(_.name).toSet
@@ -43,7 +45,7 @@ class ExecuteShellCommand(
     val scratchDir = Files.createTempDirectory(null).toFile
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
-    for (DataStream(name, data) <- inputs) {
+    for (InputDataSource(name, data) <- inputs) {
       StreamIo.write(data, new FileArtifact(new File(scratchDir, name)))
     }
 
@@ -63,7 +65,7 @@ class ExecuteShellCommand(
       case OutputFileToken(name) => new File(scratchDir, name).getCanonicalPath
       case t => t.name
     }
-    val status = cmd ! logger
+    val status = (cmd #< this.stdin()) ! logger
     out.close()
     err.close()
 
@@ -84,10 +86,10 @@ object ExecuteShellCommand {
 
   import scala.language.implicitConversions
 
-  case class DataStream(name: String, data: () => InputStream)
+  case class InputDataSource(name: String, data: () => InputStream)
   implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]) = {
     p.copy(create = () =>
-      DataStream(s"${p.stepInfo.className}.${p.stepInfo.signature.id}", StreamIo.read(p.artifact.asInstanceOf[FlatArtifact])))
+      InputDataSource(s"${p.stepInfo.className}.${p.stepInfo.signature.id}", StreamIo.read(p.artifact.asInstanceOf[FlatArtifact])))
   }
 
   implicit def convertToToken(s: String) = StringToken(s)
@@ -98,47 +100,15 @@ object ExecuteShellCommand {
   case class InputFileToken(name: String) extends CommandToken
   case class OutputFileToken(name: String) extends CommandToken
 
-  case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
-
-  case class StaticResource[A <: Artifact](artifact: A) extends PipelineStep {
-    override def stepInfo: PipelineStepInfo =
-      PipelineStepInfo(
-        className = "StaticResource",
-        outputLocation = Some(artifact.url),
-        parameters = Map("url" -> artifact.url.toString)
-      )
-  }
-
-  case class CommandOutputComponents(
-    stdout: Producer[() => InputStream],
-    stderr: Producer[() => InputStream],
-    outputs: Map[String, Producer[() => InputStream]]
-  )
-
-  object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
-    override def read(artifact: FlatArtifact): () => InputStream =
-      () => artifact.read
-    override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
-      artifact.write { writer =>
-        val buffer = new Array[Byte](16384)
-        Resource.using(data()) { is =>
-          Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
-            writer.write(buffer, 0, n))
-        }
-      }
-    }
-    override def stepInfo: PipelineStepInfo = PipelineStepInfo(className = "SerializeDataStream")
-  }
-
   def apply(
     commandTokens: Seq[CommandToken],
     inputs: Iterable[(String, Producer[() => InputStream])] = List(),
     requireStatusCode: Iterable[Int] = List(0)
-  ) = {
+  ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
     val shellCommand = new Producer[CommandOutput] with Ai2SimpleStepInfo {
       override def create = {
-        val inputDataStreams = inputs.map { case (name, p) => DataStream(name, p.get) }
+        val inputDataStreams = inputs.map { case (name, p) => InputDataSource(name, p.get) }
         new ExecuteShellCommand(commandTokens, inputDataStreams).run()
       }
       override def stepInfo = {
@@ -189,3 +159,72 @@ object ExecuteShellCommand {
     CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 }
+
+object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
+  override def read(artifact: FlatArtifact): () => InputStream =
+    () => artifact.read
+  override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
+    artifact.write { writer =>
+      val buffer = new Array[Byte](16384)
+      Resource.using(data()) { is =>
+        Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
+          writer.write(buffer, 0, n))
+      }
+    }
+  }
+  override def stepInfo: PipelineStepInfo = PipelineStepInfo(className = "SerializeDataStream")
+}
+
+/** Binary data that is assumed to never change.
+  * Appropriate for: data in which the URL uniquely determines the content
+  */
+object StaticResource {
+  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+      override def create = StreamIo.read(artifact)
+    }
+}
+
+/** Binary data that is allowed to change.
+  * A hash of the contents will be computed
+  * to determine whether to rerun downstream pipeline steps
+  * Appropriate for: scripts, local resources used during development
+  */
+object UpdatableResource {
+  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+      lazy val contentHash = {
+        var hash = 0L
+        val buffer = new Array[Byte](16384)
+        Resource.using(artifact.read) { is =>
+          Iterator.continually(is.read(buffer)).takeWhile(_ != -1)
+            .foreach(n => buffer.take(n).foreach(b => hash = hash * 31 + b))
+        }
+        hash.toHexString
+      }
+      override def create = StreamIo.read(artifact)
+      override def stepInfo =
+        super.stepInfo.addParameters("contentHash" -> contentHash)
+    }
+}
+
+/** Binary data that is assumed to change every time it is accessed
+  * Appropriate for: non-deterministic queries
+  */
+object DynamicResource {
+  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+      override def create = StreamIo.read(artifact)
+      override def stepInfo =
+        super.stepInfo.addParameters("guid" -> UUID.randomUUID().toString)
+    }
+}
+
+case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
+
+case class CommandOutputComponents(
+  stdout: Producer[() => InputStream],
+  stderr: Producer[() => InputStream],
+  outputs: Map[String, Producer[() => InputStream]]
+)
+
