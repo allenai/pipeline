@@ -22,7 +22,7 @@ class Pipeline extends Logging {
   val awsCredentials = S3Artifact.environmentCredentials _
 
   protected[this] def tryCreateArtifact[A <: Artifact: ClassTag]: PartialFunction[String, A] =
-    ArtifactFactory.fromAbsoluteUrl[A](awsCredentials)
+    ArtifactFactory.fromUrl[A](awsCredentials)
 
   def createArtifact[A <: Artifact: ClassTag](path: String): A = {
     val fn = tryCreateArtifact[A]
@@ -247,14 +247,12 @@ class Pipeline extends Logging {
 object Pipeline {
   def saveToFileSystem(rootDir: File) = new Pipeline {
     override def tryCreateArtifact[A <: Artifact: ClassTag] =
-      CreateFileArtifact.flatRelative[A](rootDir) orElse
-        CreateFileArtifact.structuredRelative[A](rootDir) orElse
+      CreateFileArtifact.relativeToDirectory[A](rootDir) orElse
         super.tryCreateArtifact[A]
   }
   def saveToS3(cfg: S3Config, rootPath: String) = new Pipeline {
     override def tryCreateArtifact[A <: Artifact: ClassTag] =
-      CreateS3Artifact.flatRelative[A](cfg, rootPath) orElse
-        CreateS3Artifact.structuredRelative[A](cfg, rootPath) orElse
+      CreateS3Artifact.relativeToUrl[A](cfg, rootPath) orElse
         super.tryCreateArtifact[A]
   }
 }
@@ -264,7 +262,7 @@ class ConfiguredPipeline(val config: Config) extends Pipeline {
   override protected[this] def tryCreateArtifact[A <: Artifact: ClassTag]: PartialFunction[String, A] = {
     val createRelativeArtifact: PartialFunction[String, A] =
       config.get[String]("output.dir") match {
-        case Some(s) => ArtifactFactory.fromRelativeUrl(s, awsCredentials)
+        case Some(s) => ArtifactFactory.relativeToUrl(s, awsCredentials)
         case None => PartialFunction.empty
       }
     createRelativeArtifact orElse super.tryCreateArtifact[A]
@@ -278,7 +276,7 @@ class ConfiguredPipeline(val config: Config) extends Pipeline {
     if (isRunOnlyStep(stepName)) {
       val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       config.get[String]("tmpOutput").map { s =>
-        ArtifactFactory.fromRelativeUrl[A](s, awsCredentials)
+        ArtifactFactory.relativeToUrl[A](s, awsCredentials)
       }
         .getOrElse(PartialFunction.empty)
     } else {

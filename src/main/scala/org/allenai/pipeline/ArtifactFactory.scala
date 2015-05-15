@@ -8,26 +8,22 @@ import com.amazonaws.auth.BasicAWSCredentials
 import scala.reflect.ClassTag
 
 object ArtifactFactory {
-  def fromAbsoluteUrl[A <: Artifact: ClassTag](
+  def fromUrl[A <: Artifact: ClassTag](
     credentials: () => BasicAWSCredentials = S3Artifact.environmentCredentials
   ): PartialFunction[String, A] = {
-    CreateFileArtifact.flatAbsolute[A] orElse
-      CreateFileArtifact.structuredAbsolute[A] orElse
-      CreateS3Artifact.flatAbsolute[A](credentials()) orElse
-      CreateS3Artifact.structuredAbsolute[A](credentials())
+    CreateFileArtifact.fromUrl[A] orElse
+      CreateS3Artifact.fromUrl[A](credentials())
   }
 
-  def fromRelativeUrl[A <: Artifact: ClassTag](rootUrl: String, credentials: () => BasicAWSCredentials): PartialFunction[String, A] = {
+  def relativeToUrl[A <: Artifact: ClassTag](rootUrl: String, credentials: () => BasicAWSCredentials): PartialFunction[String, A] = {
     new URI(rootUrl) match {
       case url if url.getScheme == "file" || url.getScheme == null =>
         val rootDir = new File(url.getPath)
-        CreateFileArtifact.flatRelative[A](rootDir) orElse
-          CreateFileArtifact.structuredRelative[A](rootDir)
+        CreateFileArtifact.relativeToDirectory[A](rootDir)
       case url if url.getScheme == "s3" || url.getScheme == "s3n" =>
         val cfg = S3Config(url.getHost, credentials())
         val base = url.getPath
-        CreateS3Artifact.flatRelative[A](cfg, base) orElse
-          CreateS3Artifact.structuredRelative[A](cfg, base)
+        CreateS3Artifact.relativeToUrl[A](cfg, base)
     }
   }
   def apply[A <: Artifact: ClassTag](fn: PartialFunction[String, A])(path: String) = {
@@ -38,7 +34,7 @@ object ArtifactFactory {
 }
 
 object CreateS3Artifact {
-  def flatAbsolute[A <: Artifact: ClassTag](credentials: => BasicAWSCredentials): PartialFunction[String, A] = {
+  def fromUrl[A <: Artifact: ClassTag](credentials: => BasicAWSCredentials): PartialFunction[String, A] = {
     val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
     val fn: PartialFunction[String, A] = {
       case urlString if c.isAssignableFrom(classOf[S3FlatArtifact])
@@ -47,23 +43,6 @@ object CreateS3Artifact {
         val bucket = url.getHost
         val path = url.getPath.dropWhile(_ == '/')
         new S3FlatArtifact(path, S3Config(bucket, credentials)).asInstanceOf[A]
-    }
-    fn
-  }
-  def flatRelative[A <: Artifact: ClassTag](cfg: S3Config, root: String): PartialFunction[String, A] = {
-    val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
-    val fn: PartialFunction[String, A] = {
-      case path if c.isAssignableFrom(classOf[S3FlatArtifact])
-        && new URI(path).getScheme == null =>
-        val cleanRoot = root.dropWhile(_ == '/').reverse.dropWhile(_ == '/').reverse
-        val absPath = s"$cleanRoot/$path"
-        new S3FlatArtifact(absPath, cfg).asInstanceOf[A]
-    }
-    fn
-  }
-  def structuredAbsolute[A <: Artifact: ClassTag](credentials: => BasicAWSCredentials): PartialFunction[String, A] = {
-    val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
-    val fn: PartialFunction[String, A] = {
       case urlString if c.isAssignableFrom(classOf[S3ZipArtifact])
         && List("s3", "s3n").contains(new URI(urlString).getScheme) =>
         val url = new URI(urlString)
@@ -73,9 +52,14 @@ object CreateS3Artifact {
     }
     fn
   }
-  def structuredRelative[A <: Artifact: ClassTag](cfg: S3Config, root: String): PartialFunction[String, A] = {
+  def relativeToUrl[A <: Artifact: ClassTag](cfg: S3Config, root: String): PartialFunction[String, A] = {
     val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
     val fn: PartialFunction[String, A] = {
+      case path if c.isAssignableFrom(classOf[S3FlatArtifact])
+        && new URI(path).getScheme == null =>
+        val cleanRoot = root.dropWhile(_ == '/').reverse.dropWhile(_ == '/').reverse
+        val absPath = s"$cleanRoot/$path"
+        new S3FlatArtifact(absPath, cfg).asInstanceOf[A]
       case path if c.isAssignableFrom(classOf[S3ZipArtifact])
         && new URI(path).getScheme == null =>
         val cleanRoot = root.dropWhile(_ == '/').reverse.dropWhile(_ == '/').reverse
@@ -87,7 +71,7 @@ object CreateS3Artifact {
 }
 
 object CreateFileArtifact {
-  def flatAbsolute[A <: Artifact: ClassTag]: PartialFunction[String, A] = {
+  def fromUrl[A <: Artifact: ClassTag]: PartialFunction[String, A] = {
     val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
     val fn: PartialFunction[String, A] = {
       case path if c.isAssignableFrom(classOf[FileArtifact])
@@ -96,22 +80,6 @@ object CreateFileArtifact {
       case path if c.isAssignableFrom(classOf[FileArtifact])
         && null == new URI(path).getScheme =>
         new FileArtifact(new File(path)).asInstanceOf[A]
-    }
-    fn
-  }
-  def flatRelative[A <: Artifact: ClassTag](rootDir: File): PartialFunction[String, A] = {
-    val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
-    val fn: PartialFunction[String, A] = {
-      case path if c.isAssignableFrom(classOf[FileArtifact])
-        && null == new URI(path).getScheme =>
-        val file = new File(rootDir, path)
-        new FileArtifact(file).asInstanceOf[A]
-    }
-    fn
-  }
-  def structuredAbsolute[A <: Artifact: ClassTag]: PartialFunction[String, A] = {
-    val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
-    val fn: PartialFunction[String, A] = {
       case path if c.isAssignableFrom(classOf[ZipFileArtifact])
         && "file" == new URI(path).getScheme =>
         new ZipFileArtifact(new File(new URI(path))).asInstanceOf[A]
@@ -121,9 +89,13 @@ object CreateFileArtifact {
     }
     fn
   }
-  def structuredRelative[A <: Artifact: ClassTag](rootDir: File): PartialFunction[String, A] = {
+  def relativeToDirectory[A <: Artifact: ClassTag](rootDir: File): PartialFunction[String, A] = {
     val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
     val fn: PartialFunction[String, A] = {
+      case path if c.isAssignableFrom(classOf[FileArtifact])
+        && null == new URI(path).getScheme =>
+        val file = new File(rootDir, path)
+        new FileArtifact(file).asInstanceOf[A]
       case path if c.isAssignableFrom(classOf[ZipFileArtifact])
         && null == new URI(path).getScheme =>
         val file = new File(rootDir, path)
