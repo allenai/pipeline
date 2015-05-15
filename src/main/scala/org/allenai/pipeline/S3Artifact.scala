@@ -14,6 +14,16 @@ case class S3Config(bucket: String, credentials: BasicAWSCredentials) {
   lazy val service = new AmazonS3Client(credentials)
 }
 
+object S3Config {
+  def environmentCredentials(): BasicAWSCredentials = {
+    val credentials = new EnvironmentVariableCredentialsProvider().getCredentials
+    val accessKey = credentials.getAWSAccessKeyId
+    val secretKey = credentials.getAWSSecretKey
+    new BasicAWSCredentials(accessKey, secretKey)
+  }
+  def apply(bucket: String) = new S3Config(bucket, environmentCredentials())
+}
+
 /** Artifact implementations using S3 storage. */
 class S3FlatArtifact(
   val path: String,
@@ -147,14 +157,5 @@ trait S3Artifact[A <: Artifact] extends Logging {
       }
       cachedFile = Some(makeLocalArtifact(downloadFile))
       cachedFile.get
-  }
-}
-
-object S3Artifact {
-  def environmentCredentials(): BasicAWSCredentials = {
-    val credentials = new EnvironmentVariableCredentialsProvider().getCredentials
-    val accessKey = credentials.getAWSAccessKeyId
-    val secretKey = credentials.getAWSSecretKey
-    new BasicAWSCredentials(accessKey, secretKey)
   }
 }

@@ -9,7 +9,7 @@ import scala.reflect.ClassTag
 
 object ArtifactFactory {
   def fromUrl[A <: Artifact: ClassTag](
-    credentials: () => BasicAWSCredentials = S3Artifact.environmentCredentials
+    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
   ): PartialFunction[String, A] = {
     CreateFileArtifact.fromUrl[A] orElse
       CreateS3Artifact.fromUrl[A](credentials())

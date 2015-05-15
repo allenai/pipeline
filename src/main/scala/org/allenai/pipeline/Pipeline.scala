@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
 /** A fully-configured end-to-end pipeline */
 class Pipeline extends Logging {
 
-  val awsCredentials = S3Artifact.environmentCredentials _
+  val awsCredentials = S3Config.environmentCredentials _
 
   protected[this] def tryCreateArtifact[A <: Artifact: ClassTag]: PartialFunction[String, A] =
     ArtifactFactory.fromUrl[A](awsCredentials)
