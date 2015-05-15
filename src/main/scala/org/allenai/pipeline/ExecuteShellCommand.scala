@@ -1,56 +1,57 @@
 package org.allenai.pipeline
 
-import java.io.File
+import java.io.{ File, FileWriter, InputStream }
 import java.nio.file.Files
 
-import ExecuteShellCommand._
-import org.apache.commons.io.FileUtils
+import org.allenai.common.Resource
+import org.allenai.pipeline.ExecuteShellCommand._
+import org.apache.commons.io.{ FileUtils, IOUtils }
+
+import scala.collection.JavaConverters._
 
 /** Executes an arbitrary shell command
+  * @param commandTokens   The set of tokens that comprise the command to be executed.
+  *                        Each token is either:
+  *                        a String
+  *                        a Placeholder representing an input data file
+  *                        a Placeholder representing an output data file
+  *                        Examples:
+  *                        StringToken("cp") InputFileToken("src") OutputFileToken("target")
+  *                        StringToken("python") InputFileToken("script") StringToken("-o") OutputFileToken("output")
   * @param inputs A set of named input data resources.
-  *               They must exist somewhere, but do not need ot exist on the local filesystem.
+  *               They must exist somewhere, but do not need to exist on the local filesystem.
   *               They will be copied into a scratch directory for use by the command
-  * @param outputs A set of named output data resources.
-  *                These are assumed not to exist before the command is run,
-  *                and it is assumed that the shell command will create the data for them when it runs
-  *                After the command completes, the data will be copied to the named output location,
-  *                which need not be on the local filesystem
-  * Created by rodneykinney on 5/14/15.
   */
-abstract class ExecuteShellCommand(
-    val inputs: Iterable[InputData] = List(),
-    val outputs: Iterable[OutputData] = List()
-) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
-  private val inputNames = inputs.map(_.name).toSet
-  private val outputNames = outputs.map(_.name).toSet
-  require(inputNames.size == inputs.size, "Names of inputs must be unique")
-  require(outputNames.size == outputs.size, "Names of outputs must be unique")
-  require((inputNames ++ outputNames).size == inputs.size + outputs.size, "Cannot share names between inputs and outputs")
-  require(((inputNames ++ outputNames) intersect Set("stderr", "stdout")).isEmpty, "Cannot use 'stderr' or 'stdout' for name")
+class ExecuteShellCommand(
+    val commandTokens: Seq[CommandToken],
+    val inputs: Iterable[DataStream] = List()
+) {
+  {
+    val inputNames = inputs.map(_.name).toSet
+    val inputTokenNames = commandTokens.collect { case InputFileToken(name) => name }.toSet
+    val unusedInputs = inputNames -- inputTokenNames
+    require(unusedInputs.size == 0, s"The following inputs are not used: [${unusedInputs.mkString(",")}}]")
+    val unboundTokens = inputTokenNames -- inputNames
+    require(unboundTokens.size == 0, s"The following input tokens were not found: [${unboundTokens.mkString(",")}}]")
+    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }.toSet
+    require(inputNames.size == inputs.size, "Names of inputs must be unique")
+    require((inputNames ++ outputNames).size == inputs.size + outputNames.size, "Cannot share names between inputs and outputs")
+    require(((inputNames ++ outputNames) intersect Set("stderr", "stdout")).isEmpty, "Cannot use 'stderr' or 'stdout' for name")
+  }
 
-  /** The set of tokens that comprise the command to be executed.
-    * Each token is either:
-    *   a String
-    *   a Placeholder representing an input data file
-    *   a Placeholder representing an output data file
-    * Examples:
-    *   StringToken("cp") InputFileToken("src") OutputFileToken("target")
-    *   StringToken("python") InputFileToken("script") StringToken("-o") OutputFileToken("output")
-    * @return
-    */
-  def commandTokens: Seq[CommandToken]
-
-  def create = {
-    val scratchDir = Files.createTempDirectory(s"${stepInfo.className}.${stepInfo.signature.id}").toFile
+  def run() = {
+    val scratchDir = Files.createTempDirectory(null).toFile
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
-    for (InputData(name, data, _) <- inputs) {
-      data.copyTo(new FileArtifact(new File(scratchDir, name)))
+    for (DataStream(name, data) <- inputs) {
+      StreamIo.write(data, new FileArtifact(new File(scratchDir, name)))
     }
 
     import sys.process._
-    val out = new StringBuilder
-    val err = new StringBuilder
+    val captureStdoutFile = new File(scratchDir, "stdout")
+    val captureStderrFile = new File(scratchDir, "stderr")
+    val out = new FileWriter(captureStdoutFile)
+    val err = new FileWriter(captureStderrFile)
 
     val logger = ProcessLogger(
       (o: String) => out.append(o),
@@ -63,42 +64,31 @@ abstract class ExecuteShellCommand(
       case t => t.name
     }
     val status = cmd ! logger
+    out.close()
+    err.close()
 
-    for (OutputData(name, data) <- outputs) {
-      new FileArtifact(new File(scratchDir, name)).copyTo(data)
+    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
+
+    val outputStreams = for (name <- outputNames) yield {
+      (name, StreamIo.read(new FileArtifact(new File(scratchDir, name))))
     }
+    val stdout = StreamIo.read(new FileArtifact(captureStdoutFile))
+    val stderr = StreamIo.read(new FileArtifact(captureStderrFile))
 
-    CommandOutput(status, out.toString(), err.toString(), outputs)
+    CommandOutput(status, stdout, stderr, outputStreams.toMap)
   }
 
-  override def stepInfo = {
-    val dynamicInputs = inputs.collect {
-      case InputData(name, data, Some(step)) => (name, step)
-    }
-    val staticInputs = inputs.collect {
-      case InputData(name, data, None) => (name, StaticResource(data))
-    }
-    val allInputs = (dynamicInputs ++ staticInputs).toList
-    val cmd = commandTokens.map {
-      case InputFileToken(name) => s"<$name>"
-      case OutputFileToken(name) => s"<$name>"
-      case t => t.name
-    }
-    super.stepInfo
-      .copy(className = "ExecuteShellCommand")
-      .addParameters(allInputs: _*)
-      .addParameters("cmd" -> cmd.mkString(" "))
-  }
 }
 
 object ExecuteShellCommand {
 
   import scala.language.implicitConversions
 
-  case class InputData(name: String, data: FlatArtifact, stepInfo: Option[PipelineStep] = None)
-  case class OutputData(name: String, data: FlatArtifact)
-  implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]) =
-    InputData(s"${p.stepInfo.className}.${p.stepInfo.signature.id}", p.artifact.asInstanceOf[FlatArtifact], Some(p))
+  case class DataStream(name: String, data: () => InputStream)
+  implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]) = {
+    p.copy(create = () =>
+      DataStream(s"${p.stepInfo.className}.${p.stepInfo.signature.id}", StreamIo.read(p.artifact.asInstanceOf[FlatArtifact])))
+  }
 
   implicit def convertToToken(s: String) = StringToken(s)
   sealed trait CommandToken {
@@ -108,7 +98,7 @@ object ExecuteShellCommand {
   case class InputFileToken(name: String) extends CommandToken
   case class OutputFileToken(name: String) extends CommandToken
 
-  case class CommandOutput(returnCode: Int, stdout: String, stderr: String, outputs: Iterable[OutputData])
+  case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
 
   case class StaticResource[A <: Artifact](artifact: A) extends PipelineStep {
     override def stepInfo: PipelineStepInfo =
@@ -119,8 +109,50 @@ object ExecuteShellCommand {
       )
   }
 
-  case class CommandOutputComponents(stdout: Producer[String], stderr: Producer[String], outputs: Map[String, Producer[FlatArtifact]])
-  def splitOutputs(shellCommand: ExecuteShellCommand): CommandOutputComponents = {
+  case class CommandOutputComponents(
+    stdout: Producer[() => InputStream],
+    stderr: Producer[() => InputStream],
+    outputs: Map[String, Producer[() => InputStream]]
+  )
+
+  object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
+    override def read(artifact: FlatArtifact): () => InputStream =
+      () => artifact.read
+    override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
+      artifact.write { writer =>
+        val buffer = new Array[Byte](16384)
+        Resource.using(data()) { is =>
+          Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
+            writer.write(buffer, 0, n))
+        }
+      }
+    }
+    override def stepInfo: PipelineStepInfo = PipelineStepInfo(className = "SerializeDataStream")
+  }
+
+  def apply(
+    commandTokens: Seq[CommandToken],
+    inputs: Iterable[(String, Producer[() => InputStream])] = List(),
+    requireStatusCode: Iterable[Int] = List(0)
+  ) = {
+    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
+    val shellCommand = new Producer[CommandOutput] with Ai2SimpleStepInfo {
+      override def create = {
+        val inputDataStreams = inputs.map { case (name, p) => DataStream(name, p.get) }
+        new ExecuteShellCommand(commandTokens, inputDataStreams).run()
+      }
+      override def stepInfo = {
+        val cmd = commandTokens.map {
+          case InputFileToken(name) => s"<$name>"
+          case OutputFileToken(name) => s"<$name>"
+          case t => t.name
+        }
+        super.stepInfo
+          .copy(className = "ExecuteShellCommand")
+          .addParameters(inputs.toSeq: _*)
+          .addParameters("cmd" -> cmd.mkString(" "))
+      }
+    }
     def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
       val result = shellCommand.get
       result match {
@@ -129,17 +161,31 @@ object ExecuteShellCommand {
           sys.error(s" Failed to run command ${shellCommand.stepInfo.parameters("cmd")}: $stderr")
       }
     }
+    class CommandOutputComponent(name: String, f: CommandOutput => () => InputStream) extends Producer[() => InputStream] {
+      override protected def create: () => InputStream = {
+        val result = shellCommand.get
+        result match {
+          case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
+            f(result)
+          case CommandOutput(status, _, stderr, _) =>
+            val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
+            sys.error(s"Command ${shellCommand.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
+        }
+        f(shellCommand.get)
+      }
+      override def stepInfo: PipelineStepInfo =
+        PipelineStepInfo(className = name)
+          .addParameters("cmd" -> shellCommand)
+    }
     val baseName = shellCommand.stepInfo.className
-    val stdout = shellCommand.copy(create = ifSuccessful(_.stdout), stepInfo = () => shellCommand.stepInfo.copy(className = s"$baseName.stdout"))
-    val stderr = shellCommand.copy(create = ifSuccessful(_.stderr), stepInfo = () => shellCommand.stepInfo.copy(className = s"$baseName.stderr"))
-    val outputs =
-      for (OutputData(name, data) <- shellCommand.outputs) yield {
-        val outputProducer = shellCommand.copy(
-          create = ifSuccessful(_.outputs.find(_.name == name).head.data),
-          stepInfo = () => shellCommand.stepInfo.copy(className = s"$baseName.output.$name")
-        )
+    val stdout = new CommandOutputComponent("stdout", _.stdout)
+    val stderr = new CommandOutputComponent("stderr", _.stderr)
+    val outputStreams =
+      for (name <- outputNames) yield {
+        val outputProducer =
+          new CommandOutputComponent(s"output.$name", _.outputs(name))
         (name, outputProducer)
       }
-    CommandOutputComponents(stdout, stderr, outputs.toMap)
+    CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 }

@@ -4,6 +4,9 @@ import java.io.{ FileWriter, PrintWriter, File }
 
 import org.allenai.common.Resource
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
+import org.allenai.pipeline.IoHelpers.Read
+import org.apache.commons.io.IOUtils
+import scala.collection.JavaConverters._
 
 import scala.io.Source
 
@@ -14,47 +17,36 @@ class TestExecuteShellCommand extends UnitSpec with ScratchDirectory {
   import ExecuteShellCommand._
 
   "ExecuteShellCommand" should "return status code" in {
-    val testTrue = new ExecuteShellCommand() {
-      override def commandTokens: Seq[CommandToken] = List("test", "a", "=", "a")
-    }
-    testTrue.get.returnCode should equal(0)
-    val testFalse = new ExecuteShellCommand() {
-      override def commandTokens: Seq[CommandToken] = List("test", "a", "=", "b")
-    }
-    testFalse.get.returnCode should equal(1)
+    val testTrue = new ExecuteShellCommand(List("test", "a", "=", "a"))
+    testTrue.run().returnCode should equal(0)
+    val testFalse = new ExecuteShellCommand(List("test", "a", "=", "b"))
+    testFalse.run().returnCode should equal(1)
   }
 
   it should "create output files" in {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
-    val touchFile = new ExecuteShellCommand(
-      outputs = List(OutputData("target", outputArtifact))
-    ) {
-      override def commandTokens: Seq[CommandToken] =
-        List("touch", OutputFileToken("target"))
-    }
+    val touchFile =
+      ExecuteShellCommand(List("touch", OutputFileToken("target")))
+        .outputs("target").persisted(StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
   }
 
   it should "capture stdout" in {
-    val echo = new ExecuteShellCommand() {
-      override def commandTokens: Seq[CommandToken] = List("echo", "hello", "world")
-    }
-    echo.get.stdout should equal("hello world")
+    val echo = new ExecuteShellCommand(List("echo", "hello", "world"))
+    val stdout = IOUtils.readLines(echo.run().stdout()).asScala.mkString("\n")
+    stdout should equal("hello world")
   }
   it should "capture stderr" in {
-    val noSuchParameter = new ExecuteShellCommand() {
-      override def commandTokens: Seq[CommandToken] = List("touch", "-x", "foo")
-    }
-    noSuchParameter.get.stderr.size should be > 0
+    val noSuchParameter = new ExecuteShellCommand(List("touch", "-x", "foo"))
+    val stderr = IOUtils.readLines(noSuchParameter.run().stderr()).asScala.mkString("\n")
+    stderr.size should be > 0
   }
   it should "throw an exception if command is not found" in {
-    val noSuchCommand = new ExecuteShellCommand() {
-      override def commandTokens: Seq[CommandToken] = List("eccho", "hello", "world")
-    }
+    val noSuchCommand = new ExecuteShellCommand(List("eccho", "hello", "world"))
     an[Exception] shouldBe thrownBy {
-      noSuchCommand.get
+      noSuchCommand.run()
     }
   }
   it should "read input files" in {
@@ -68,18 +60,17 @@ class TestExecuteShellCommand extends UnitSpec with ScratchDirectory {
     val inputArtifact = new FileArtifact(inputFile)
     val outputArtifact = new FileArtifact(outputFile)
 
-    val copy = new ExecuteShellCommand(
-      inputs = List(InputData("input", inputArtifact)),
-      outputs = List(OutputData("output", outputArtifact))
-    ) {
-      override def commandTokens: Seq[CommandToken] =
-        List("cp", InputFileToken("input"), OutputFileToken("output"))
-    }
+    val copy = ExecuteShellCommand(
+      List("cp", InputFileToken("input"), OutputFileToken("output")),
+      inputs = List(("input", Read.fromArtifact(StreamIo, inputArtifact)))
+    )
+      .outputs("output").persisted(StreamIo, outputArtifact)
     copy.get
     outputFile should exist
     Source.fromFile(outputFile).mkString should equal("Some data\n")
 
     copy.stepInfo.dependencies.size should equal(1)
-    copy.stepInfo.parameters("cmd") should equal("cp <input> <output>")
+    Workflow.upstreamDependencies(copy).size should equal(2)
+    copy.stepInfo.dependencies.head._2.stepInfo.parameters("cmd") should equal("cp <input> <output>")
   }
 }
