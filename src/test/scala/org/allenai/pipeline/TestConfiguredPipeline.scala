@@ -1,10 +1,11 @@
 package org.allenai.pipeline
 
-import java.io.File
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import IoHelpers._
 
-import com.typesafe.config.{ ConfigValueFactory, ConfigValue, ConfigFactory }
-import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
-import spray.json.pimpAny
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+
+import java.io.File
 
 /** Created by rodneykinney on 5/12/15.
   */
@@ -19,8 +20,6 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
   case class AddOne(p: Producer[Int]) extends Producer[Int] with Ai2StepInfo {
     override def create = 1 + p.get
   }
-
-  import IoHelpers._
 
   val format = SingletonIo.text[Int]
 

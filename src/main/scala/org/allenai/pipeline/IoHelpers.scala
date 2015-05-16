@@ -1,8 +1,12 @@
 package org.allenai.pipeline
 
+import com.amazonaws.auth.BasicAWSCredentials
 import spray.json._
 
 import scala.reflect.ClassTag
+
+import java.io.File
+import java.net.URI
 
 /** Utility methods for Artifact reading/writing.  */
 object IoHelpers extends ColumnFormats {
@@ -71,10 +75,27 @@ object IoHelpers extends ColumnFormats {
         fromArtifact(io, artifact)
       }
     }
+  }
+  import scala.language.implicitConversions
 
+  implicit def asFileArtifact(f: File) = new FileArtifact(f)
+  implicit val asStructuredArtifact: (File => StructuredArtifact) = {
+    case f: File if f.exists && f.isDirectory => new DirectoryArtifact(f)
+    case f: File => new ZipFileArtifact(f)
+  }
+  implicit def asProducer[T](x: T) = Producer.fromMemory(x)
+  implicit def asFlatArtifact(url: URI)(
+    implicit credentials: () => BasicAWSCredentials = S3Config.environmentCredentials) = {
+    val fn = ArtifactFactory.fromUrl[FlatArtifact](credentials)
+    fn(url.toString)
+  }
+  implicit def asStructuredArtifact(url: URI)(
+    implicit credentials: () => BasicAWSCredentials = S3Config.environmentCredentials) = {
+    val fn = ArtifactFactory.fromUrl[StructuredArtifact](credentials)
+    fn(url.toString)
   }
 
-  def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
+  implicit def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
     new StringSerializable[T] {
       override def fromString(s: String): T = jsonFormat.read(s.parseJson)
 

@@ -1,74 +1,59 @@
-#AI2 Pipeline Framework
+#Allen-AI Pipeline Framework
 
+The Allen-AI Pipeline (AIP) framework is a library that facilitates collaborative experimentation
+by allowing users to define workflows that share data resources transparently while maintaining
+complete freedom over the environment in which those workflows execute.
 
 #Design Goals
 
-A common pain point in analysis-driven software development is the
-management of data sets and experimental results.  In the absence of an
-organizing framework, the tendency is for individuals to write
-standalone executables that read and parse data from disk, transform the
-data, and write back to disk.  A pipeline consisting of such steps is
-difficult to manage by hand for the following reasons:
+Collaboration among data scientists is often complicated by the fact that individuals tend to
+experiment with algorithms in isolated environments (typically their individual workstations). Sharing
+data is difficult because there is no record of the code that was used to produce a given dataset
+and there are no validation checks on the compatibility of code with the data format. Workflows with
+any significant complexity become immediately unmanageable as soon as more than one scientist is involved.
 
-1.  No validation checks on the compatibility of data written as the
-    output of one step with the input needed for a following step
-2.  No record in the code of the upstream steps needed to produce a
-    particular intermediate step
-3.  Code is difficult to reuse and expensive to migrate to other (e.g.
-    cloud-based) storage systems.
+There are many workflow management systems designed for production data pipelines. By providing
+a centralized execution environment they solve the problem of sharing data, but users sacrifice the ability
+to rapidly develop code that runs on their local machine while accessing production data.  To solve
+these problems, AIP:
 
-These problems can be alleviated by appropriately chosen and enforced
-conventions, but even better is a framework that solves them for
-developers in a consistent way.  Such a framework should:
-
-1.  Be a standalone library (i.e. not a hosted solution)
-2.  Be as convenient to use as writing typical standalone executables
-3.  Have the ability to express an end-to-end pipeline in compiled code
-    (i.e. not specified in config files)
-4.  Enforce consistency between connected outputs and inputs
-5.  Cache datasets that are re-used by multiple consumers
-6.  Support streaming calculations on out-of-RAM datasets
-7.  Support easy swapping of storage implementations
+1.  Is a library that can be run locally or within a cloud environment
+1.  Caches datasets for sharing between multiple users, even if they are running in separate environments
+1.  Enforces compatibility of inputs/outputs at compile time
+1.  Supports streaming calculations on out-of-RAM datasets
+1.  Supports execution of arbitrary executables
+1.  Support easy swapping of storage implementations
 
 #Pipeline Abstractions
 
 There are three central abstractions in the data pipeline framework.
 
-##Data Transformation
+##Producer
 
-The most essential abstraction is the logic transforming one data
-structure into another.  This is represented in the framework by the
-Producer[T] trait.  A Producer[T] provides a lazily-computed value of
-type T returned by the get method.  Only the output type is
-parameterized, because different producers may require different inputs.
-An implementation may specify a default for whether the result is
-cached in memory, but this can be overridden when using it in a
-pipeline.  
+A Producer[T] represents a calculation that produces an output of type T. It can have
+arbitrary inputs, and any Producer of the same output type T is interchangeable.
 
-##Data Storage
+##Artifact
 
 A data structure saved in persistent storage is represented by the
 Artifact trait.  An artifact may represent a flat file, a directory, a
-zip archive, or an S3 blob.  Future implementations could represent an
-HDFS dataset or other mechanisms.  If a data structure has been saved in
-an Artifact, then it will be read from that Artifact when needed, rather
-than recomputing the value from the underlying Producer.  In this way,
-expensive calculations are transparently cached to disk when necessary.
- The author of a pipeline specifies which data structures should be
-persisted and select the desired persistence mechanism and path names.
-
-##Data Serialization
-
+zip archive, an S3 blob, a persisted Spark RDD, etc.  If a Producer's output has been persisted to
+an Artifact, then downstream consumers will deserialize the data from the Artifact rather
+than recomputing it via the upstream Producer.  This allows caching of intermediate datasets.
 Serialization of a data structure of type T into an artifact of type
 A is represented by the ArtifactIo[T,A] trait.  Because common cases,
 such as serialization to JSON and delimited-columns, are implemented by the framework,
 many pipelines can be implemented end-to-end without any code that
-performs I/O.  Different serialization formats, i.e. different
-implementations of ArtifactIo, can be specified when the pipeline is
-constructed, while the Artifact instance specifies the physical location
-where the data will be stored.
+performs I/O.
 
-#Example Pipeline 
+##Pipeline
+
+A Pipeline provides utility methods for persisting Producers by specifying a File or URL.
+When run, a Pipeline produces a static HTML visualization of the workflow, along with metadata
+describing the locations of inputs and outputs, the dependencies between the steps, and links to the
+code used to run the pipeline.
+
+#Example Pipelines
 
 The complete code for this example can be found in
 src/test/scala/org/allenai/pipeline/SamplePipeline.scala

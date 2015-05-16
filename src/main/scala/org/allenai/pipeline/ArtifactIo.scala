@@ -57,7 +57,7 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
   override def stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
-      className = s"SingletonIo[$className]",
+      className = s"ReadObject[$className]",
       parameters = Map("charSet" -> codec.charSet.toString),
       description = Some(s"Read [$className] into memory")
     )
@@ -88,7 +88,7 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
   override def stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
-      className = s"LineCollectionIo[$className]",
+      className = s"ReadCollection[$className]",
       parameters = Map("charSet" -> codec.charSet.toString),
       description = Some(s"Read collection of [$className] into memory")
     )
@@ -134,7 +134,7 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
       className =
-      s"LineIteratorIo[$className]",
+      s"ReadIterator[$className]",
       parameters = Map("charSet" -> codec.charSet.toString),
       description = Some(s"Stream iterator of [$className]")
     )
