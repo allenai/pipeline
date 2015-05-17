@@ -5,6 +5,7 @@ case class ReadFromArtifact[T, A <: Artifact](
     val artifact: A
 ) extends Producer[T] {
   def create: T = {
+    executionMode = ReadFromDisk
     require(artifact.exists, s"$artifact does not exist")
     reader.read(artifact)
   }

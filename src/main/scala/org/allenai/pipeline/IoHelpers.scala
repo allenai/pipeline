@@ -79,9 +79,9 @@ object IoHelpers extends ColumnFormats {
   import scala.language.implicitConversions
 
   implicit def asFileArtifact(f: File) = new FileArtifact(f)
-  implicit val asStructuredArtifact: (File => StructuredArtifact) = {
-    case f: File if f.exists && f.isDirectory => new DirectoryArtifact(f)
-    case f: File => new ZipFileArtifact(f)
+  implicit def asStructuredArtifact(f: File): StructuredArtifact = f match {
+    case f if f.exists && f.isDirectory => new DirectoryArtifact(f)
+    case _ => new ZipFileArtifact(f)
   }
   implicit def asProducer[T](x: T) = Producer.fromMemory(x)
   implicit def asFlatArtifact(url: URI)(

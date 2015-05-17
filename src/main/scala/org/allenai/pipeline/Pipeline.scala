@@ -146,7 +146,7 @@ class Pipeline extends Logging {
     runPipelineReturnResults(title, targets)
   }
 
-  private def runPipelineReturnResults(rawTitle: String, outputs: Iterable[Producer[_]]) = {
+  protected[this] def runPipelineReturnResults(rawTitle: String, outputs: Iterable[Producer[_]]) = {
     val result = try {
       val start = System.currentTimeMillis
       val result = outputs.map(_.get)

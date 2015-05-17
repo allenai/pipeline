@@ -8,7 +8,7 @@ import spray.json.DefaultJsonProtocol._
 import java.io.File
 
 /** A simple pipeline that counts words and lines in a text file */
-object BasicPipeline extends App {
+object CountWordsAndLinesPipeline extends App {
   // Create a pipeline.  Specify the output directory where data will be written
   val pipeline = Pipeline.saveToFileSystem(new File("pipeline-output"))
 
