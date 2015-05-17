@@ -49,16 +49,18 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   }
 
   private var initialized = false
-  private var timing: Option[Duration] = None
+  protected[this] var timing: Option[Duration] = None
+  protected[this] var executionMode: Duration => ExecutionInfo = Executed
   private lazy val cachedValue: T = createAndTime
 
-  /** Report the amount of time taken in milliseconds, or None if the value is cached
-    * in memory or this stage has not been run yet.
+  /** Report the method by which this Producer's result was obtained
+    * (Read from disk, executed, not needed)
     */
-  def timeTaken: Option[Duration] = timing
+  def executionInfo: ExecutionInfo =
+    timing.map(executionMode).getOrElse(NotRequested)
 
   /** Call `create` but store time taken. */
-  private def createAndTime: T = {
+  protected[this] def createAndTime: T = {
     val (result, duration) = Timing.time(this.create)
     timing = Some(duration)
     result
@@ -169,15 +171,18 @@ class ProducerWithPersistence[T, A <: Artifact](
     val className = stepInfo.className
     if (!artifact.exists) {
       val result = original.get
+      executionMode = ExecutedAndPersisted
       logger.debug(s"$className writing to $artifact using $io")
       io.write(result, artifact)
       if (result.isInstanceOf[Iterator[_]]) {
+        executionMode = ExecuteAndBufferStream
         logger.debug(s"$className reading type Iterator from $artifact using $io")
         io.read(artifact)
       } else {
         result
       }
     } else {
+      executionMode = ReadFromDisk
       logger.debug(s"$className reading from $artifact using $io")
       io.read(artifact)
     }

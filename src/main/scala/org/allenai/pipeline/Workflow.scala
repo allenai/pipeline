@@ -107,7 +107,7 @@ object Node {
       case _ => false
     }
     val executionInfo = step match {
-      case producer: Producer[_] => producer.timeTaken.map(d => s"${d.toMillis} millis").getOrElse("")
+      case producer: Producer[_] => producer.executionInfo.status
       case _ => ""
     }
     Node(
