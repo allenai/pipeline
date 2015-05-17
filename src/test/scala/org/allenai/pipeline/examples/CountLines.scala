@@ -1,10 +1,9 @@
 package org.allenai.pipeline.examples
 
-import org.allenai.pipeline.{Ai2StepInfo, Producer}
+import org.allenai.pipeline.{ Ai2StepInfo, Producer }
 
-/**
- * Created by rodneykinney on 5/16/15.
- */
+/** Created by rodneykinney on 5/16/15.
+  */
 case class CountLines(lines: Producer[Iterable[String]], countBlanks: Boolean = true) extends Producer[Int] with Ai2StepInfo {
   override protected def create: Int =
     if (countBlanks)

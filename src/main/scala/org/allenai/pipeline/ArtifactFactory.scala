@@ -17,7 +17,8 @@ object ArtifactFactory {
 
   def relativeToUrl[A <: Artifact: ClassTag](
     rootUrl: URI,
-    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials): PartialFunction[String, A] = {
+    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
+  ): PartialFunction[String, A] = {
     rootUrl match {
       case url if url.getScheme == "file" || url.getScheme == null =>
         val rootDir = new File(url.getPath)

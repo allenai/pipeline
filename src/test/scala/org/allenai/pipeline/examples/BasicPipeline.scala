@@ -25,7 +25,6 @@ object BasicPipeline extends App {
     pipeline.Persist.Singleton.asJson(count)
   }
 
-
   val lineCount = {
     // The Producer instance
     val count = CountLines(lines)
@@ -36,6 +35,4 @@ object BasicPipeline extends App {
   // Run the pipeline
   pipeline.run("Count words and lines")
 }
-
-
 

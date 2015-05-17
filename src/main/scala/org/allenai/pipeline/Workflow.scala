@@ -52,7 +52,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
           info.srcUrl.map(uri => s"""new Link(${link(uri).toJson},${(if (info.classVersion.nonEmpty) info.classVersion else "src").toJson})""") ++ // scalastyle:ignore
             // An optional link to the output data.
             info.outputLocation.map(uri => s"""new Link(${link(uri).toJson},"output")""")
-        val linksJson = links.mkString("[",",","]")
+        val linksJson = links.mkString("[", ",", "]")
         val clazz = sources match {
           case _ if errors contains id => "errorNode"
           case _ if sources contains id => "sourceNode"

@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.allenai.pipeline.IoHelpers._
 
-import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 
 import java.io.File
 
@@ -40,7 +40,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
   it should "optionally persist to absolute URL" in {
     val outputDir = new File(scratchDir, "testOptionallyPersist2")
-    val configuredFile = new File(scratchDir,"subDir/mySpecialPath")
+    val configuredFile = new File(scratchDir, "subDir/mySpecialPath")
     val pipeline = new ConfiguredPipeline(
       baseConfig
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))

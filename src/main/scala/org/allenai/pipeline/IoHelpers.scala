@@ -85,12 +85,16 @@ object IoHelpers extends ColumnFormats {
   }
   implicit def asProducer[T](x: T) = Producer.fromMemory(x)
   implicit def asFlatArtifact(url: URI)(
-    implicit credentials: () => BasicAWSCredentials = S3Config.environmentCredentials) = {
+    implicit
+    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
+  ) = {
     val fn = ArtifactFactory.fromUrl[FlatArtifact](credentials)
     fn(url.toString)
   }
   implicit def asStructuredArtifact(url: URI)(
-    implicit credentials: () => BasicAWSCredentials = S3Config.environmentCredentials) = {
+    implicit
+    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
+  ) = {
     val fn = ArtifactFactory.fromUrl[StructuredArtifact](credentials)
     fn(url.toString)
   }
