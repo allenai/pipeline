@@ -11,6 +11,7 @@ import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URI
 
 case class S3Config(bucket: String, credentials: BasicAWSCredentials) {
+  @transient
   lazy val service = new AmazonS3Client(credentials)
 }
 

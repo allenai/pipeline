@@ -61,7 +61,12 @@
         padding-top: 10px;
       }
 
-      .node rect {
+        .node .data {
+          border-top: 1px solid #2a75a1;
+          padding-top: 10px;
+        }
+
+        .node rect {
         stroke: #2a75a1;
         stroke-width: 2px;
         fill: #e2f0f8;
@@ -275,7 +280,12 @@
         fill: #C38888;
       }
 
-      #outputContainer {
+        .executionInfo {
+         font-size: 20%%;
+         float: right;
+        }
+
+        #outputContainer {
         position: absolute;
         top: 41px;
         left: 41px;
@@ -337,24 +347,19 @@
          *
          * @return {string}   The HTML for the step contents.
          */
-        function generateStepContent(label, description, millis, data, links) {
+        function generateStepContent(label, description, execInfo, data, links) {
           var out = "<h2>" + label + "</h2>";
-          if(millis) {
-            out += millis + " millis";
-          }
-          else {
-            out += "cached";
-          }
           if(description) {
             out += "<p>" + description + "</p>";
           }
-          if(data && Array.isArray(data)) {
+          if(data && Array.isArray(data) && data.length > 0) {
             out += '<ul class="data">';
             data.forEach(function(d) {
               out += '<li>' + d + '</li>';
             });
             out += '</ul>';
-            if(links) {
+          }
+          if(links && links.length > 0) {
               out += '<ul class="links">';
               links.forEach(function(l) {
                 if(l instanceof Link) {
@@ -363,7 +368,7 @@
               });
               out += '</ul>';
             }
-          }
+          out += '<span class="executionInfo">' + execInfo + '</span>';
           return out;
         };
 

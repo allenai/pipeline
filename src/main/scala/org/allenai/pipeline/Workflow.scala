@@ -3,7 +3,7 @@ package org.allenai.pipeline
 import org.allenai.common.Resource
 
 import spray.json.DefaultJsonProtocol._
-import spray.json.{ JsString, JsValue, JsonFormat }
+import spray.json._
 
 import scala.io.Source
 
@@ -42,31 +42,31 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     val addNodes =
       for ((id, info) <- nodes) yield {
         // Params show up as line items in the pipeline diagram node.
-        val paramsText = info.parameters.toList.map {
+        val params = info.parameters.toList.map {
           case (key, value) =>
-            s""""$key=${limitLength(value)}""""
-        }.mkString(",")
+            s"$key=${limitLength(value)}"
+        }
         // A link is like a param but it hyperlinks somewhere.
         val links =
           // An optional link to the source data.
-          info.srcUrl.map(uri => s"""new Link("${link(uri)}","${if (info.classVersion.nonEmpty) info.classVersion else "src"}")""") ++ // scalastyle:ignore
+          info.srcUrl.map(uri => s"""new Link(${link(uri).toJson},${(if (info.classVersion.nonEmpty) info.classVersion else "src").toJson})""") ++ // scalastyle:ignore
             // An optional link to the output data.
-            info.outputLocation.map(uri => s"""new Link("${link(uri)}","output")""")
+            info.outputLocation.map(uri => s"""new Link(${link(uri).toJson},"output")""")
+        val linksJson = links.mkString("[",",","]")
         val clazz = sources match {
           case _ if errors contains id => "errorNode"
           case _ if sources contains id => "sourceNode"
           case _ if sinks contains id => "sinkNode"
           case _ => ""
         }
-        val linksText = links.mkString(",")
         s"""        g.setNode("$id", {
            |          class: "$clazz",
            |          labelType: "html",
-           |          label: generateStepContent("${info.className}",
-           |            " ${info.description.getOrElse("")}",
-           |            ${info.timeTakenMillis.getOrElse("undefined")},
-           |            [$paramsText],
-           |            [$linksText])
+           |          label: generateStepContent(${info.className.toJson},
+           |            ${info.description.getOrElse("").toJson},
+           |            ${info.executionInfo.toJson},
+           |            ${params.toJson},
+           |            ${linksJson})
            |        });""".stripMargin
       }
     val addEdges =
@@ -95,7 +95,7 @@ case class Node(
   description: Option[String] = None,
   outputLocation: Option[URI] = None,
   outputMissing: Boolean = false,
-  timeTakenMillis: Option[Long] = None
+  executionInfo: String = ""
 )
 
 object Node {
@@ -106,9 +106,9 @@ object Node {
         !persisted.artifact.exists
       case _ => false
     }
-    val timeTaken = step match {
-      case producer: Producer[_] => producer.timeTaken map (_.toMillis)
-      case _ => None
+    val executionInfo = step match {
+      case producer: Producer[_] => producer.timeTaken.map(d => s"${d.toMillis} millis").getOrElse("")
+      case _ => ""
     }
     Node(
       stepInfo.className,
@@ -119,7 +119,7 @@ object Node {
       stepInfo.description,
       stepInfo.outputLocation,
       outputMissing,
-      timeTaken
+      executionInfo
     )
   }
 }
@@ -180,7 +180,7 @@ object Workflow {
     case "s3" | "s3n" =>
       new java.net.URI("http", s"${uri.getHost}.s3.amazonaws.com", uri.getPath, null).toString
     case "file" =>
-      new java.net.URI(null, null, uri.getPath, null)
+      new java.net.URI(null, null, uri.getPath, null).toString
     case _ => uri.toString
   }
 

@@ -12,8 +12,8 @@ data is difficult because there is no record of the code that was used to produc
 and there are no validation checks on the compatibility of code with the data format. Workflows with
 any significant complexity become immediately unmanageable as soon as more than one scientist is involved.
 
-There are many workflow management systems designed for production data pipelines. By providing
-a centralized execution environment they solve the problem of sharing data, but users sacrifice the ability
+There are many workflow management systems designed for production data pipelines. The problem of sharing data
+is solved by providing a centralized execution environment, but users sacrifice the ability
 to rapidly develop code that runs on their local machine while accessing production data.  To solve
 these problems, AIP:
 
@@ -77,13 +77,18 @@ The easiest way to define a Producer class is to make a case class that mixes in
 The only method that needs to be implemented in that case is the `create` method, which builds the output object
 For example:
 
-    case class CountLines(lines: Producer[Iterable[String]], countBlanks: Boolean = true) extends Producer[Int] with Ai2StepInfo{
+    case class CountLines(lines: Producer[Iterable[String]], countBlanks: Boolean = true) extends Producer[Int] with Ai2StepInfo {
       override protected def create: Int =
       if (countBlanks)
         lines.get.size
       else
         lines.get.filter(_.length > 0).size
     }
+
+Notice how each Producer's `create` method calls the `get` method of its inputs. (`get` is simply an in-memory cache of
+the result of `create`)  This is the mechanism by
+which the end-to-end workflow is executed: the `Pipeline.run` method calls `get` on each persisted Producer.
+The workflow graph is isomorphic to the object graph of Producers with references to other Producers.
 
 The Signature of this Producer depends on the value of the `countBlanks` parameter, but also on the Signature of its
 input, the Producer[Iterable[String]] whose lines it is counting.  That Producer's Signature depends likewise on
@@ -115,18 +120,28 @@ Even in this case, it is impossible to overwrite existing data.  Instead, your P
 data instead of recomputing based on the new logic.  To force a recomputation, you must change the Signature by updating the
 `versionHistory` field.
 
-##Pipeline Dry Runs
+##Dry Runs
 
 Before running a pipeline, you can call the `Pipeline.dryRun` method.  This will not perform any calculations,
 but will output the summary HTML, allowing you to visualize your workflow before executing it. The HTML
 will contain hyperlinks to the Signature-based path names where any output Artifacts will be written. Any outputs
 that do not yet exist will be highlighted in red.  It is possible that all outputs exist already, created by previous
-runs by you or another user.  In that case, `Pipeline.run()` will return immediately without performing
+runs by you or another user.  In that case, `Pipeline.run` will return immediately without performing
 any calculations.
+
+##Configuration
+
+##Streaming Data
+
+##External Processes
+
+##Cloud Storage
+
+##Parallel Execution
 
 #Example Pipelines
 
-Use `sbt test:run-main org.allenai.pipeline.examples.<pipeline>` to run the examples
+Use `sbt "test:run-main org.allenai.pipeline.examples.<pipeline>"` to run the examples
 
 ##The Basic Pipeline
 
