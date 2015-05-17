@@ -12,14 +12,14 @@ import scala.io.Source
 
 /** Created by rodneykinney on 5/14/15.
   */
-class TestExecuteShellCommand extends UnitSpec with ScratchDirectory {
+class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
-  import ExecuteShellCommand._
+  import ExternalProcess._
 
   "ExecuteShellCommand" should "return status code" in {
-    val testTrue = new ExecuteShellCommand(List("test", "a", "=", "a"))
+    val testTrue = new ExternalProcess("test", "a", "=", "a")
     testTrue.run().returnCode should equal(0)
-    val testFalse = new ExecuteShellCommand(List("test", "a", "=", "b"))
+    val testFalse = new ExternalProcess("test", "a", "=", "b")
     testFalse.run().returnCode should equal(1)
   }
 
@@ -27,24 +27,24 @@ class TestExecuteShellCommand extends UnitSpec with ScratchDirectory {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      ExecuteShellCommand(List("touch", OutputFileToken("target")))
+      ExternalProcess("touch", OutputFileToken("target"))()
         .outputs("target").persisted(StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
   }
 
   it should "capture stdout" in {
-    val echo = new ExecuteShellCommand(List("echo", "hello", "world"))
+    val echo = new ExternalProcess("echo", "hello", "world")
     val stdout = IOUtils.readLines(echo.run().stdout()).asScala.mkString("\n")
     stdout should equal("hello world")
   }
   it should "capture stderr" in {
-    val noSuchParameter = new ExecuteShellCommand(List("touch", "-x", "foo"))
+    val noSuchParameter = new ExternalProcess("touch", "-x", "foo")
     val stderr = IOUtils.readLines(noSuchParameter.run().stderr()).asScala.mkString("\n")
     stderr.size should be > 0
   }
   it should "throw an exception if command is not found" in {
-    val noSuchCommand = new ExecuteShellCommand(List("eccho", "hello", "world"))
+    val noSuchCommand = new ExternalProcess("eccho", "hello", "world")
     an[Exception] shouldBe thrownBy {
       noSuchCommand.run()
     }
@@ -60,8 +60,7 @@ class TestExecuteShellCommand extends UnitSpec with ScratchDirectory {
     val inputArtifact = new FileArtifact(inputFile)
     val outputArtifact = new FileArtifact(outputFile)
 
-    val copy = ExecuteShellCommand(
-      List("cp", InputFileToken("input"), OutputFileToken("output")),
+    val copy = ExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
       inputs = List(("input", Read.fromArtifact(StreamIo, inputArtifact)))
     )
       .outputs("output").persisted(StreamIo, outputArtifact)
@@ -75,8 +74,9 @@ class TestExecuteShellCommand extends UnitSpec with ScratchDirectory {
   }
 
   it should "pipe stdin to stdout" in {
-    val echo = new ExecuteShellCommand(List("echo", "hello", "world"))
-    val wc = new ExecuteShellCommand(List("wc", "-c"), stdin = echo.run().stdout)
-    IOUtils.readLines(wc.run().stdout()).asScala.head.trim().toInt should equal(11)
+    val echo = new ExternalProcess("echo", "hello", "world")
+    val wc = new ExternalProcess("wc", "-c")
+    val result = wc.run(stdinput = echo.run().stdout)
+    IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
   }
 }
