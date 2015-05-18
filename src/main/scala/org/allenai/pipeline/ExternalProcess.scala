@@ -110,145 +110,155 @@ object ExternalProcess {
     requireStatusCode: Iterable[Int] = List(0)
     ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name}
-    val processCmd = new Producer[CommandOutput] with Ai2SimpleStepInfo {
-      override def create = {
-        new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
-      }
-
-      val parameters = inputs.map { case (name, src) => (name, src)}.toList
-
-      override def stepInfo = {
-        val cmd = commandTokens.map {
-          case InputFileToken(name) => s"<$name>"
-          case OutputFileToken(name) => s"<$name>"
-          case t => t.name
-        }
-        super.stepInfo
-          .copy(className = "ExternalProcess")
-          .addParameters(parameters: _*)
-          .addParameters("cmd" -> cmd.mkString(" "))
-      }
-    }
-    def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
-      val result = processCmd.get
-      result match {
-        case CommandOutput(0, _, _, _) => f(result)
-        case CommandOutput(_, _, stderr, _) =>
-          sys.error(s" Failed to run command ${processCmd.stepInfo.parameters("cmd")}: $stderr")
-      }
-    }
-    class CommandOutputComponent(name: String, f: CommandOutput => () => InputStream) extends Producer[() => InputStream] {
-      override protected def create: () => InputStream = {
-        val result = processCmd.get
-        result match {
-          case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
-            f(result)
-          case CommandOutput(status, _, stderr, _) =>
-            val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
-            sys.error(s"Command ${processCmd.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
-        }
-        f(processCmd.get)
-      }
-
-      override def stepInfo: PipelineStepInfo =
-        PipelineStepInfo(className = name)
-          .addParameters("cmd" -> processCmd)
-    }
+    val processCmd = new RunExternalProcess(commandTokens, inputs)
     val baseName = processCmd.stepInfo.className
-    val stdout = new CommandOutputComponent("stdout", _.stdout)
-    val stderr = new CommandOutputComponent("stderr", _.stderr)
+    val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
+    val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
     val outputStreams =
       for (name <- outputNames) yield {
         val outputProducer =
-          new CommandOutputComponent(s"outputs[$name]", _.outputs(name))
+          new ExtractOutputComponent(s"outputs.$name", _.outputs(name), processCmd, requireStatusCode)
         (name, outputProducer)
       }
     CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 }
 
-object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
-  override def read(artifact: FlatArtifact): () => InputStream =
-    () => artifact.read
-
-  override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
-    artifact.write { writer =>
-      val buffer = new Array[Byte](16384)
-      Resource.using(data()) { is =>
-        Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
-          writer.write(buffer, 0, n))
-      }
-    }
+class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
+  override def create = {
+    new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
   }
 
-  override def stepInfo: PipelineStepInfo = PipelineStepInfo(className = "SerializeDataStream")
-}
+  val parameters = inputs.map { case (name, src) => (name, src)}.toList
 
-/** Binary data that is assumed to never change.
-  * Appropriate for: data in which the URL uniquely determines the content
-  */
-object StaticResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-    new Producer[() => InputStream] with Ai2SimpleStepInfo {
-      override def create = StreamIo.read(artifact)
-
-      override def stepInfo =
-        super.stepInfo.copy(className = "StaticResource")
-          .copy(outputLocation = Some(artifact.url))
-          .addParameters("src" -> artifact.url)
+  override def stepInfo = {
+    val cmd = commandTokens.map {
+      case InputFileToken(name) => s"<$name>"
+      case OutputFileToken(name) => s"<$name>"
+      case t => t.name
     }
+    super.stepInfo
+      .copy(className = "ExternalProcess")
+      .addParameters(parameters: _*)
+      .addParameters("cmd" -> cmd.mkString(" "))
+  }
 }
 
-/** Binary data that is allowed to change.
-  * A hash of the contents will be computed
-  * to determine whether to rerun downstream pipeline steps
-  * Appropriate for: scripts, local resources used during development
-  */
-object DynamicResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-    new Producer[() => InputStream] with Ai2SimpleStepInfo {
-      lazy val contentHash = {
-        var hash = 0L
+class ExtractOutputComponent(
+  name: String,
+  f: CommandOutput => () => InputStream,
+  processCmd: Producer[CommandOutput],
+  requireStatusCode: Iterable[Int] = List(0)) extends Producer[() => InputStream] {
+  override protected def create: () => InputStream = {
+    val result = processCmd.get
+    result match {
+      case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
+        f(result)
+      case CommandOutput(status, _, stderr, _) =>
+        val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
+        sys.error(s"Command ${processCmd.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
+    }
+    f(processCmd.get)
+  }
+
+  override def stepInfo: PipelineStepInfo =
+    PipelineStepInfo(className = name)
+      .addParameters("cmd" -> processCmd)
+
+  def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
+    val result = processCmd.get
+    result match {
+      case CommandOutput(0, _, _, _) => f(result)
+      case CommandOutput(_, _, stderr, _) =>
+        sys.error(s" Failed to run command ${processCmd.stepInfo.parameters("cmd")}: $stderr")
+    }
+
+  }
+}
+
+
+  object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
+    override def read(artifact: FlatArtifact): () => InputStream =
+      () => artifact.read
+
+    override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
+      artifact.write { writer =>
         val buffer = new Array[Byte](16384)
-        Resource.using(artifact.read) { is =>
-          Iterator.continually(is.read(buffer)).takeWhile(_ != -1)
-            .foreach(n => buffer.take(n).foreach(b => hash = hash * 31 + b))
+        Resource.using(data()) { is =>
+          Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
+            writer.write(buffer, 0, n))
         }
-        hash.toHexString
       }
-
-      override def create = StreamIo.read(artifact)
-
-      override def stepInfo =
-        super.stepInfo.addParameters("contentHash" -> contentHash)
-          .copy(className = "DynamicResource")
-          .copy(outputLocation = Some(artifact.url))
-          .addParameters("src" -> artifact.url)
-
     }
-}
 
-/** Binary data that is assumed to change every time it is accessed
-  * Appropriate for: non-deterministic queries
-  */
-object VolatileResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-    new Producer[() => InputStream] with Ai2SimpleStepInfo {
-      override def create = StreamIo.read(artifact)
+    override def stepInfo: PipelineStepInfo = PipelineStepInfo(className = "SerializeDataStream")
+  }
 
-      override def stepInfo =
-        super.stepInfo.addParameters("guid" -> UUID.randomUUID().toString)
-          .copy(className = "VolatileResource")
-          .copy(outputLocation = Some(artifact.url))
-          .addParameters("src" -> artifact.url)
-    }
-}
+  /** Binary data that is assumed to never change.
+    * Appropriate for: data in which the URL uniquely determines the content
+    */
+  object StaticResource {
+    def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+      new Producer[() => InputStream] with Ai2SimpleStepInfo {
+        override def create = StreamIo.read(artifact)
 
-case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
+        override def stepInfo =
+          super.stepInfo.copy(className = "StaticResource")
+            .copy(outputLocation = Some(artifact.url))
+            .addParameters("src" -> artifact.url)
+      }
+  }
 
-case class CommandOutputComponents(
-  stdout: Producer[() => InputStream],
-  stderr: Producer[() => InputStream],
-  outputs: Map[String, Producer[() => InputStream]]
-  )
+  /** Binary data that is allowed to change.
+    * A hash of the contents will be computed
+    * to determine whether to rerun downstream pipeline steps
+    * Appropriate for: scripts, local resources used during development
+    */
+  object DynamicResource {
+    def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+      new Producer[() => InputStream] with Ai2SimpleStepInfo {
+        lazy val contentHash = {
+          var hash = 0L
+          val buffer = new Array[Byte](16384)
+          Resource.using(artifact.read) { is =>
+            Iterator.continually(is.read(buffer)).takeWhile(_ != -1)
+              .foreach(n => buffer.take(n).foreach(b => hash = hash * 31 + b))
+          }
+          hash.toHexString
+        }
+
+        override def create = StreamIo.read(artifact)
+
+        override def stepInfo =
+          super.stepInfo.addParameters("contentHash" -> contentHash)
+            .copy(className = "DynamicResource")
+            .copy(outputLocation = Some(artifact.url))
+            .addParameters("src" -> artifact.url)
+
+      }
+  }
+
+  /** Binary data that is assumed to change every time it is accessed
+    * Appropriate for: non-deterministic queries
+    */
+  object VolatileResource {
+    def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+      new Producer[() => InputStream] with Ai2SimpleStepInfo {
+        override def create = StreamIo.read(artifact)
+
+        override def stepInfo =
+          super.stepInfo.addParameters("guid" -> UUID.randomUUID().toString)
+            .copy(className = "VolatileResource")
+            .copy(outputLocation = Some(artifact.url))
+            .addParameters("src" -> artifact.url)
+      }
+  }
+
+  case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
+
+  case class CommandOutputComponents(
+    stdout: Producer[() => InputStream],
+    stderr: Producer[() => InputStream],
+    outputs: Map[String, Producer[() => InputStream]]
+    )
 
