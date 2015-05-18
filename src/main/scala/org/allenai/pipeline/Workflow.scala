@@ -187,13 +187,15 @@ object Workflow {
   private val DEFAULT_MAX_SIZE = 40
   private val LHS_MAX_SIZE = 15
 
-  private def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) =
-    if (s.size < maxLength) {
+  private def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) = {
+    val trimmed = if (s.size < maxLength) {
       s
     } else {
       val leftSize = math.min(LHS_MAX_SIZE, maxLength / 3)
       val rightSize = maxLength - leftSize
       s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
     }
+    trimmed.replaceAll(">","&gt;").replaceAll("<","&lt;")
+  }
 
 }

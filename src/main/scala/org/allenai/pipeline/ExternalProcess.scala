@@ -11,7 +11,7 @@ import java.io.{ByteArrayInputStream, File, FileWriter, InputStream}
 import java.nio.file.Files
 import java.util.UUID
 
-/** Executes an arbitrary shell command
+/** Executes an arbitrary system process
   * @param commandTokens   The set of tokens that comprise the command to be executed.
   *                        Each token is either:
   *                        a String
@@ -26,10 +26,10 @@ import java.util.UUID
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
-  def run(inputs: Iterable[InputDataSource] = List(),
+  def run(inputs: Map[String, () => InputStream] = Map(),
     stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)) = {
     {
-      val inputNames = inputs.map(_.name).toSet
+      val inputNames = inputs.map(_._1).toSet
       val inputTokenNames = commandTokens.collect { case InputFileToken(name) => name}.toSet
       val unusedInputs = inputNames -- inputTokenNames
       require(unusedInputs.size == 0, s"The following inputs are not used: [${unusedInputs.mkString(",")}}]")
@@ -44,7 +44,7 @@ class ExternalProcess(val commandTokens: CommandToken*) {
     val scratchDir = Files.createTempDirectory(null).toFile
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
-    for (InputDataSource(name, data) <- inputs) {
+    for ((name, data) <- inputs) {
       StreamIo.write(data, new FileArtifact(new File(scratchDir, name)))
     }
 
@@ -85,12 +85,12 @@ object ExternalProcess {
 
   import scala.language.implicitConversions
 
-  case class InputDataSource(name: String, data: () => InputStream)
-
   implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]) = {
     p.copy(create = () =>
-      InputDataSource(s"${p.stepInfo.className}.${p.stepInfo.signature.id}", StreamIo.read(p.artifact.asInstanceOf[FlatArtifact])))
+      StreamIo.read(p.artifact.asInstanceOf[FlatArtifact]))
   }
+
+  implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A) = StaticResource(artifact)
 
   implicit def convertToToken(s: String) = StringToken(s)
 
@@ -106,15 +106,16 @@ object ExternalProcess {
 
   def apply(
     commandTokens: CommandToken*)(
-    inputs: Iterable[(String, Producer[() => InputStream])] = List(),
+    inputs: Map[String, Producer[() => InputStream]] = Map(),
     requireStatusCode: Iterable[Int] = List(0)
     ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name}
     val processCmd = new Producer[CommandOutput] with Ai2SimpleStepInfo {
       override def create = {
-        val inputDataStreams = inputs.map { case (name, p) => InputDataSource(name, p.get)}
-        new ExternalProcess(commandTokens: _*).run(inputDataStreams)
+        new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
       }
+
+      val parameters = inputs.map { case (name, src) => (name, src)}.toList
 
       override def stepInfo = {
         val cmd = commandTokens.map {
@@ -123,8 +124,8 @@ object ExternalProcess {
           case t => t.name
         }
         super.stepInfo
-          .copy(className = "ExecuteShellCommand")
-          .addParameters(inputs.toSeq: _*)
+          .copy(className = "ExternalProcess")
+          .addParameters(parameters: _*)
           .addParameters("cmd" -> cmd.mkString(" "))
       }
     }
@@ -159,7 +160,7 @@ object ExternalProcess {
     val outputStreams =
       for (name <- outputNames) yield {
         val outputProducer =
-          new CommandOutputComponent(s"output.$name", _.outputs(name))
+          new CommandOutputComponent(s"outputs[$name]", _.outputs(name))
         (name, outputProducer)
       }
     CommandOutputComponents(stdout, stderr, outputStreams.toMap)
@@ -190,6 +191,11 @@ object StaticResource {
   def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
     new Producer[() => InputStream] with Ai2SimpleStepInfo {
       override def create = StreamIo.read(artifact)
+
+      override def stepInfo =
+        super.stepInfo.copy(className = "StaticResource")
+          .copy(outputLocation = Some(artifact.url))
+          .addParameters("src" -> artifact.url)
     }
 }
 
@@ -198,7 +204,7 @@ object StaticResource {
   * to determine whether to rerun downstream pipeline steps
   * Appropriate for: scripts, local resources used during development
   */
-object UpdatableResource {
+object DynamicResource {
   def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
     new Producer[() => InputStream] with Ai2SimpleStepInfo {
       lazy val contentHash = {
@@ -215,19 +221,26 @@ object UpdatableResource {
 
       override def stepInfo =
         super.stepInfo.addParameters("contentHash" -> contentHash)
+          .copy(className = "DynamicResource")
+          .copy(outputLocation = Some(artifact.url))
+          .addParameters("src" -> artifact.url)
+
     }
 }
 
 /** Binary data that is assumed to change every time it is accessed
   * Appropriate for: non-deterministic queries
   */
-object DynamicResource {
+object VolatileResource {
   def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
     new Producer[() => InputStream] with Ai2SimpleStepInfo {
       override def create = StreamIo.read(artifact)
 
       override def stepInfo =
         super.stepInfo.addParameters("guid" -> UUID.randomUUID().toString)
+          .copy(className = "VolatileResource")
+          .copy(outputLocation = Some(artifact.url))
+          .addParameters("src" -> artifact.url)
     }
 }
 

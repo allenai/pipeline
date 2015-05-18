@@ -17,7 +17,7 @@ object IoHelpers extends ColumnFormats {
       reader: DeserializeFromArtifact[T, A],
       artifact: A
     ): Producer[T] =
-      new ReadFromArtifact(reader, artifact)
+      new ReadFromArtifact(reader, artifact.asInstanceOf[A])
 
     /** Read single object from flat file */
     object Singleton {
