@@ -206,7 +206,7 @@ object SamplePipeline {
     }
   }
 
-  object ParseDocumentsFromXML extends DeserializeFromArtifact[Iterator[ParsedDocument], StructuredArtifact]
+  object ParseDocumentsFromXML extends Deserializer[Iterator[ParsedDocument], StructuredArtifact]
       with Ai2SimpleStepInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
@@ -219,7 +219,7 @@ object SamplePipeline {
 
   case class TrainModelPython[A <: FlatArtifact](
     val data: PersistedProducer[Iterable[TrainingPoint], A],
-    val modelReader: DeserializeFromArtifact[TrainedModel, FileArtifact]
+    val modelReader: Deserializer[TrainedModel, FileArtifact]
   )
       extends Producer[TrainedModel] with Ai2StepInfo {
     def create: TrainedModel = {

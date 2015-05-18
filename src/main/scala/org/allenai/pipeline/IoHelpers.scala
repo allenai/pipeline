@@ -14,7 +14,7 @@ object IoHelpers extends ColumnFormats {
   object Read {
     /** General deserialization method. */
     def fromArtifact[T, A <: Artifact](
-      reader: DeserializeFromArtifact[T, A],
+      reader: Deserializer[T, A],
       artifact: A
     ): Producer[T] =
       new ReadFromArtifact(reader, artifact.asInstanceOf[A])

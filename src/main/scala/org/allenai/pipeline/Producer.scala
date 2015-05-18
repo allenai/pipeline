@@ -76,7 +76,7 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     * @param  artifactSource  creation of the artifact to be written
     */
   def persisted[A <: Artifact](
-    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    io: Serializer[T, A] with Deserializer[T, A],
     artifactSource: => A
   ): PersistedProducer[T, A] =
     new ProducerWithPersistence(this, io, artifactSource)
@@ -106,17 +106,21 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   def copy[T2](
     create: () => T2 = self.create _,
     stepInfo: () => PipelineStepInfo = self.stepInfo _,
-    cachingEnabled: () => Boolean = self.cachingEnabled _
+    cachingEnabled: () => Boolean = self.cachingEnabled _,
+    executionInfo: () => ExecutionInfo = self.executionInfo _
   ): Producer[T2] = {
     val _create = create
     val _stepInfo = stepInfo
     val _cachingEnabled = cachingEnabled
+    val _executionInfo = executionInfo
     new Producer[T2] {
       override def create: T2 = _create()
 
       override def stepInfo = _stepInfo()
 
       override def cachingEnabled = _cachingEnabled()
+
+      override def executionInfo = _executionInfo()
     }
   }
 }
@@ -147,11 +151,11 @@ trait CachingDisabled extends CachingEnabled {
   */
 trait PersistedProducer[T, A <: Artifact] extends Producer[T] {
   def original: Producer[T]
-  def io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A]
+  def io: Serializer[T, A] with Deserializer[T, A]
   def artifact: A
 
   def changePersistence[A2 <: Artifact](
-    io: SerializeToArtifact[T, A2] with DeserializeFromArtifact[T, A2],
+    io: Serializer[T, A2] with Deserializer[T, A2],
     artifact: A2
   ): PersistedProducer[T, A2]
 }
@@ -162,7 +166,7 @@ trait PersistedProducer[T, A <: Artifact] extends Producer[T] {
   */
 class ProducerWithPersistence[T, A <: Artifact](
     val original: Producer[T],
-    val io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    val io: Serializer[T, A] with Deserializer[T, A],
     val artifact: A
 ) extends PersistedProducer[T, A] {
   self =>
@@ -207,7 +211,7 @@ class ProducerWithPersistence[T, A <: Artifact](
   }
 
   override def changePersistence[A2 <: Artifact](
-    io: SerializeToArtifact[T, A2] with DeserializeFromArtifact[T, A2],
+    io: Serializer[T, A2] with Deserializer[T, A2],
     artifact: A2
   ) =
     new ProducerWithPersistence[T, A2](original, io, artifact)

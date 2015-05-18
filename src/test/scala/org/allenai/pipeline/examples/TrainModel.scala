@@ -40,7 +40,7 @@ case class JoinAndSplitData(
   override val description = "Join and split data."
 }
 
-object ParseDocumentsFromXML extends DeserializeFromArtifact[Iterator[ParsedDocument], StructuredArtifact]
+object ParseDocumentsFromXML extends Deserializer[Iterator[ParsedDocument], StructuredArtifact]
 with Ai2SimpleStepInfo {
   def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
     for ((id, is) <- a.reader.readAll) yield parse(id, is)
