@@ -71,7 +71,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
       }
     val addEdges =
       for (Link(from, to, name) <- links) yield {
-        s"""        g.setEdge("$from", "$to", {label: "$name"}); """
+        s"""        g.setEdge("$from", "$to", {lineInterpolate: 'basis', label: "$name"}); """
       }
 
     val resourceName = "pipelineSummary.html"
