@@ -382,6 +382,12 @@
         // our nodes.
 %s
 
+       // Round the corners of the nodes
+        g.nodes().forEach(function(v) {
+          var node = g.node(v);
+          node.rx = node.ry = 10;
+        });
+
         // Add edges to the graph. The first argument is the edge id. Here we use null
         // to indicate that an arbitrary edge id can be assigned automatically. The
         // second argument is the source of the edge. The third argument is the target
