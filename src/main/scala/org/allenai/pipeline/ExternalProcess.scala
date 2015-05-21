@@ -20,9 +20,6 @@ import java.util.UUID
   *                        Examples:
   *                        StringToken("cp") InputFileToken("src") OutputFileToken("target")
   *                        StringToken("python") InputFileToken("script") StringToken("-o") OutputFileToken("output")
-  * @param inputs A set of named input data resources.
-  *               They must exist somewhere, but do not need to exist on the local filesystem.
-  *               They will be copied into a scratch directory for use by the command
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
@@ -218,7 +215,7 @@ object StaticResource {
   * Appropriate for: scripts, local resources used during development
   */
 object DynamicResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+  def apply(artifact: FlatArtifact): Producer[() => InputStream] =
     new Producer[() => InputStream] with Ai2SimpleStepInfo {
       lazy val contentHash = {
         var hash = 0L
@@ -245,7 +242,7 @@ object DynamicResource {
   * Appropriate for: non-deterministic queries
   */
 object VolatileResource {
-  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+  def apply(artifact: FlatArtifact): Producer[() => InputStream] =
     new Producer[() => InputStream] with Ai2SimpleStepInfo {
       override def create = StreamIo.read(artifact)
 
