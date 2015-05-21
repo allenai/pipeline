@@ -52,6 +52,6 @@ libraryDependencies ++= Seq(
   awsJavaSdk,
   commonsIO,
   ai2Common,
-  allenAiTestkit,
+  allenAiTestkit % "test",
   scalaReflection
 )

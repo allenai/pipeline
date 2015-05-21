@@ -340,7 +340,25 @@
         function generateStepContent(label, description, millis, data, links) {
           var out = "<h2>" + label + "</h2>";
           if(millis) {
-            out += millis + " millis";
+            var seconds = 1000;
+            var minutes = seconds * 60;
+            var hours = minutes * 60;
+            var days = hours * 24;
+            if (millis / days > 1) {
+              out += (millis / days).toFixed(2) + " days";
+            }
+            else if (millis / hours > 1) {
+              out += (millis / hours).toFixed(2) + " hours";
+            }
+            else if (millis / minutes > 1) {
+              out += (millis / minutes).toFixed(2) + " minutes";
+            }
+            else if (millis / seconds > 1) {
+              out += (millis / seconds).toFixed(2) + " seconds";
+            }
+            else {
+              out += millis.toFixed(0) + " millis";
+            }
           }
           else {
             out += "cached";
