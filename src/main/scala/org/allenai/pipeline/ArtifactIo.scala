@@ -9,23 +9,23 @@ import scala.io.{ Codec, Source }
 import scala.reflect.ClassTag
 
 trait ArtifactIo[T, -A <: Artifact]
-  extends SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A]
+  extends Serializer[T, A] with Deserializer[T, A]
 
 /** Interface for defining how to persist a data type.
   *
   * @tparam  T  the type of the data being serialized
-  * @tparam  A  the type of the artifact being written (i.e. FileArtifact)
+  * @tparam  A  the type of the artifact being written (e.g. FileArtifact)
   */
-trait SerializeToArtifact[-T, -A <: Artifact] extends PipelineStep {
+trait Serializer[-T, -A <: Artifact] extends PipelineStep {
   def write(data: T, artifact: A): Unit
 }
 
 /** Interface for defining how to persist a data type.
   *
   * @tparam  T  the type of the data being serialized
-  * @tparam  A  the type of the artifact being read (i.e. FileArtifact)
+  * @tparam  A  the type of the artifact being read (e.g. FileArtifact)
   */
-trait DeserializeFromArtifact[+T, -A <: Artifact] extends PipelineStep {
+trait Deserializer[+T, -A <: Artifact] extends PipelineStep {
   def read(artifact: A): T
 }
 
@@ -57,7 +57,7 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
   override def stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
-      className = s"SingletonIo[$className]",
+      className = s"ReadObject[$className]",
       parameters = Map("charSet" -> codec.charSet.toString),
       description = Some(s"Read [$className] into memory")
     )
@@ -88,7 +88,7 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
   override def stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
-      className = s"LineCollectionIo[$className]",
+      className = s"ReadCollection[$className]",
       parameters = Map("charSet" -> codec.charSet.toString),
       description = Some(s"Read collection of [$className] into memory")
     )
@@ -134,7 +134,7 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
       className =
-      s"LineIteratorIo[$className]",
+      s"ReadIterator[$className]",
       parameters = Map("charSet" -> codec.charSet.toString),
       description = Some(s"Stream iterator of [$className]")
     )

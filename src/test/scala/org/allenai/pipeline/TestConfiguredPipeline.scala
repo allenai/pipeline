@@ -1,10 +1,11 @@
 package org.allenai.pipeline
 
-import java.io.File
-
-import com.typesafe.config.{ ConfigValueFactory, ConfigValue, ConfigFactory }
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
-import spray.json.pimpAny
+import org.allenai.pipeline.IoHelpers._
+
+import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
+
+import java.io.File
 
 /** Created by rodneykinney on 5/12/15.
   */
@@ -16,11 +17,10 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
   val step1 = new Producer[Int] with Ai2SimpleStepInfo {
     override def create = 1
   }
+
   case class AddOne(p: Producer[Int]) extends Producer[Int] with Ai2StepInfo {
     override def create = 1 + p.get
   }
-
-  import IoHelpers._
 
   val format = SingletonIo.text[Int]
 
@@ -30,11 +30,29 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
       baseConfig
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
     )
-    pipeline.optionallyPersist(AddOne(step1), "Step2", format)
+    val step = pipeline.optionallyPersist(AddOne(step1), "Step2", format)
+    val outputFile = new File(step.asInstanceOf[PersistedProducer[Int, FlatArtifact]].artifact.url)
 
     pipeline.run("test")
 
-    new File(outputDir, "data/Step2Output.txt") should exist
+    outputFile should exist
+  }
+
+  it should "optionally persist to absolute URL" in {
+    val outputDir = new File(scratchDir, "testOptionallyPersist2")
+    val configuredFile = new File(scratchDir, "subDir/mySpecialPath")
+    val pipeline = new ConfiguredPipeline(
+      baseConfig
+        .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
+        .withValue("output.persist.Step2", ConfigValueFactory.fromAnyRef(configuredFile.toURI.toString))
+    )
+    val step = pipeline.optionallyPersist(AddOne(step1), "Step2", format)
+    val outputFile = new File(step.asInstanceOf[PersistedProducer[Int, FlatArtifact]].artifact.url)
+
+    pipeline.run("test")
+
+    outputFile should exist
+    outputFile.getCanonicalFile should equal(configuredFile.getCanonicalFile)
   }
 
   it should "recognize dryRun flag" in {
@@ -44,11 +62,12 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
         .withValue("dryRun", ConfigValueFactory.fromAnyRef(true))
     )
-    pipeline.optionallyPersist(AddOne(step1), "Step2", format)
+    val step = pipeline.optionallyPersist(AddOne(step1), "Step2", format)
+    val outputFile = new File(step.asInstanceOf[PersistedProducer[Int, FlatArtifact]].artifact.url)
 
     pipeline.run("test")
 
-    new File(outputDir, "data/Step2Output.xt") should not(exist)
+    outputFile should not(exist)
   }
 
   it should "recognize runOnly flag" in {
@@ -60,10 +79,11 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
     // config specifies runOnly for step3 with no persisted upstream dependencies
     val pipeline = new ConfiguredPipeline(config)
     val step2 = AddOne(step1)
-    pipeline.optionallyPersist(AddOne(step2), "Step3", format)
+    val step2Persisted = pipeline.optionallyPersist(AddOne(step2), "Step3", format)
+    val outputFile = new File(step2Persisted.asInstanceOf[PersistedProducer[Int, FlatArtifact]].artifact.url)
     pipeline.run("test")
 
-    new File(outputDir, "data/Step3Output.txt") should exist
+    outputFile should exist
   }
 
   it should "recognize runOnly flag and fail if upstream dependencies don't exist" in {
@@ -92,10 +112,10 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
     // config specifies runOnly for step3 with no persisted upstream dependencies
     val pipeline = new ConfiguredPipeline(config)
     val step2 = AddOne(step1)
-    pipeline.optionallyPersist(AddOne(step2), "Step3", format)
+    val step2Persisted = pipeline.optionallyPersist(AddOne(step2), "Step3", format)
     pipeline.run("test")
 
-    new File(outputDir, "data/Step3Output.txt") should not(exist)
-    new File(tempOutput, "data/Step3Output.txt") should exist
+    val outputFile = new File(step2Persisted.asInstanceOf[PersistedProducer[Int, FlatArtifact]].artifact.url)
+    outputFile.getParentFile.getParentFile.getCanonicalFile should equal(tempOutput.getCanonicalFile)
   }
 }

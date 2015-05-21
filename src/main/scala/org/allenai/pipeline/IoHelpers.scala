@@ -1,8 +1,12 @@
 package org.allenai.pipeline
 
+import com.amazonaws.auth.BasicAWSCredentials
 import spray.json._
 
 import scala.reflect.ClassTag
+
+import java.io.File
+import java.net.URI
 
 /** Utility methods for Artifact reading/writing.  */
 object IoHelpers extends ColumnFormats {
@@ -10,10 +14,10 @@ object IoHelpers extends ColumnFormats {
   object Read {
     /** General deserialization method. */
     def fromArtifact[T, A <: Artifact](
-      reader: DeserializeFromArtifact[T, A],
+      reader: Deserializer[T, A],
       artifact: A
     ): Producer[T] =
-      new ReadFromArtifact(reader, artifact)
+      new ReadFromArtifact(reader, artifact.asInstanceOf[A])
 
     /** Read single object from flat file */
     object Singleton {
@@ -71,10 +75,31 @@ object IoHelpers extends ColumnFormats {
         fromArtifact(io, artifact)
       }
     }
+  }
+  import scala.language.implicitConversions
 
+  implicit def asFileArtifact(f: File) = new FileArtifact(f)
+  implicit def asStructuredArtifact(f: File): StructuredArtifact = f match {
+    case f if f.exists && f.isDirectory => new DirectoryArtifact(f)
+    case _ => new ZipFileArtifact(f)
+  }
+  implicit def asProducer[T](x: T) = Producer.fromMemory(x)
+  implicit def asFlatArtifact(url: URI)(
+    implicit
+    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
+  ) = {
+    val fn = ArtifactFactory.fromUrl[FlatArtifact](credentials)
+    fn(url.toString)
+  }
+  implicit def asStructuredArtifact(url: URI)(
+    implicit
+    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
+  ) = {
+    val fn = ArtifactFactory.fromUrl[StructuredArtifact](credentials)
+    fn(url.toString)
   }
 
-  def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
+  implicit def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
     new StringSerializable[T] {
       override def fromString(s: String): T = jsonFormat.read(s.parseJson)
 

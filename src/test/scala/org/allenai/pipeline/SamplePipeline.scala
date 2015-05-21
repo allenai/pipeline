@@ -37,16 +37,16 @@ class SamplePipeline extends UnitSpec
       // TSV format for label+features is <label><tab><comma-separated feature values>
       implicit val featureFormat = columnArrayFormat[Double](',')
       implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
-      pipeline.Persist.Collection.asText(trainData, None, ".txt")
+      pipeline.Persist.Collection.asText(trainData)
     }
     val model = {
       implicit val format = jsonFormat1(TrainedModel)
-      pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
+      pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
     }
     val measure: Producer[PRMeasurement] = {
       implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] =
         tuple3ColumnFormat[Double, Double, Double](',')
-      pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
+      pipeline.Persist.Collection.asText(new MeasureModel(model, testData))
     }
     pipeline.run("SamplePipeline")
 
@@ -68,16 +68,16 @@ class SamplePipeline extends UnitSpec
       // TSV format for label+features is <label><tab><comma-separated feature values>
       implicit val featureFormat = columnArrayFormat[Double](',')
       implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
-      pipeline.Persist.Collection.asText(trainData, None, ".txt")
+      pipeline.Persist.Collection.asText(trainData)
     }
     val model = {
       implicit val format = jsonFormat1(TrainedModel)
-      pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted), None, ".json")
+      pipeline.Persist.Singleton.asJson(new TrainModel(trainDataPersisted))
     }
     val measure = {
       implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] =
         tuple3ColumnFormat[Double, Double, Double](',')
-      pipeline.Persist.Collection.asText(new MeasureModel(model, testData), None, ".txt")
+      pipeline.Persist.Collection.asText(new MeasureModel(model, testData))
     }
     val experimentSummary = pipeline.run("Sample Experiment")
 
@@ -99,14 +99,14 @@ class SamplePipeline extends UnitSpec
         // TSV format for label+features is <label><tab><comma-separated feature values>
         implicit val featureFormat = columnArrayFormat[Double](',')
         implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
-        pipeline.Persist.Collection.asText(trainData, None, ".txt")
+        pipeline.Persist.Collection.asText(trainData)
       }
       val model = {
         implicit val format = jsonFormat1(TrainedModel)
         pipeline.Persist.Singleton.asJson(new TrainModelPython(
           trainDataPersisted,
           SingletonIo.json[TrainedModel]
-        ), None, ".json")
+        ))
       }
       val measure: PersistedProducer[PRMeasurement, FlatArtifact] = {
         implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] =
@@ -206,7 +206,7 @@ object SamplePipeline {
     }
   }
 
-  object ParseDocumentsFromXML extends DeserializeFromArtifact[Iterator[ParsedDocument], StructuredArtifact]
+  object ParseDocumentsFromXML extends Deserializer[Iterator[ParsedDocument], StructuredArtifact]
       with Ai2SimpleStepInfo {
     def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
       for ((id, is) <- a.reader.readAll) yield parse(id, is)
@@ -219,7 +219,7 @@ object SamplePipeline {
 
   case class TrainModelPython[A <: FlatArtifact](
     val data: PersistedProducer[Iterable[TrainingPoint], A],
-    val modelReader: DeserializeFromArtifact[TrainedModel, FileArtifact]
+    val modelReader: Deserializer[TrainedModel, FileArtifact]
   )
       extends Producer[TrainedModel] with Ai2StepInfo {
     def create: TrainedModel = {
@@ -271,7 +271,7 @@ object SamplePipelineApp extends App {
       // TSV format for label+features is <label><tab><comma-separated feature values>
       implicit val featureFormat = columnArrayFormat[Double](',')
       implicit val labelFeatureFormat = tuple2ColumnFormat[Boolean, Array[Double]]('\t')
-      pipeline.Persist.Collection.asText(train, None, ".txt")
+      pipeline.Persist.Collection.asText(train)
     }
     (trainPersisted, test)
   }
@@ -280,7 +280,7 @@ object SamplePipelineApp extends App {
   val model = {
     val train = new TrainModel(trainData)
     implicit val format = jsonFormat1(TrainedModel)
-    pipeline.Persist.Singleton.asJson(train, None, ".json")
+    pipeline.Persist.Singleton.asJson(train)
   }
 
   // Measure test accuracy
@@ -288,7 +288,7 @@ object SamplePipelineApp extends App {
     val measure = new MeasureModel(model, testData)
     implicit val prMeasurementFormat: StringSerializable[(Double, Double, Double)] =
       tuple3ColumnFormat[Double, Double, Double](',')
-    pipeline.Persist.Collection.asText(measure, None, ".txt")
+    pipeline.Persist.Collection.asText(measure)
   }
 
   // Run the pipeline

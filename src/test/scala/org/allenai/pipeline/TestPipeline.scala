@@ -17,26 +17,27 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val pipeline = Pipeline.saveToFileSystem(outputDir)
 
     import IoHelpers._
-    pipeline.Persist.Singleton.asText(p1, Some("prod1"))
-    pipeline.Persist.Singleton.asText(p2, Some("prod2"))
-    pipeline.Persist.Singleton.asText(p3, Some("prod3"))
-    val p4Persisted = pipeline.Persist.Singleton.asText(p4, Some("prod4"))
+    val p1File = new File(pipeline.Persist.Singleton.asText(p1).artifact.url)
+    val p2File = new File(pipeline.Persist.Singleton.asText(p2).artifact.url)
+    val p3File = new File(pipeline.Persist.Singleton.asText(p3).artifact.url)
+    val p4Persisted = pipeline.Persist.Singleton.asText(p4)
+    val p4File = new File(p4Persisted.artifact.url)
 
     an[IllegalArgumentException] should be thrownBy {
       val p5 = AddOne(p4Persisted)
-      pipeline.Persist.Singleton.asText(p5, Some("prod5"))
+      pipeline.Persist.Singleton.asText(p5)
       // p5 has p4 as a dependency, but p4 has not been computed yet
       pipeline.runOnly("test", p5)
     }
 
     pipeline.runOnly("test", p1)
-    new File(outputDir, "data/prod1") should exist
-    new File(outputDir, "data/prod2") should not(exist)
+    p1File should exist
+    p2File should not(exist)
 
     pipeline.run("test")
-    new File(outputDir, "data/prod2") should exist
-    new File(outputDir, "data/prod3") should exist
-    new File(outputDir, "data/prod4") should exist
+    p2File should exist
+    p3File should exist
+    p4File should exist
 
     an[IllegalArgumentException] should be thrownBy {
       val p5 = Producer.fromMemory(5)
@@ -48,24 +49,9 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
       override def create = 5
       override def stepInfo = super.stepInfo.addParameters(("upstream", p4))
     }
-    pipeline.Persist.Singleton.asText(p5, Some("prod5"))
+    pipeline.Persist.Singleton.asText(p5)
     // p5 is persisted and its dependency exists.  All clear!
     pipeline.runOnly("test", p5)
-  }
-
-  it should "respect both relative and absolute persistence paths" in {
-    val p1 = Producer.fromMemory(1)
-    val p2 = Producer.fromMemory(2)
-
-    val outputDir = new File(scratchDir, "test2")
-    val pipeline = Pipeline.saveToFileSystem(outputDir)
-
-    import IoHelpers._
-    pipeline.Persist.Singleton.asText(p1, Some("prod1"))
-    pipeline.Persist.Singleton.asText(p2, Some(s"file://$scratchDir/absolute-path/prod2"))
-
-    pipeline.run("test")
-    new File(scratchDir, "absolute-path/prod2") should exist
   }
 
   it should "respect tmpOutput argument in runOne()" in {
@@ -75,7 +61,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val pipeline = Pipeline.saveToFileSystem(outputDir)
 
     import IoHelpers._
-    val p2 = pipeline.Persist.Singleton.asText(AddOne(p1), Some("prod2"))
+    val p2 = pipeline.Persist.Singleton.asText(AddOne(p1))
 
     val tmpOutput = new File(outputDir, "temp-output/prod2")
     pipeline.runOne(p2, Some(tmpOutput.toURI.toString))

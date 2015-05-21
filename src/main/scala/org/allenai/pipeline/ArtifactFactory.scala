@@ -16,10 +16,10 @@ object ArtifactFactory {
   }
 
   def relativeToUrl[A <: Artifact: ClassTag](
-    rootUrl: String,
+    rootUrl: URI,
     credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
   ): PartialFunction[String, A] = {
-    new URI(rootUrl) match {
+    rootUrl match {
       case url if url.getScheme == "file" || url.getScheme == null =>
         val rootDir = new File(url.getPath)
         CreateFileArtifact.relativeToDirectory[A](rootDir)

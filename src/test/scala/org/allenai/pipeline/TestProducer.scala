@@ -49,13 +49,13 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   }
 
   "PersistedProducer" should "read from file if exists" in {
-    val pStep = pipeline.Persist.Collection.asText(randomNumbers, Some("savedNumbers.txt"))
+    val pStep = pipeline.Persist.Collection.asText(randomNumbers)
 
     pStep.get should equal(pStep.get)
 
     val otherStep = cachedRandomNumbers.persisted(
       LineCollectionIo.text[Double],
-      new FileArtifact(new File(outputDir, "data/savedNumbers.txt"))
+      pStep.artifact
     )
     otherStep.get should equal(pStep.get)
   }
@@ -85,11 +85,11 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   }
 
   "PersistentCachedProducer" should "read from file if exists" in {
-    val pStep = pipeline.Persist.Collection.asText(randomNumbers, Some("savedCachedNumbers.txt"))
+    val pStep = pipeline.Persist.Collection.asText(randomNumbers)
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = pipeline.Persist.Collection.asText(randomNumbers, Some("savedCachedNumbers.txt"))
+    val otherStep = pipeline.Persist.Collection.asText(randomNumbers)
     otherStep.get should equal(pStep.get)
   }
 
@@ -106,13 +106,13 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   }
 
   "Persisted iterator" should "re-use value" in {
-    val persisted = pipeline.Persist.Iterator.asText(randomIterator, Some("randomIterator.txt"))
+    val persisted = pipeline.Persist.Iterator.asText(randomIterator)
     persisted.get.toList should equal(persisted.get.toList)
   }
 
   "Persisted iterator" should "read from file if exists" in {
-    val persisted = pipeline.Persist.Iterator.asText(randomIterator.withCachingEnabled, Some("savedCachedIterator.txt"))
-    val otherStep = pipeline.Persist.Iterator.asText(randomIterator.withCachingDisabled, Some("savedCachedIterator.txt"))
+    val persisted = pipeline.Persist.Iterator.asText(randomIterator.withCachingEnabled)
+    val otherStep = pipeline.Persist.Iterator.asText(randomIterator.withCachingDisabled)
   }
 
   "Consumed iterator" should "be called only once" in {
