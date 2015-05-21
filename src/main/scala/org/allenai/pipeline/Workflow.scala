@@ -195,7 +195,7 @@ object Workflow {
       val rightSize = maxLength - leftSize
       s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
     }
-    trimmed.replaceAll(">","&gt;").replaceAll("<","&lt;")
+    trimmed.replaceAll(">", "&gt;").replaceAll("<", "&lt;")
   }
 
 }

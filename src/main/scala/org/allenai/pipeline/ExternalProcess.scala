@@ -3,11 +3,11 @@ package org.allenai.pipeline
 import org.allenai.common.Resource
 import org.allenai.pipeline.ExternalProcess._
 
-import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.commons.io.{ FileUtils, IOUtils }
 
 import scala.collection.JavaConverters._
 
-import java.io.{ByteArrayInputStream, File, FileWriter, InputStream}
+import java.io.{ ByteArrayInputStream, File, FileWriter, InputStream }
 import java.nio.file.Files
 import java.util.UUID
 
@@ -20,22 +20,21 @@ import java.util.UUID
   *                        Examples:
   *                        StringToken("cp") InputFileToken("src") OutputFileToken("target")
   *                        StringToken("python") InputFileToken("script") StringToken("-o") OutputFileToken("output")
-  * @param inputs A set of named input data resources.
-  *               They must exist somewhere, but do not need to exist on the local filesystem.
-  *               They will be copied into a scratch directory for use by the command
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
-  def run(inputs: Map[String, () => InputStream] = Map(),
-    stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)) = {
+  def run(
+    inputs: Map[String, () => InputStream] = Map(),
+    stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)
+  ) = {
     {
       val inputNames = inputs.map(_._1).toSet
-      val inputTokenNames = commandTokens.collect { case InputFileToken(name) => name}.toSet
+      val inputTokenNames = commandTokens.collect { case InputFileToken(name) => name }.toSet
       val unusedInputs = inputNames -- inputTokenNames
       require(unusedInputs.size == 0, s"The following inputs are not used: [${unusedInputs.mkString(",")}}]")
       val unboundTokens = inputTokenNames -- inputNames
       require(unboundTokens.size == 0, s"The following input tokens were not found: [${unboundTokens.mkString(",")}}]")
-      val outputNames = commandTokens.collect { case OutputFileToken(name) => name}.toSet
+      val outputNames = commandTokens.collect { case OutputFileToken(name) => name }.toSet
       require(inputNames.size == inputs.size, "Names of inputs must be unique")
       require((inputNames ++ outputNames).size == inputs.size + outputNames.size, "Cannot share names between inputs and outputs")
       require(((inputNames ++ outputNames) intersect Set("stderr", "stdout")).isEmpty, "Cannot use 'stderr' or 'stdout' for name")
@@ -68,7 +67,7 @@ class ExternalProcess(val commandTokens: CommandToken*) {
     out.close()
     err.close()
 
-    val outputNames = commandTokens.collect { case OutputFileToken(name) => name}
+    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
 
     val outputStreams = for (name <- outputNames) yield {
       (name, StreamIo.read(new FileArtifact(new File(scratchDir, name))))
@@ -105,11 +104,12 @@ object ExternalProcess {
   case class OutputFileToken(name: String) extends CommandToken
 
   def apply(
-    commandTokens: CommandToken*)(
+    commandTokens: CommandToken*
+  )(
     inputs: Map[String, Producer[() => InputStream]] = Map(),
     requireStatusCode: Iterable[Int] = List(0)
-    ): CommandOutputComponents = {
-    val outputNames = commandTokens.collect { case OutputFileToken(name) => name}
+  ): CommandOutputComponents = {
+    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
     val processCmd = new RunExternalProcess(commandTokens, inputs)
     val baseName = processCmd.stepInfo.className
     val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
@@ -129,7 +129,7 @@ class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, P
     new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
   }
 
-  val parameters = inputs.map { case (name, src) => (name, src)}.toList
+  val parameters = inputs.map { case (name, src) => (name, src) }.toList
 
   override def stepInfo = {
     val cmd = commandTokens.map {
@@ -145,10 +145,11 @@ class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, P
 }
 
 class ExtractOutputComponent(
-  name: String,
-  f: CommandOutput => () => InputStream,
-  processCmd: Producer[CommandOutput],
-  requireStatusCode: Iterable[Int] = List(0)) extends Producer[() => InputStream] {
+    name: String,
+    f: CommandOutput => () => InputStream,
+    processCmd: Producer[CommandOutput],
+    requireStatusCode: Iterable[Int] = List(0)
+) extends Producer[() => InputStream] {
   override protected def create: () => InputStream = {
     val result = processCmd.get
     result match {
@@ -176,89 +177,88 @@ class ExtractOutputComponent(
   }
 }
 
+object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
+  override def read(artifact: FlatArtifact): () => InputStream =
+    () => artifact.read
 
-  object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
-    override def read(artifact: FlatArtifact): () => InputStream =
-      () => artifact.read
-
-    override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
-      artifact.write { writer =>
-        val buffer = new Array[Byte](16384)
-        Resource.using(data()) { is =>
-          Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
-            writer.write(buffer, 0, n))
-        }
+  override def write(data: () => InputStream, artifact: FlatArtifact): Unit = {
+    artifact.write { writer =>
+      val buffer = new Array[Byte](16384)
+      Resource.using(data()) { is =>
+        Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
+          writer.write(buffer, 0, n))
       }
     }
-
-    override def stepInfo: PipelineStepInfo = PipelineStepInfo(className = "SerializeDataStream")
   }
 
-  /** Binary data that is assumed to never change.
-    * Appropriate for: data in which the URL uniquely determines the content
-    */
-  object StaticResource {
-    def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-      new Producer[() => InputStream] with Ai2SimpleStepInfo {
-        override def create = StreamIo.read(artifact)
+  override def stepInfo: PipelineStepInfo = PipelineStepInfo(className = "SerializeDataStream")
+}
 
-        override def stepInfo =
-          super.stepInfo.copy(className = "StaticResource")
-            .copy(outputLocation = Some(artifact.url))
-            .addParameters("src" -> artifact.url)
-      }
-  }
+/** Binary data that is assumed to never change.
+  * Appropriate for: data in which the URL uniquely determines the content
+  */
+object StaticResource {
+  def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
+    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+      override def create = StreamIo.read(artifact)
 
-  /** Binary data that is allowed to change.
-    * A hash of the contents will be computed
-    * to determine whether to rerun downstream pipeline steps
-    * Appropriate for: scripts, local resources used during development
-    */
-  object DynamicResource {
-    def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-      new Producer[() => InputStream] with Ai2SimpleStepInfo {
-        lazy val contentHash = {
-          var hash = 0L
-          val buffer = new Array[Byte](16384)
-          Resource.using(artifact.read) { is =>
-            Iterator.continually(is.read(buffer)).takeWhile(_ != -1)
-              .foreach(n => buffer.take(n).foreach(b => hash = hash * 31 + b))
-          }
-          hash.toHexString
+      override def stepInfo =
+        super.stepInfo.copy(className = "StaticResource")
+          .copy(outputLocation = Some(artifact.url))
+          .addParameters("src" -> artifact.url)
+    }
+}
+
+/** Binary data that is allowed to change.
+  * A hash of the contents will be computed
+  * to determine whether to rerun downstream pipeline steps
+  * Appropriate for: scripts, local resources used during development
+  */
+object DynamicResource {
+  def apply(artifact: FlatArtifact): Producer[() => InputStream] =
+    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+      lazy val contentHash = {
+        var hash = 0L
+        val buffer = new Array[Byte](16384)
+        Resource.using(artifact.read) { is =>
+          Iterator.continually(is.read(buffer)).takeWhile(_ != -1)
+            .foreach(n => buffer.take(n).foreach(b => hash = hash * 31 + b))
         }
-
-        override def create = StreamIo.read(artifact)
-
-        override def stepInfo =
-          super.stepInfo.addParameters("contentHash" -> contentHash)
-            .copy(className = "DynamicResource")
-            .copy(outputLocation = Some(artifact.url))
-            .addParameters("src" -> artifact.url)
-
+        hash.toHexString
       }
-  }
 
-  /** Binary data that is assumed to change every time it is accessed
-    * Appropriate for: non-deterministic queries
-    */
-  object VolatileResource {
-    def apply[A <: FlatArtifact](artifact: A): Producer[() => InputStream] =
-      new Producer[() => InputStream] with Ai2SimpleStepInfo {
-        override def create = StreamIo.read(artifact)
+      override def create = StreamIo.read(artifact)
 
-        override def stepInfo =
-          super.stepInfo.addParameters("guid" -> UUID.randomUUID().toString)
-            .copy(className = "VolatileResource")
-            .copy(outputLocation = Some(artifact.url))
-            .addParameters("src" -> artifact.url)
-      }
-  }
+      override def stepInfo =
+        super.stepInfo.addParameters("contentHash" -> contentHash)
+          .copy(className = "DynamicResource")
+          .copy(outputLocation = Some(artifact.url))
+          .addParameters("src" -> artifact.url)
 
-  case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
+    }
+}
 
-  case class CommandOutputComponents(
-    stdout: Producer[() => InputStream],
-    stderr: Producer[() => InputStream],
-    outputs: Map[String, Producer[() => InputStream]]
-    )
+/** Binary data that is assumed to change every time it is accessed
+  * Appropriate for: non-deterministic queries
+  */
+object VolatileResource {
+  def apply(artifact: FlatArtifact): Producer[() => InputStream] =
+    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+      override def create = StreamIo.read(artifact)
+
+      override def stepInfo =
+        super.stepInfo.addParameters("guid" -> UUID.randomUUID().toString)
+          .copy(className = "VolatileResource")
+          .copy(outputLocation = Some(artifact.url))
+          .addParameters("src" -> artifact.url)
+    }
+}
+
+case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
+
+case class CommandOutputComponents(
+  stdout: Producer[() => InputStream],
+  stderr: Producer[() => InputStream],
+  outputs: Map[String, Producer[() => InputStream]]
+)
 

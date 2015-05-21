@@ -23,8 +23,8 @@ object TrainModelViaPythonPipeline extends App {
       OutputFileToken("modelFile"),
       "-data",
       InputFileToken("trainingData")
-      )(inputs =
-      Map("trainingData" -> trainData, "script" -> new FileArtifact(new File(inputDir, "trainModel.py"))))
+    )(inputs =
+        Map("trainingData" -> trainData, "script" -> new FileArtifact(new File(inputDir, "trainModel.py"))))
 
   // Capture the output of the process and persist it
   val modelFile = pipeline.persist(trainModel.outputs("modelFile"), StreamIo)
@@ -38,9 +38,11 @@ object TrainModelViaPythonPipeline extends App {
       InputFileToken("modelFile"),
       "-data",
       InputFileToken("testDataFile")
-    )(inputs = Map("script" -> new FileArtifact(new File(inputDir, "scoreModel.py")),
-      "modelFile" -> modelFile,
-      "testDataFile" -> testData))
+    )(inputs = Map(
+        "script" -> new FileArtifact(new File(inputDir, "scoreModel.py")),
+        "modelFile" -> modelFile,
+        "testDataFile" -> testData
+      ))
 
   pipeline.persist(measureModel.outputs("prFile"), StreamIo)
 

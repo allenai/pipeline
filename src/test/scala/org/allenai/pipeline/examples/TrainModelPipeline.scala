@@ -61,8 +61,10 @@ object TrainModelPipeline extends App {
 
       // The final format is <label><tab><feature-list>
       implicit val trainingPointFormat = columnFormat2(TrainingPoint, '\t')
-      (pipeline.Persist.Collection.asText(trainData),
-        pipeline.Persist.Collection.asText(testData))
+      (
+        pipeline.Persist.Collection.asText(trainData),
+        pipeline.Persist.Collection.asText(testData)
+      )
     }
 
     (trainDataPersisted, testDataPersisted)

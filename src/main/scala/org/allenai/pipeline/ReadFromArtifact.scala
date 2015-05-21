@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
 case class ReadFromArtifact[T, A <: Artifact](
-  reader: Deserializer[T, A],
-  val artifact: A
-  ) extends Producer[T] {
+    reader: Deserializer[T, A],
+    val artifact: A
+) extends Producer[T] {
   def create: T = {
     executionMode = ReadFromDisk
     require(artifact.exists, s"$artifact does not exist")
@@ -12,6 +12,7 @@ case class ReadFromArtifact[T, A <: Artifact](
 
   override def stepInfo =
     reader.stepInfo.copy(
-      outputLocation = Some(artifact.url))
+      outputLocation = Some(artifact.url)
+    )
       .addParameters("src" -> artifact.url)
 }

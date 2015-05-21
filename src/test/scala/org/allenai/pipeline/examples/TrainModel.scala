@@ -6,11 +6,10 @@ import scala.util.Random
 
 import java.io.InputStream
 
-/**
- * Classes for use in model-training pipeline
- */
+/** Classes for use in model-training pipeline
+  */
 case class TrainModel(trainingData: Producer[Iterable[TrainingPoint]])
-  extends Producer[TrainedModel] with Ai2StepInfo {
+    extends Producer[TrainedModel] with Ai2StepInfo {
   def create: TrainedModel = {
     val dataRows = trainingData.get
     train(dataRows) // Run training algorithm on training data
@@ -25,14 +24,13 @@ case class TrainModel(trainingData: Producer[Iterable[TrainingPoint]])
 case class TrainedModel(info: String)
 
 case class JoinAndSplitData(
-  features: Producer[Iterable[Array[Double]]],
-  labels: Producer[Iterable[Boolean]],
-  testSizeRatio: Double
-  ) extends Producer[(Iterable[TrainingPoint], Iterable[TrainingPoint])] with Ai2StepInfo {
+    features: Producer[Iterable[Array[Double]]],
+    labels: Producer[Iterable[Boolean]],
+    testSizeRatio: Double
+) extends Producer[(Iterable[TrainingPoint], Iterable[TrainingPoint])] with Ai2StepInfo {
   def create = {
     val data =
-      for ((label, features) <- labels.get.zip(features.get)) yield
-        TrainingPoint(label, features)
+      for ((label, features) <- labels.get.zip(features.get)) yield TrainingPoint(label, features)
     val testSize = math.round(testSizeRatio * data.size).toInt
     (data.drop(testSize), data.take(testSize))
   }
@@ -41,7 +39,7 @@ case class JoinAndSplitData(
 }
 
 object ParseDocumentsFromXML extends Deserializer[Iterator[ParsedDocument], StructuredArtifact]
-with Ai2SimpleStepInfo {
+    with Ai2SimpleStepInfo {
   def read(a: StructuredArtifact): Iterator[ParsedDocument] = {
     for ((id, is) <- a.reader.readAll) yield parse(id, is)
   }
@@ -54,7 +52,7 @@ with Ai2SimpleStepInfo {
 case class ParsedDocument(info: String)
 
 case class FeaturizeDocuments(documents: Producer[Iterator[ParsedDocument]])
-  extends Producer[Iterable[Array[Double]]] with Ai2StepInfo {
+    extends Producer[Iterable[Array[Double]]] with Ai2StepInfo {
   def create: Iterable[Array[Double]] = {
     val features = for (doc <- documents.get) yield {
       val rand = new Random
@@ -69,9 +67,9 @@ case class TrainingPoint(label: Boolean, features: Array[Double])
 case class PR(precision: Double, recall: Double, threshold: Double)
 
 case class MeasureModel(
-  val model: Producer[TrainedModel],
-  val testData: Producer[Iterable[TrainingPoint]]
-  ) extends Producer[Iterable[PR]] with Ai2StepInfo {
+    val model: Producer[TrainedModel],
+    val testData: Producer[Iterable[TrainingPoint]]
+) extends Producer[Iterable[PR]] with Ai2StepInfo {
   def create = {
     model.get
     // Just generate some dummy data
@@ -90,5 +88,4 @@ case class MeasureModel(
 
   override val description = "Measure the model."
 }
-
 
