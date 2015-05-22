@@ -1,10 +1,16 @@
 package org.allenai.pipeline
 
+import java.io.File
+import java.net.URI
+import java.text.SimpleDateFormat
+import java.util.Date
+
+import com.amazonaws.auth.BasicAWSCredentials
+import com.typesafe.config.Config
 import org.allenai.common.Config._
 import org.allenai.common.Logging
+import org.allenai.pipeline.ArtifactFactory.{ FromAbsoluteFileUrl, FromAbsoluteS3Url, FromRelativeFilePath, FromRelativeS3Path }
 import org.allenai.pipeline.IoHelpers._
-
-import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
@@ -12,13 +18,8 @@ import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
-import java.io.File
-import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.Date
-
 /** A fully-configured end-to-end pipeline */
-class Pipeline extends Logging {
+class Pipeline(artifactFactory: ArtifactFactory) extends Logging {
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
   def run(title: String) = {
@@ -98,10 +99,8 @@ class Pipeline extends Logging {
     * The type tag determines the type of the Artifact, which may be an abstract type
     * The location is implementat
     */
-  def createArtifact[A <: Artifact: ClassTag](path: String): A = {
-    val fn = tryCreateArtifact[A]
-    ArtifactFactory(fn)(path)
-  }
+  def createArtifact[A <: Artifact: ClassTag](path: String): A =
+    artifactFactory.createArtifact[A](path)
 
   def runOne[T, A <: Artifact: ClassTag](target: PersistedProducer[T, A], outputLocationOverride: Option[String] = None) = {
     val targetWithOverriddenLocation: Producer[T] =
@@ -240,39 +239,26 @@ class Pipeline extends Logging {
     List()
   }
 
-  val awsCredentials = S3Config.environmentCredentials _
-
-  protected[this] def tryCreateArtifact[A <: Artifact: ClassTag]: PartialFunction[String, A] =
-    ArtifactFactory.fromUrl[A](awsCredentials)
-
   protected[this] val persistedSteps: ListBuffer[Producer[_]] = ListBuffer()
-
 }
 
 object Pipeline {
-  def saveToFileSystem(rootDir: File) = new Pipeline {
-    override def tryCreateArtifact[A <: Artifact: ClassTag] =
-      CreateFileArtifact.relativeToDirectory[A](rootDir) orElse
-        super.tryCreateArtifact[A]
+  def saveToFileSystem(rootDir: File) = {
+    val artifactFactory = new FromRelativeFilePath(rootDir, new FromAbsoluteFileUrl())
+    new Pipeline(artifactFactory)
   }
 
-  def saveToS3(cfg: S3Config, rootPath: String) = new Pipeline {
-    override def tryCreateArtifact[A <: Artifact: ClassTag] =
-      CreateS3Artifact.relativeToUrl[A](cfg, rootPath) orElse
-        super.tryCreateArtifact[A]
+  def saveToS3(cfg: S3Config, rootPath: String) = {
+    val artifactFactory = new FromRelativeS3Path(rootPath, cfg, new FromAbsoluteS3Url(cfg.credentials))
+    new Pipeline(artifactFactory)
   }
 }
 
-class ConfiguredPipeline(val config: Config) extends Pipeline {
-
-  override protected[this] def tryCreateArtifact[A <: Artifact: ClassTag]: PartialFunction[String, A] = {
-    val createRelativeArtifact: PartialFunction[String, A] =
-      config.get[String]("output.dir") match {
-        case Some(s) => ArtifactFactory.relativeToUrl(new URI(s), awsCredentials)
-        case None => PartialFunction.empty
-      }
-    createRelativeArtifact orElse super.tryCreateArtifact[A]
-  }
+class ConfiguredPipeline(
+  val config: Config,
+  credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
+)
+    extends Pipeline(foo.bar(config)) {
 
   protected[this] val persistedStepsByConfigKey =
     scala.collection.mutable.Map.empty[String, Producer[_]]
@@ -281,8 +267,9 @@ class ConfiguredPipeline(val config: Config) extends Pipeline {
 
   protected[this] def tmpOutputOverride[A <: Artifact: ClassTag](stepName: String) = {
     if (isRunOnlyStep(stepName)) {
-      config.get[String]("tmpOutput").map { s =>
-        ArtifactFactory.relativeToUrl[A](new URI(s), awsCredentials)
+      config.get[String]("tmpOutput").map {
+        s =>
+          ArtifactFactory.relativeToUrl[A](new URI(s), credentials).tryCreateArtifact[A]
       }
         .getOrElse(PartialFunction.empty)
     } else {
@@ -304,9 +291,13 @@ class ConfiguredPipeline(val config: Config) extends Pipeline {
                 val matches = matchedNames.map(persistedStepsByConfigKey)
                 runOnly(rawTitle, matches.toList: _*)
               case 1 =>
-                sys.error(s"Unknown step name: ${unmatchedNames.head}")
+                sys.error(s"Unknown step name: ${
+                  unmatchedNames.head
+                }")
               case _ =>
-                sys.error(s"Unknown step names: [${unmatchedNames.mkString(",")}]")
+                sys.error(s"Unknown step names: [${
+                  unmatchedNames.mkString(",")
+                }]")
             }
           case _ => super.run(rawTitle)
         }
@@ -328,7 +319,8 @@ class ConfiguredPipeline(val config: Config) extends Pipeline {
           p
         case path: String if path != "false" =>
           val p =
-            if (new URI(path).getScheme != null) { // Absolute URL
+            if (new URI(path).getScheme != null) {
+              // Absolute URL
               persistAndAddToTargets(original, io, createArtifact[A](path))
             } else {
               persist(original, io, suffix, tmpOutputOverride(stepName))
@@ -393,5 +385,14 @@ class ConfiguredPipeline(val config: Config) extends Pipeline {
     }
 
   }
-
 }
+
+object foo {
+  def bar(config: Config) = {
+    config.get[String]("output.dir") match {
+      case Some(s) => ArtifactFactory.relativeToUrl(new URI(s))
+      case None => ArtifactFactory.fromUrl()
+    }
+  }
+}
+

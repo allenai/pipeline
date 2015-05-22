@@ -87,17 +87,13 @@ object IoHelpers extends ColumnFormats {
   implicit def asFlatArtifact(url: URI)(
     implicit
     credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
-  ) = {
-    val fn = ArtifactFactory.fromUrl[FlatArtifact](credentials)
-    fn(url.toString)
-  }
+  ) =
+    ArtifactFactory.fromUrl(credentials).createArtifact[FlatArtifact](url.toString)
   implicit def asStructuredArtifact(url: URI)(
     implicit
     credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
-  ) = {
-    val fn = ArtifactFactory.fromUrl[StructuredArtifact](credentials)
-    fn(url.toString)
-  }
+  ) =
+    ArtifactFactory.fromUrl(credentials).createArtifact[StructuredArtifact](url.toString)
 
   implicit def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
     new StringSerializable[T] {
