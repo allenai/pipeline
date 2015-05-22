@@ -84,16 +84,10 @@ object IoHelpers extends ColumnFormats {
     case _ => new ZipFileArtifact(f)
   }
   implicit def asProducer[T](x: T) = Producer.fromMemory(x)
-  implicit def asFlatArtifact(url: URI)(
-    implicit
-    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
-  ) =
-    ArtifactFactory.fromUrl(credentials).createArtifact[FlatArtifact](url.toString)
-  implicit def asStructuredArtifact(url: URI)(
-    implicit
-    credentials: () => BasicAWSCredentials = S3Config.environmentCredentials
-  ) =
-    ArtifactFactory.fromUrl(credentials).createArtifact[StructuredArtifact](url.toString)
+  implicit def asFlatArtifact(url: URI) =
+    UrlToArtifact.fromUrl().urlToArtifact[FlatArtifact].apply(url)
+  implicit def asStructuredArtifact(url: URI) =
+    UrlToArtifact.fromUrl().urlToArtifact[StructuredArtifact].apply(url)
 
   implicit def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
     new StringSerializable[T] {
