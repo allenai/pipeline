@@ -2,10 +2,15 @@ import Dependencies._
 
 import ReleaseKeys._
 
-val pipeline = Project(
-  id = "allenai-pipeline",
-  base = file(".")
+val core = Project(
+  id = "core",
+  base = file("core")
 )
+
+val s3 = Project(
+  id = "s3",
+  base = file("s3")
+).dependsOn(core)
 
 organization := "org.allenai"
 crossScalaVersions := Seq("2.11.5")
@@ -47,11 +52,11 @@ releaseVersion := { ver =>
 
 dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"
 
-libraryDependencies ++= Seq(
-  sprayJson,
-  awsJavaSdk,
-  commonsIO,
-  ai2Common,
-  allenAiTestkit % "test",
-  scalaReflection
-)
+//libraryDependencies ++= Seq(
+//  sprayJson,
+//  awsJavaSdk,
+//  commonsIO,
+//  ai2Common,
+//  allenAiTestkit % "test",
+//  scalaReflection
+//)
