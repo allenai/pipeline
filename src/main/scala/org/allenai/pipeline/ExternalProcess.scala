@@ -82,17 +82,6 @@ class ExternalProcess(val commandTokens: CommandToken*) {
 
 object ExternalProcess {
 
-  import scala.language.implicitConversions
-
-  implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]) = {
-    p.copy(create = () =>
-      StreamIo.read(p.artifact.asInstanceOf[FlatArtifact]))
-  }
-
-  implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A) = StaticResource(artifact)
-
-  implicit def convertToToken(s: String) = StringToken(s)
-
   sealed trait CommandToken {
     def name: String
   }
@@ -102,6 +91,17 @@ object ExternalProcess {
   case class InputFileToken(name: String) extends CommandToken
 
   case class OutputFileToken(name: String) extends CommandToken
+
+  import scala.language.implicitConversions
+
+  implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]): Producer[() => InputStream] = {
+    p.copy(create = () =>
+      StreamIo.read(p.artifact.asInstanceOf[FlatArtifact]))
+  }
+
+  implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A): Producer[() => InputStream] = StaticResource(artifact)
+
+  implicit def convertToToken(s: String): StringToken = StringToken(s)
 
   def apply(
     commandTokens: CommandToken*

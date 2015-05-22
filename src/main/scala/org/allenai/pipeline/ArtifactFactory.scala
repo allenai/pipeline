@@ -26,7 +26,7 @@ object ArtifactFactory {
         else
           UrlToArtifact.chain(fromUrl, fallbacks.head, fallbacks.tail: _*)
       def createArtifact[A <: Artifact: ClassTag](path: String): A = {
-        var fn = combinedFromUrl.urlToArtifact[A]
+        val fn = combinedFromUrl.urlToArtifact[A]
         val url = new URI(path)
         val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
         require(fn.isDefinedAt(url), s"Cannot create $clazz from $path")

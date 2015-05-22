@@ -90,7 +90,7 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   override def exists: Boolean = {
     val result = try {
-      val resp = service.getObjectMetadata(config.bucket, path)
+      service.getObjectMetadata(config.bucket, path)
       true
     } catch {
       case e: AmazonServiceException if e.getStatusCode == 404 => false

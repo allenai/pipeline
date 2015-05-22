@@ -91,7 +91,7 @@ trait StructuredArtifact extends Artifact {
   */
 class ArtifactStreamWriter(out: OutputStream) {
   def write(data: Array[Byte]): Unit = {
-    out.write(data, 0, data.size)
+    out.write(data, 0, data.length)
   }
 
   def write(data: Array[Byte], offset: Int, size: Int): Unit = {

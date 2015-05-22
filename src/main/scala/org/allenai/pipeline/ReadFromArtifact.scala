@@ -2,7 +2,7 @@ package org.allenai.pipeline
 
 case class ReadFromArtifact[T, A <: Artifact](
     reader: Deserializer[T, A],
-    val artifact: A
+    artifact: A
 ) extends Producer[T] {
   def create: T = {
     executionMode = ReadFromDisk

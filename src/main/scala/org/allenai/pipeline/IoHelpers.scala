@@ -1,12 +1,11 @@
 package org.allenai.pipeline
 
-import com.amazonaws.auth.BasicAWSCredentials
+import java.io.File
+import java.net.URI
+
 import spray.json._
 
 import scala.reflect.ClassTag
-
-import java.io.File
-import java.net.URI
 
 /** Utility methods for Artifact reading/writing.  */
 object IoHelpers extends ColumnFormats {

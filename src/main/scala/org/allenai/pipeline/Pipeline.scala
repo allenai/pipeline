@@ -229,7 +229,7 @@ class Pipeline(artifactFactory: ArtifactFactory = ArtifactFactory(UrlToArtifact.
 
     val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
     val signatureFormat = Signature.jsonWriter
-    val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
+    val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toJson
     signatureArtifact.write {
       writer => writer.write(signatures.prettyPrint)
     }
