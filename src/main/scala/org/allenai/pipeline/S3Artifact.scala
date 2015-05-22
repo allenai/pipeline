@@ -10,7 +10,7 @@ import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata
 import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URI
 
-case class S3Config(bucket: String, credentials: BasicAWSCredentials) {
+case class S3Config(bucket: String, credentials: BasicAWSCredentials = S3Config.environmentCredentials()) {
   @transient
   lazy val service = new AmazonS3Client(credentials)
 }
@@ -22,7 +22,6 @@ object S3Config {
     val secretKey = credentials.getAWSSecretKey
     new BasicAWSCredentials(accessKey, secretKey)
   }
-  def apply(bucket: String) = new S3Config(bucket, environmentCredentials())
 }
 
 /** Artifact implementations using S3 storage. */

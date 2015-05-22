@@ -18,7 +18,7 @@ import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 /** A fully-configured end-to-end pipeline */
-class Pipeline(artifactFactory: ArtifactFactory) extends Logging {
+class Pipeline(artifactFactory: ArtifactFactory = ArtifactFactory(UrlToArtifact.absoluteUrl())) extends Logging {
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
   def run(title: String) = {
@@ -242,13 +242,15 @@ class Pipeline(artifactFactory: ArtifactFactory) extends Logging {
 }
 
 object Pipeline {
+  // Create a Pipeline that writes output to the given directory
   def saveToFileSystem(rootDir: File) = {
-    val artifactFactory = ArtifactFactory(new FromRelativeFilePath(rootDir), FromAbsoluteFileUrl)
+    val artifactFactory = ArtifactFactory(relativeFile(rootDir), absoluteFile)
     new Pipeline(artifactFactory)
   }
 
+  // Create a Pipeline that writes output to the given root path in S3
   def saveToS3(cfg: S3Config, rootPath: String) = {
-    val artifactFactory = ArtifactFactory(new FromRelativeS3Path(cfg, rootPath), new FromAbsoluteS3Url(cfg.credentials))
+    val artifactFactory = ArtifactFactory(relativeS3(cfg, rootPath), absoluteS3(cfg.credentials))
     new Pipeline(artifactFactory)
   }
 }
@@ -266,6 +268,9 @@ class ConfiguredPipeline(
         .map(baseUrlResolver)
         .getOrElse(UrlToArtifact.Empty)
     )
+
+  override def createArtifact[A <: Artifact: ClassTag](path: String): A =
+    artifactFactory.createArtifact[A](path)
 
   protected[this] val persistedStepsByConfigKey =
     scala.collection.mutable.Map.empty[String, Producer[_]]
