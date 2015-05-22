@@ -67,6 +67,17 @@ class ExternalProcess(val commandTokens: CommandToken*) {
     out.close()
     err.close()
 
+    commandTokens.foreach {
+      case OutputFileToken(name) =>
+        val fOut = new File(scratchDir, name)
+        if(!fOut.exists()) {
+          val stCmd = cmd.mkString(" ")
+          throw new RuntimeException(
+            f"Script should have written an output file at:${fOut.getCanonicalPath}\n  command=$stCmd")
+        }
+      case _ =>
+    }
+
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
 
     val outputStreams = for (name <- outputNames) yield {
