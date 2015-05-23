@@ -103,7 +103,7 @@ object ExternalProcess {
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
 
-  def apply(
+  def a(
     commandTokens: CommandToken*
   )(
     inputs: Map[String, Producer[() => InputStream]] = Map(),
