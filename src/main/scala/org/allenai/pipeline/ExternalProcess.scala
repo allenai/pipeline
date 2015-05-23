@@ -135,8 +135,7 @@ class RunExternalProcess private (commandTokens: Seq[CommandToken], inputs: Map[
 object RunExternalProcess {
   import ExternalProcess.CommandOutput
 
-  // belongs to RunExternalProcess
-  def a(
+  def apply(
          commandTokens: CommandToken*
          )(
          inputs: Map[String, Producer[() => InputStream]] = Map(),
