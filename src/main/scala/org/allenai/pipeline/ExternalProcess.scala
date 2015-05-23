@@ -105,6 +105,10 @@ object ExternalProcess {
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
 
+  case class CommandOutput(returnCode: Int,
+                           stdout: () => InputStream,
+                           stderr: () => InputStream,
+                           outputs: Map[String, () => InputStream])
 }
 
 // Pattern: Name Producer subclasses with a verb.
@@ -129,6 +133,8 @@ class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, P
   }
 }
 object RunExternalProcess {
+  import ExternalProcess.CommandOutput
+
   // belongs to RunExternalProcess
   def a(
          commandTokens: CommandToken*
@@ -149,40 +155,42 @@ object RunExternalProcess {
       }
     CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
-}
 
-class ExtractOutputComponent(
-    name: String,
-    f: CommandOutput => () => InputStream,
-    processCmd: Producer[CommandOutput],
-    requireStatusCode: Iterable[Int] = List(0)
-) extends Producer[() => InputStream] {
-  override protected def create: () => InputStream = {
-    val result = processCmd.get
-    result match {
-      case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
-        f(result)
-      case CommandOutput(status, _, stderr, _) =>
-        val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
-        sys.error(s"Command ${processCmd.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
-    }
-    f(processCmd.get)
-  }
 
-  override def stepInfo: PipelineStepInfo =
-    PipelineStepInfo(className = name)
-      .addParameters("cmd" -> processCmd)
-
-  def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
-    val result = processCmd.get
-    result match {
-      case CommandOutput(0, _, _, _) => f(result)
-      case CommandOutput(_, _, stderr, _) =>
-        sys.error(s" Failed to run command ${processCmd.stepInfo.parameters("cmd")}: $stderr")
+  class ExtractOutputComponent(
+                                name: String,
+                                f: CommandOutput => () => InputStream,
+                                processCmd: Producer[CommandOutput],
+                                requireStatusCode: Iterable[Int] = List(0)
+                                ) extends Producer[() => InputStream] {
+    override protected def create: () => InputStream = {
+      val result = processCmd.get
+      result match {
+        case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
+          f(result)
+        case CommandOutput(status, _, stderr, _) =>
+          val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
+          sys.error(s"Command ${processCmd.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
+      }
+      f(processCmd.get)
     }
 
+    override def stepInfo: PipelineStepInfo =
+      PipelineStepInfo(className = name)
+        .addParameters("cmd" -> processCmd)
+
+    def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
+      val result = processCmd.get
+      result match {
+        case CommandOutput(0, _, _, _) => f(result)
+        case CommandOutput(_, _, stderr, _) =>
+          sys.error(s" Failed to run command ${processCmd.stepInfo.parameters("cmd")}: $stderr")
+      }
+
+    }
   }
 }
+
 
 object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
   override def read(artifact: FlatArtifact): () => InputStream =
@@ -261,11 +269,6 @@ object VolatileResource {
     }
 }
 
-// private, for ExternalProcess
-case class CommandOutput(returnCode: Int,
-                         stdout: () => InputStream,
-                         stderr: () => InputStream,
-                         outputs: Map[String, () => InputStream])
 
 // for RunExternalProcess
 case class CommandOutputComponents(
