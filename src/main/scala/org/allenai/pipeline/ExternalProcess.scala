@@ -113,7 +113,7 @@ object ExternalProcess {
 
 // Pattern: Name Producer subclasses with a verb.
 
-class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
+class RunExternalProcess private (commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
     new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
   }
