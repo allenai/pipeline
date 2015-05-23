@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import java.io.{ FileWriter, PrintWriter, File }
+import java.io.{InputStream, FileWriter, PrintWriter, File}
 
 import org.allenai.common.Resource
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
@@ -31,6 +31,52 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
         .outputs("target").persisted(StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
+  }
+
+  def ppVersionHistTest(pipeline: Pipeline, vh1 : Seq[String]):
+    ( PersistedProducer[() => InputStream, FlatArtifact]) =
+  {
+    val touchFile1 =
+      RunExternalProcess("touch", OutputFileToken("target"))(
+        versionHistory = vh1
+      ).outputs("target")
+    pipeline.persist(touchFile1, StreamIo)
+  }
+
+  it should "cache when versionHistory is equal" in {
+    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pp1 = ppVersionHistTest(pipeline, Seq("v1.0"))
+    val pp2 = ppVersionHistTest(pipeline, Seq("v1.0"))
+    pipeline.run("versioning test")
+
+    pp1.artifact.url.getRawPath() should equal(pp2.artifact.url.getRawPath())
+  }
+
+  it should "recompute when versionHistory is unequal" in {
+    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pp1 = ppVersionHistTest(pipeline, Seq("v1.0"))
+    val pp2 = ppVersionHistTest(pipeline, Seq("v1.1"))
+    pipeline.run("versioning test")
+
+    pp1.artifact.url.getRawPath() should not equal(pp2.artifact.url.getRawPath())
+  }
+
+  it should "only account for the last element of versionHistory" in {
+    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pp1 = ppVersionHistTest(pipeline, Seq("v1.1"))
+    val pp2 = ppVersionHistTest(pipeline, Seq("v1.0","v1.1"))
+    pipeline.run("versioning test")
+
+    pp1.artifact.url.getRawPath() should equal(pp2.artifact.url.getRawPath())
+  }
+
+  it should "account for the last element of versionHistory" in {
+    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pp1 = ppVersionHistTest(pipeline, Seq("v1.1"))
+    val pp2 = ppVersionHistTest(pipeline, Seq("v1.1","v1.2"))
+    pipeline.run("versioning test")
+
+    pp1.artifact.url.getRawPath() should not equal(pp2.artifact.url.getRawPath())
   }
 
   it should "capture stdout" in {
