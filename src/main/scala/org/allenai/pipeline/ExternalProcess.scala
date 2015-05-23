@@ -20,6 +20,8 @@ import java.util.UUID
   *                        Examples:
   *                        StringToken("cp") InputFileToken("src") OutputFileToken("target")
   *                        StringToken("python") InputFileToken("script") StringToken("-o") OutputFileToken("output")
+  *
+  * Producers based on ExternalProcess should be created with class RunExternalProcess.
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
@@ -103,6 +105,7 @@ object ExternalProcess {
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
 
+  // belongs to RunExternalProcess
   def a(
     commandTokens: CommandToken*
   )(
@@ -123,6 +126,8 @@ object ExternalProcess {
     CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 }
+
+// Pattern: Name Producer subclasses with a verb.
 
 class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
@@ -254,8 +259,13 @@ object VolatileResource {
     }
 }
 
-case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
+// private, for ExternalProcess
+case class CommandOutput(returnCode: Int,
+                         stdout: () => InputStream,
+                         stderr: () => InputStream,
+                         outputs: Map[String, () => InputStream])
 
+// for RunExternalProcess
 case class CommandOutputComponents(
   stdout: Producer[() => InputStream],
   stderr: Producer[() => InputStream],
