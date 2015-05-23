@@ -105,26 +105,6 @@ object ExternalProcess {
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
 
-  // belongs to RunExternalProcess
-  def a(
-    commandTokens: CommandToken*
-  )(
-    inputs: Map[String, Producer[() => InputStream]] = Map(),
-    requireStatusCode: Iterable[Int] = List(0)
-  ): CommandOutputComponents = {
-    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
-    val processCmd = new RunExternalProcess(commandTokens, inputs)
-    val baseName = processCmd.stepInfo.className
-    val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
-    val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
-    val outputStreams =
-      for (name <- outputNames) yield {
-        val outputProducer =
-          new ExtractOutputComponent(s"outputs.$name", _.outputs(name), processCmd, requireStatusCode)
-        (name, outputProducer)
-      }
-    CommandOutputComponents(stdout, stderr, outputStreams.toMap)
-  }
 }
 
 // Pattern: Name Producer subclasses with a verb.
@@ -146,6 +126,28 @@ class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, P
       .copy(className = "ExternalProcess")
       .addParameters(parameters: _*)
       .addParameters("cmd" -> cmd.mkString(" "))
+  }
+}
+object RunExternalProcess {
+  // belongs to RunExternalProcess
+  def a(
+         commandTokens: CommandToken*
+         )(
+         inputs: Map[String, Producer[() => InputStream]] = Map(),
+         requireStatusCode: Iterable[Int] = List(0)
+         ): CommandOutputComponents = {
+    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
+    val processCmd = new RunExternalProcess(commandTokens, inputs)
+    val baseName = processCmd.stepInfo.className
+    val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
+    val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
+    val outputStreams =
+      for (name <- outputNames) yield {
+        val outputProducer =
+          new ExtractOutputComponent(s"outputs.$name", _.outputs(name), processCmd, requireStatusCode)
+        (name, outputProducer)
+      }
+    CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 }
 
