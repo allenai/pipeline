@@ -18,7 +18,7 @@ import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 /** A fully-configured end-to-end pipeline */
-class Pipeline(artifactFactory: ArtifactFactory = ArtifactFactory(UrlToArtifact.absoluteUrl())) extends Logging {
+class Pipeline(artifactFactory: ArtifactFactory = ArtifactFactory(UrlToArtifact.absoluteFile)) extends Logging {
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
   def run(title: String) = {
@@ -245,12 +245,6 @@ object Pipeline {
   // Create a Pipeline that writes output to the given directory
   def saveToFileSystem(rootDir: File) = {
     val artifactFactory = ArtifactFactory(relativeFile(rootDir), absoluteFile)
-    new Pipeline(artifactFactory)
-  }
-
-  // Create a Pipeline that writes output to the given root path in S3
-  def saveToS3(cfg: S3Config, rootPath: String) = {
-    val artifactFactory = ArtifactFactory(relativeS3(cfg, rootPath), absoluteS3(cfg.credentials))
     new Pipeline(artifactFactory)
   }
 }
