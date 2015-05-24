@@ -100,22 +100,4 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
       pipeline.run("test")
     }
   }
-
-  it should "recognize tempOutputDir flag" in {
-    val outputDir = new File(scratchDir, "testRunOnly3")
-    val tempOutput = new File(outputDir, "temp-output")
-    val config = baseConfig
-      .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
-      .withValue("runOnly", ConfigValueFactory.fromAnyRef("Step3"))
-      .withValue("tmpOutput", ConfigValueFactory.fromAnyRef(tempOutput.getCanonicalPath))
-
-    // config specifies runOnly for step3 with no persisted upstream dependencies
-    val pipeline = new ConfiguredPipeline(config)
-    val step2 = AddOne(step1)
-    val step2Persisted = pipeline.optionallyPersist(AddOne(step2), "Step3", format)
-    pipeline.run("test")
-
-    val outputFile = new File(step2Persisted.asInstanceOf[PersistedProducer[Int, FlatArtifact]].artifact.url)
-    outputFile.getParentFile.getParentFile.getCanonicalFile should equal(tempOutput.getCanonicalFile)
-  }
 }

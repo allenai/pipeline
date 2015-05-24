@@ -1,20 +1,22 @@
 package org.allenai.pipeline
 
-import java.io.{ FileWriter, PrintWriter, File }
-
 import org.allenai.common.Resource
-import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 import org.allenai.pipeline.IoHelpers.Read
-import org.apache.commons.io.IOUtils
-import scala.collection.JavaConverters._
 
+import org.apache.commons.io.IOUtils
+
+import scala.collection.JavaConverters._
 import scala.io.Source
+
+import java.io.{IOException, File, FileWriter, PrintWriter}
+import java.lang.Thread.UncaughtExceptionHandler
 
 /** Created by rodneykinney on 5/14/15.
   */
 class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
-  import ExternalProcess._
+  import org.allenai.pipeline.ExternalProcess._
 
   "ExecuteShellCommand" should "return status code" in {
     val testTrue = new ExternalProcess("test", "a", "=", "a")
@@ -45,9 +47,16 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
   it should "throw an exception if command is not found" in {
     val noSuchCommand = new ExternalProcess("eccho", "hello", "world")
+    val defaultHandler = Thread.getDefaultUncaughtExceptionHandler
+    // Suppress logging of exception by background thread
+    Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler {
+      override def uncaughtException(t: Thread, e: Throwable): Unit = ()
+    })
     an[Exception] shouldBe thrownBy {
       noSuchCommand.run()
     }
+    // Restore exception handling
+    Thread.setDefaultUncaughtExceptionHandler(defaultHandler)
   }
   it should "read input files" in {
     val dir = new File(scratchDir, "testCopy")

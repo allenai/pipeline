@@ -1,36 +1,53 @@
 package org.allenai.pipeline
 
+import scala.reflect.ClassTag
+
 import java.io.File
 import java.net.URI
-
-import scala.reflect.ClassTag
 
 /** Creates an Artifact from a String
   */
 trait ArtifactFactory {
-  /** @param path The path of the Artifact.  May be a relative path or absolute URL
-    * @tparam A The type of the Artifact to create
+  /** @param url The location of the Artifact.  The scheme (protocol) is used to determine the
+    *            specific implementation.
+    * @tparam A The type of the Artifact to create.  May be an abstract or concrete type
     * @return The artifact
     */
-  def createArtifact[A <: Artifact: ClassTag](path: String): A
+  def createArtifact[A <: Artifact : ClassTag](url: URI): A
 }
 
 object ArtifactFactory {
-  def apply(fromUrl: UrlToArtifact, fallbacks: UrlToArtifact*): ArtifactFactory =
+  def apply(urlHandler: UrlToArtifact, fallbackUrlHandlers: UrlToArtifact*): ArtifactFactory =
     new ArtifactFactory {
       val combinedFromUrl =
-        if (fallbacks.size == 0)
-          fromUrl
+        if (fallbackUrlHandlers.size == 0)
+          urlHandler
         else
-          UrlToArtifact.chain(fromUrl, fallbacks.head, fallbacks.tail: _*)
-      def createArtifact[A <: Artifact: ClassTag](path: String): A = {
+          UrlToArtifact.chain(urlHandler, fallbackUrlHandlers.head, fallbackUrlHandlers.tail: _*)
+
+      def createArtifact[A <: Artifact : ClassTag](url: URI): A = {
         val fn = combinedFromUrl.urlToArtifact[A]
-        val url = new URI(path)
         val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
-        require(fn.isDefinedAt(url), s"Cannot create $clazz from $path")
+        require(fn.isDefinedAt(url), s"Cannot create $clazz from $url")
         fn(url)
       }
     }
+
+  def resolveUrl(rootUrl: URI)(s: String): URI = {
+    val parsed = new URI(s)
+    parsed.getScheme match {
+      case null =>
+        val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
+        new URI(rootUrl.getScheme,
+          rootUrl.getUserInfo,
+          rootUrl.getHost,
+          rootUrl.getPort,
+          fullPath,
+          rootUrl.getQuery,
+          rootUrl.getFragment)
+      case _ => parsed
+    }
+  }
 }
 
 /** Supports creation of a particular type of Artifact from a URL.
@@ -43,7 +60,7 @@ trait UrlToArtifact {
     * @return A PartialFunction where isDefined will return true if an Artifact of type A can
     *         be created from the given URL
     */
-  def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A]
+  def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A]
 }
 
 object UrlToArtifact {
@@ -52,7 +69,7 @@ object UrlToArtifact {
   // that are supported by the individual inputs
   def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) =
     new UrlToArtifact {
-      override def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
+      override def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
         var fn = first.urlToArtifact[A] orElse second.urlToArtifact[A]
         for (o <- others) {
           fn = fn orElse o.urlToArtifact[A]
@@ -60,14 +77,15 @@ object UrlToArtifact {
         fn
       }
     }
+
   object Empty extends UrlToArtifact {
-    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] =
+    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] =
       PartialFunction.empty[URI, A]
   }
 
   // Create a FlatArtifact or StructuredArtifact from an absolute file:// URL
-  object absoluteFile extends UrlToArtifact {
-    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
+  object handleFileUrls extends UrlToArtifact {
+    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[FileArtifact])
@@ -96,35 +114,5 @@ object UrlToArtifact {
       fn
     }
   }
-
-  // Create a FlatArtifact or StructuredArtifact from a path relative to the input rootDir
-  def relativeFile(rootDir: File) = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
-      val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
-      val fn: PartialFunction[URI, A] = {
-        case url if c.isAssignableFrom(classOf[FileArtifact])
-          && null == url.getScheme =>
-          val file = new File(rootDir, url.getPath)
-          new FileArtifact(file).asInstanceOf[A]
-        case url if c.isAssignableFrom(classOf[ZipFileArtifact])
-          && null == url.getScheme =>
-          val file = new File(rootDir, url.getPath)
-          new ZipFileArtifact(file).asInstanceOf[A]
-      }
-      fn
-    }
-  }
-
-  // Create a FlatArtifact or StructuredArtifact from a path relative to the input file:// or s3:// URL
-  def relativeToUrl[A <: Artifact: ClassTag](
-    rootUrl: URI
-  ): UrlToArtifact = {
-    rootUrl match {
-      case url if url.getScheme == "file" || url.getScheme == null =>
-        val rootDir = new File(url.getPath)
-        chain(relativeFile(rootDir), absoluteFile)
-    }
-  }
-
 }
 
