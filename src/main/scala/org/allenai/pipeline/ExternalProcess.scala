@@ -209,6 +209,21 @@ object StaticResource {
     }
 }
 
+object VersionedResource {
+  def apply[A <: FlatArtifact](artifact: A, version: String): Producer[() => InputStream] =
+    new Producer[() => InputStream] with Ai2SimpleStepInfo {
+      override def create = StreamIo.read(artifact)
+
+      override def stepInfo =
+        super.stepInfo.copy(
+          className = "VersionedResource",
+          classVersion = version
+        )
+          .copy(outputLocation = Some(artifact.url))
+          .addParameters("src" -> artifact.url)
+    }
+}
+
 /** Binary data that is allowed to change.
   * A hash of the contents will be computed
   * to determine whether to rerun downstream pipeline steps
