@@ -5,7 +5,7 @@ import scala.reflect.ClassTag
 import java.io.File
 import java.net.URI
 
-/** Creates an Artifact from a String
+/** Creates an Artifact from a URL
   */
 trait ArtifactFactory {
   /** @param url The location of the Artifact.  The scheme (protocol) is used to determine the
@@ -19,14 +19,14 @@ trait ArtifactFactory {
 object ArtifactFactory {
   def apply(urlHandler: UrlToArtifact, fallbackUrlHandlers: UrlToArtifact*): ArtifactFactory =
     new ArtifactFactory {
-      val combinedFromUrl =
+      val urlHandlerChain =
         if (fallbackUrlHandlers.size == 0)
           urlHandler
         else
           UrlToArtifact.chain(urlHandler, fallbackUrlHandlers.head, fallbackUrlHandlers.tail: _*)
 
       def createArtifact[A <: Artifact : ClassTag](url: URI): A = {
-        val fn = combinedFromUrl.urlToArtifact[A]
+        val fn = urlHandlerChain.urlToArtifact[A]
         val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
         require(fn.isDefinedAt(url), s"Cannot create $clazz from $url")
         fn(url)
@@ -39,11 +39,8 @@ object ArtifactFactory {
       case null =>
         val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
         new URI(rootUrl.getScheme,
-          rootUrl.getUserInfo,
           rootUrl.getHost,
-          rootUrl.getPort,
           fullPath,
-          rootUrl.getQuery,
           rootUrl.getFragment)
       case _ => parsed
     }

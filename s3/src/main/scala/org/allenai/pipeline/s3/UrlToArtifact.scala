@@ -34,7 +34,7 @@ object UrlToArtifact {
     }
   }
 
-  // Create a FlatArtifact or StructuredArtfact from an input file:// or s3:// URL
+  // Create a FlatArtifact or StructuredArtifact from an input file:// or s3:// URL
   def absoluteUrl(credentials: => BasicAWSCredentials = S3Config.environmentCredentials): baseUrlToArtifact =
     chain(handleFileUrls, handleS3Urls(credentials))
 }

@@ -110,7 +110,7 @@ class Pipeline(
     original: Producer[T],
     io: Serializer[T, A] with Deserializer[T, A],
     artifact: A
-    ) = {
+    ): PersistedProducer[T, A] = {
     val persisted = original.persisted(io, artifact)
     persistedSteps += persisted
     persisted
