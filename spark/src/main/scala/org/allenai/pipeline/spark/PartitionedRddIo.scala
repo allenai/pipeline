@@ -7,15 +7,16 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
-class PartitionedRddIo[T: ClassTag : StringSerializable](
-  sc: SparkContext) extends ArtifactIo[RDD[T], PartitionedRddArtifact[FlatArtifact]]
-with BasicPipelineStepInfo {
+/** Created by rodneykinney on 5/24/15.
+  */
+class PartitionedRddIo[T: ClassTag: StringSerializable](
+  sc: SparkContext
+) extends ArtifactIo[RDD[T], PartitionedRddArtifact[FlatArtifact]]
+    with BasicPipelineStepInfo {
   override def write(data: RDD[T], artifact: PartitionedRddArtifact[FlatArtifact]): Unit = {
     val makeArtifact = artifact.makePartitionArtifact
     val format = implicitly[StringSerializable[T]]
+    val x: T => String = format.toString
     val convertToString: T => String = SerializeFunction(format.toString)
     val stringRdd = data.map(convertToString)
     val savedPartitions = stringRdd.mapPartitionsWithIndex {

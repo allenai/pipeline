@@ -1,7 +1,7 @@
 package org.allenai.pipeline
 
 import org.allenai.common.Resource
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.allenai.pipeline.IoHelpers.Read
 
 import org.apache.commons.io.IOUtils
@@ -9,7 +9,7 @@ import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
 import scala.io.Source
 
-import java.io.{IOException, File, FileWriter, PrintWriter}
+import java.io.{ IOException, File, FileWriter, PrintWriter }
 import java.lang.Thread.UncaughtExceptionHandler
 
 /** Created by rodneykinney on 5/14/15.

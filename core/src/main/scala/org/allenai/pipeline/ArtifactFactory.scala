@@ -13,7 +13,7 @@ trait ArtifactFactory {
     * @tparam A The type of the Artifact to create.  May be an abstract or concrete type
     * @return The artifact
     */
-  def createArtifact[A <: Artifact : ClassTag](url: URI): A
+  def createArtifact[A <: Artifact: ClassTag](url: URI): A
 }
 
 object ArtifactFactory {
@@ -25,7 +25,7 @@ object ArtifactFactory {
         else
           UrlToArtifact.chain(urlHandler, fallbackUrlHandlers.head, fallbackUrlHandlers.tail: _*)
 
-      def createArtifact[A <: Artifact : ClassTag](url: URI): A = {
+      def createArtifact[A <: Artifact: ClassTag](url: URI): A = {
         val fn = urlHandlerChain.urlToArtifact[A]
         val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
         require(fn.isDefinedAt(url), s"Cannot create $clazz from $url")
@@ -38,10 +38,12 @@ object ArtifactFactory {
     parsed.getScheme match {
       case null =>
         val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
-        new URI(rootUrl.getScheme,
+        new URI(
+          rootUrl.getScheme,
           rootUrl.getHost,
           fullPath,
-          rootUrl.getFragment)
+          rootUrl.getFragment
+        )
       case _ => parsed
     }
   }
@@ -57,7 +59,7 @@ trait UrlToArtifact {
     * @return A PartialFunction where isDefined will return true if an Artifact of type A can
     *         be created from the given URL
     */
-  def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A]
+  def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A]
 }
 
 object UrlToArtifact {
@@ -66,7 +68,7 @@ object UrlToArtifact {
   // that are supported by the individual inputs
   def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) =
     new UrlToArtifact {
-      override def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
+      override def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
         var fn = first.urlToArtifact[A] orElse second.urlToArtifact[A]
         for (o <- others) {
           fn = fn orElse o.urlToArtifact[A]
@@ -76,7 +78,7 @@ object UrlToArtifact {
     }
 
   object Empty extends UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] =
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] =
       PartialFunction.empty[URI, A]
   }
 
@@ -85,7 +87,7 @@ object UrlToArtifact {
 object CoreArtifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute file:// URL
   val handleFileUrls: UrlToArtifact = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[FileArtifact])

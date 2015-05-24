@@ -2,11 +2,10 @@ package org.allenai.pipeline.spark
 
 import org.allenai.common.testkit.UnitSpec
 
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{ SparkConf, SparkContext }
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
+/** Created by rodneykinney on 5/24/15.
+  */
 class SparkTest extends UnitSpec {
   val sparkContext = SparkTest.sparkContext
 }

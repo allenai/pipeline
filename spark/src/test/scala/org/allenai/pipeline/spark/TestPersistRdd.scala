@@ -1,15 +1,14 @@
 package org.allenai.pipeline.spark
 
 import org.allenai.common.testkit.ScratchDirectory
-import org.allenai.pipeline.{ArtifactFactory, FlatArtifact, Producer}
+import org.allenai.pipeline.{ ArtifactFactory, FlatArtifact, Producer }
 
 import scala.util.Random
 
 import java.io.File
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
+/** Created by rodneykinney on 5/24/15.
+  */
 class TestPersistRdd extends SparkTest with ScratchDirectory {
 
   "RddProducer" should "persist correctly" in {
@@ -19,7 +18,7 @@ class TestPersistRdd extends SparkTest with ScratchDirectory {
     val pp = {
       import org.allenai.pipeline.IoHelpers._
       val af = ArtifactFactory(RddArtifacts.handleFileUrls)
-      val outputFile = new File(scratchDir,"test-persist")
+      val outputFile = new File(scratchDir, "test-persist")
       val outputArtifact = af.createArtifact[PartitionedRddArtifact[FlatArtifact]](outputFile.toURI)
       p.persisted(new PartitionedRddIo[Double](sparkContext), outputArtifact)
     }

@@ -1,6 +1,6 @@
 package org.allenai.pipeline.spark
 
-import org.allenai.pipeline.s3.{S3Config, S3FlatArtifact}
+import org.allenai.pipeline.s3.{ S3Config, S3FlatArtifact }
 
 import com.amazonaws.services.s3.model.ObjectListing
 

@@ -1,6 +1,6 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.pipeline.{Pipeline => basePipeline, UrlToArtifact, CoreArtifacts, Artifact, ArtifactFactory}
+import org.allenai.pipeline.{ Pipeline => basePipeline, UrlToArtifact, CoreArtifacts, Artifact, ArtifactFactory }
 
 import com.amazonaws.auth.BasicAWSCredentials
 
@@ -13,7 +13,7 @@ import java.net.URI
 object S3Artifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute s3:// URL
   def handleS3Urls(credentials: => BasicAWSCredentials) = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[S3FlatArtifact])

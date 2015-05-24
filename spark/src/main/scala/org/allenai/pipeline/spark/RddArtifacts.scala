@@ -10,12 +10,11 @@ import scala.reflect.ClassTag
 import java.io.File
 import java.net.URI
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
+/** Created by rodneykinney on 5/24/15.
+  */
 object RddArtifacts {
   val handleFileUrls: UrlToArtifact = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[PartitionedRddArtifact[FlatArtifact]])
@@ -30,7 +29,7 @@ object RddArtifacts {
   }
 
   def handleS3Urls(credentials: => BasicAWSCredentials): UrlToArtifact = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[PartitionedRddArtifact[_]])
