@@ -3,7 +3,6 @@ package org.allenai.pipeline
 import org.allenai.common.Config._
 import org.allenai.common.Logging
 import org.allenai.pipeline.IoHelpers._
-import org.allenai.pipeline.UrlToArtifact._
 
 import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
@@ -21,7 +20,7 @@ import java.util.Date
 /** A fully-configured end-to-end pipeline */
 class Pipeline(
   val outputRootUrl: URI = new File(System.getProperty("user.dir")).toURI,
-  artifactFactory: ArtifactFactory = ArtifactFactory(UrlToArtifact.handleFileUrls)
+  artifactFactory: ArtifactFactory = ArtifactFactory(CoreArtifacts.handleFileUrls)
   ) extends Logging {
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
@@ -259,13 +258,13 @@ class Pipeline(
 object Pipeline {
   // Create a Pipeline that writes output to the given directory
   def saveToFileSystem(rootDir: File) = {
-    new Pipeline(rootDir.toURI, ArtifactFactory(handleFileUrls))
+    new Pipeline(rootDir.toURI, ArtifactFactory(CoreArtifacts.handleFileUrls))
   }
 }
 
 class ConfiguredPipeline(
   val config: Config,
-  artifactFactory: ArtifactFactory = ArtifactFactory(handleFileUrls))
+  artifactFactory: ArtifactFactory = ArtifactFactory(CoreArtifacts.handleFileUrls))
   extends Pipeline(
     config.get[String]("output.dir").map(s => new URI(s))
       .getOrElse(new File(System.getProperty("user.dir")).toURI),

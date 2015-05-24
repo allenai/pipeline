@@ -1,6 +1,6 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.pipeline.{Artifact, ArtifactFactory, Pipeline => basePipeline, UrlToArtifact => baseUrlToArtifact}
+import org.allenai.pipeline.{Pipeline => basePipeline, UrlToArtifact, CoreArtifacts, Artifact, ArtifactFactory}
 
 import com.amazonaws.auth.BasicAWSCredentials
 
@@ -10,12 +10,9 @@ import java.net.URI
 
 /** Created by rodneykinney on 5/22/15.
   */
-object UrlToArtifact {
-
-  import org.allenai.pipeline.UrlToArtifact._
-
+object S3Artifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute s3:// URL
-  def handleS3Urls(credentials: => BasicAWSCredentials) = new baseUrlToArtifact {
+  def handleS3Urls(credentials: => BasicAWSCredentials) = new UrlToArtifact {
     def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
@@ -35,15 +32,15 @@ object UrlToArtifact {
   }
 
   // Create a FlatArtifact or StructuredArtifact from an input file:// or s3:// URL
-  def absoluteUrl(credentials: => BasicAWSCredentials = S3Config.environmentCredentials): baseUrlToArtifact =
-    chain(handleFileUrls, handleS3Urls(credentials))
+  def absoluteUrl(credentials: => BasicAWSCredentials = S3Config.environmentCredentials): UrlToArtifact =
+    UrlToArtifact.chain(CoreArtifacts.handleFileUrls, handleS3Urls(credentials))
 }
 
 object Pipeline {
   // Create a Pipeline that writes output to the given root path in S3
-  def saveToS3(cfg: S3Config, rootPath: String) = {
-    val artifactFactory = ArtifactFactory(UrlToArtifact.handleS3Urls(cfg.credentials))
-    val rootUrl = new URI("s3", null, cfg.bucket, -1, rootPath, null, null)
+  def saveToS3(credentials: BasicAWSCredentials, bucket: String, rootPath: String) = {
+    val artifactFactory = ArtifactFactory(S3Artifacts.handleS3Urls(credentials))
+    val rootUrl = new URI("s3", null, bucket, -1, rootPath, null, null)
     new basePipeline(rootUrl, artifactFactory)
   }
 

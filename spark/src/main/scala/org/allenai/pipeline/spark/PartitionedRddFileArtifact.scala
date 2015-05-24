@@ -7,15 +7,16 @@ import java.net.URI
 
 class PartitionedRddFileArtifact(rootDir: File) extends PartitionedRddArtifact[FileArtifact] {
   require(
-  (rootDir.exists && rootDir.isDirectory)
-  || rootDir.mkdirs,s"Unable to find or create directory $rootDir")
+    (rootDir.exists && rootDir.isDirectory)
+      || rootDir.mkdirs, s"Unable to find or create directory $rootDir")
 
-  private val successFile = new FileArtifact(new File(rootDir,"_SUCCESS"))
+  private val successFile = new FileArtifact(new File(rootDir, "_SUCCESS"))
 
-def makePartitionArtifact: Int => FileArtifact = {
-      val root = rootDir
-      i: Int => new FileArtifact(new File(root, "part-%05d".format(i)))
+  def makePartitionArtifact: Int => FileArtifact = {
+    val root = rootDir
+    i: Int => new FileArtifact(new File(root, "part-%05d".format(i)))
   }
+
   def markWriteSuccess(): Unit = {
     successFile.write(w => w.write(""))
   }
