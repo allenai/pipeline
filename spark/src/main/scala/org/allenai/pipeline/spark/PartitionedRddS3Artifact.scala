@@ -19,7 +19,7 @@ class PartitionedRddS3Artifact(val s3Config: S3Config, val rootPath: String) ext
     i: Int => new S3FlatArtifact(s"$root/part-%05d".format(i), cfg)
   }
 
-  def markWriteSuccess(): Unit = {
+  def saveWasSuccessful(): Unit = {
     successArtifact.write(w => w.write(""))
   }
 

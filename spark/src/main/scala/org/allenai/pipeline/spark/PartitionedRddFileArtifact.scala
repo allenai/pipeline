@@ -18,7 +18,7 @@ class PartitionedRddFileArtifact(rootDir: File) extends PartitionedRddArtifact[F
     i: Int => new FileArtifact(new File(root, "part-%05d".format(i)))
   }
 
-  def markWriteSuccess(): Unit = {
+  def saveWasSuccessful(): Unit = {
     successFile.write(w => w.write(""))
   }
 

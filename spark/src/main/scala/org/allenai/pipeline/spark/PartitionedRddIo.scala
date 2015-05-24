@@ -15,20 +15,19 @@ class PartitionedRddIo[T: ClassTag: StringSerializable](
     with BasicPipelineStepInfo {
   override def write(data: RDD[T], artifact: PartitionedRddArtifact[FlatArtifact]): Unit = {
     val makeArtifact = artifact.makePartitionArtifact
-    val format = implicitly[StringSerializable[T]]
-    val x: T => String = format.toString
-    val convertToString: T => String = SerializeFunction(format.toString)
+    val convertToString = SerializeFunction(implicitly[StringSerializable[T]].toString)
     val stringRdd = data.map(convertToString)
     val savedPartitions = stringRdd.mapPartitionsWithIndex {
-      case (index, data) =>
+      case (index, partitionData) =>
         import org.allenai.pipeline.IoHelpers._
         val io = LineIteratorIo.text[String]
         val artifact = makeArtifact(index)
-        io.write(data, artifact)
+        io.write(partitionData, artifact)
         Iterator(1)
     }
     // Force execution of Spark job
     savedPartitions.sum()
+    artifact.saveWasSuccessful()
   }
 
   override def read(artifact: PartitionedRddArtifact[FlatArtifact]): RDD[T] = {

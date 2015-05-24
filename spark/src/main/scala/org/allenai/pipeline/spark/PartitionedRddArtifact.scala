@@ -2,8 +2,8 @@ package org.allenai.pipeline.spark
 
 import org.allenai.pipeline._
 
-trait PartitionedRddArtifact[+PA <: Artifact] extends Artifact {
-  def makePartitionArtifact: Int => PA
-  def getExistingPartitionArtifacts: Iterable[PA]
-  def markWriteSuccess(): Unit
+trait PartitionedRddArtifact[+A <: Artifact] extends Artifact {
+  def makePartitionArtifact: Int => A
+  def getExistingPartitionArtifacts: Iterable[A]
+  def saveWasSuccessful(): Unit
 }
