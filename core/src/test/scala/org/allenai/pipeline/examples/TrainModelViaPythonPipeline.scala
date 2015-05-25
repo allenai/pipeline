@@ -10,7 +10,7 @@ import java.io.File
   */
 object TrainModelViaPythonPipeline extends App {
   val inputDir = new File("src/test/resources/pipeline")
-  val pipeline = Pipeline.saveToFileSystem(new File("pipeline-output"))
+  val pipeline = Pipeline(new File("pipeline-output"))
 
   // Create the training and test data
   val (trainData, testData) = TrainModelPipeline.produceTrainAndTestData(pipeline, inputDir)

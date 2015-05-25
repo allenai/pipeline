@@ -156,6 +156,12 @@ trait ColumnFormats {
     override def toString(param: Int): String = param.toString
   }
 
+  implicit object LongToString extends StringSerializable[Long] {
+    override def fromString(s: String): Long = s.toLong
+
+    override def toString(param: Long): String = param.toString
+  }
+
   implicit object DoubleToString extends StringSerializable[Double] {
     override def fromString(s: String): Double = s.toDouble
 

@@ -10,7 +10,7 @@ import java.io.File
 /** A simple pipeline that counts words and lines in a text file */
 object CountWordsAndLinesPipeline extends App {
   // Create a pipeline.  Specify the output directory where data will be written
-  val pipeline = Pipeline.saveToFileSystem(new File("pipeline-output"))
+  val pipeline = Pipeline(new File("pipeline-output"))
 
   // Define our input:  A collection of lines read from an inputFile
   val textFile = new File("src/test/resources/pipeline/features.txt")

@@ -84,9 +84,9 @@ object UrlToArtifact {
 
 }
 
-object CoreArtifacts {
+object CreateCoreArtifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute file:// URL
-  val handleFileUrls: UrlToArtifact = new UrlToArtifact {
+  val fromFileUrls: UrlToArtifact = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {

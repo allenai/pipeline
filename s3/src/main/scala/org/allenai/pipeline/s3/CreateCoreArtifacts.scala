@@ -1,6 +1,6 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.pipeline.{ Pipeline => basePipeline, UrlToArtifact, CoreArtifacts, Artifact, ArtifactFactory }
+import org.allenai.pipeline.{Artifact, ArtifactFactory, CreateCoreArtifacts => CreateCoreFileArtifacts, Pipeline => basePipeline, UrlToArtifact}
 
 import com.amazonaws.auth.BasicAWSCredentials
 
@@ -10,10 +10,10 @@ import java.net.URI
 
 /** Created by rodneykinney on 5/22/15.
   */
-object S3Artifacts {
+object CreateCoreArtifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute s3:// URL
-  def handleS3Urls(credentials: => BasicAWSCredentials) = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
+  def fromS3Urls(credentials: => BasicAWSCredentials) = new UrlToArtifact {
+    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[S3FlatArtifact])
@@ -32,16 +32,7 @@ object S3Artifacts {
   }
 
   // Create a FlatArtifact or StructuredArtifact from an input file:// or s3:// URL
-  def absoluteUrl(credentials: => BasicAWSCredentials = S3Config.environmentCredentials): UrlToArtifact =
-    UrlToArtifact.chain(CoreArtifacts.handleFileUrls, handleS3Urls(credentials))
+  def fromFileOrS3Urls(credentials: => BasicAWSCredentials = S3Config.environmentCredentials): UrlToArtifact =
+    UrlToArtifact.chain(CreateCoreFileArtifacts.fromFileUrls, fromS3Urls(credentials))
 }
 
-object Pipeline {
-  // Create a Pipeline that writes output to the given root path in S3
-  def saveToS3(credentials: BasicAWSCredentials, bucket: String, rootPath: String) = {
-    val artifactFactory = ArtifactFactory(S3Artifacts.handleS3Urls(credentials))
-    val rootUrl = new URI("s3", null, bucket, -1, rootPath, null, null)
-    new basePipeline(rootUrl, artifactFactory)
-  }
-
-}

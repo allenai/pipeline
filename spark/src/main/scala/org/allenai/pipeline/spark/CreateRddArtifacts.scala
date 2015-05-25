@@ -12,8 +12,8 @@ import java.net.URI
 
 /** Created by rodneykinney on 5/24/15.
   */
-object RddArtifacts {
-  val handleFileUrls: UrlToArtifact = new UrlToArtifact {
+object CreateRddArtifacts {
+  val fromFileUrls: UrlToArtifact = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
@@ -28,7 +28,7 @@ object RddArtifacts {
     }
   }
 
-  def handleS3Urls(credentials: => BasicAWSCredentials): UrlToArtifact = new UrlToArtifact {
+  def fromS3Urls(credentials: => BasicAWSCredentials): UrlToArtifact = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
@@ -41,4 +41,7 @@ object RddArtifacts {
       fn
     }
   }
+
+  def fromFileOrS3Urls(credentials: => BasicAWSCredentials) =
+  UrlToArtifact.chain(fromFileUrls, fromS3Urls(credentials))
 }

@@ -20,7 +20,7 @@ import java.util.Date
 /** A fully-configured end-to-end pipeline */
 class Pipeline(
     val outputRootUrl: URI = new File(System.getProperty("user.dir")).toURI,
-    artifactFactory: ArtifactFactory = ArtifactFactory(CoreArtifacts.handleFileUrls)
+    artifactFactory: ArtifactFactory = ArtifactFactory(CreateCoreArtifacts.fromFileUrls)
 ) extends Logging {
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
@@ -87,7 +87,7 @@ class Pipeline(
     * @param suffix a file suffix
     * @return the persisted Producer
     */
-  def persist[T, A <: Artifact: ClassTag, AO <: A](
+  def persist[T, A <: Artifact: ClassTag](
     original: Producer[T],
     io: Serializer[T, A] with Deserializer[T, A],
     suffix: String = ""
@@ -96,7 +96,7 @@ class Pipeline(
     persist(original, io, absoluteOutputUrl(path))
   }
 
-  def persist[T, A <: Artifact: ClassTag, AO <: A](
+  def persist[T, A <: Artifact: ClassTag](
     original: Producer[T],
     io: Serializer[T, A] with Deserializer[T, A],
     url: URI
@@ -257,14 +257,14 @@ class Pipeline(
 
 object Pipeline {
   // Create a Pipeline that writes output to the given directory
-  def saveToFileSystem(rootDir: File) = {
-    new Pipeline(rootDir.toURI, ArtifactFactory(CoreArtifacts.handleFileUrls))
+  def apply(rootDir: File) = {
+    new Pipeline(rootDir.toURI, ArtifactFactory(CreateCoreArtifacts.fromFileUrls))
   }
 }
 
 class ConfiguredPipeline(
   val config: Config,
-  artifactFactory: ArtifactFactory = ArtifactFactory(CoreArtifacts.handleFileUrls)
+  artifactFactory: ArtifactFactory = ArtifactFactory(CreateCoreArtifacts.fromFileUrls)
 )
     extends Pipeline(
       config.get[String]("output.dir").map(s => new URI(s))
@@ -312,10 +312,12 @@ class ConfiguredPipeline(
     if (config.hasPath(configKey)) {
       config.getValue(configKey).unwrapped() match {
         case java.lang.Boolean.TRUE | "true" =>
+          require(!persistedStepsByConfigKey.contains(stepName), "Cannot add two steps with the same name")
           val p = persist(original, io, suffix)
           persistedStepsByConfigKey(stepName) = p
           p
         case path: String if path != "false" =>
+          require(!persistedStepsByConfigKey.contains(stepName), "Cannot add two steps with the same name")
           val p = persist(original, io, createArtifact[A](path))
           persistedStepsByConfigKey(stepName) = p
           p

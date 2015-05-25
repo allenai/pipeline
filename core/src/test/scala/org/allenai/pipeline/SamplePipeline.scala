@@ -21,7 +21,7 @@ class SamplePipeline extends UnitSpec
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
 
-  val pipeline = Pipeline.saveToFileSystem(scratchDir)
+  val pipeline = Pipeline(scratchDir)
 
   "Sample Experiment" should "complete" in {
 
@@ -245,7 +245,7 @@ object SamplePipelineApp extends App {
 
   val inputDir = new File("src/test/resources/pipeline")
   val outputDir = new File("pipeline-output")
-  val pipeline = Pipeline.saveToFileSystem(outputDir)
+  val pipeline = Pipeline(outputDir)
 
   val labelFile = new File(inputDir, "labels.txt")
 

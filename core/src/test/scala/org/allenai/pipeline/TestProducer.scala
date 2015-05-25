@@ -22,7 +22,7 @@ class TestProducer extends UnitSpec with ScratchDirectory {
 
   val outputDir = new File(scratchDir, "test-output-producer")
 
-  val pipeline = Pipeline.saveToFileSystem(outputDir)
+  val pipeline = Pipeline(outputDir)
 
   val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled {
     def create = {

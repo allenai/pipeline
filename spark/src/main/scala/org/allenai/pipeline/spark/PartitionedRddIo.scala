@@ -34,15 +34,15 @@ class PartitionedRddIo[T: ClassTag: StringSerializable](
     val partitionArtifacts = artifact.getExistingPartitionArtifacts.toVector
     val partitions = sc.parallelize(partitionArtifacts, partitionArtifacts.size)
     val stringRdd = partitions.mapPartitions {
+      artifacts =>
       import org.allenai.pipeline.IoHelpers._
       val io = LineIteratorIo.text[String]
-      artifacts =>
         for {
           a <- artifacts
           row <- io.read(a)
         } yield row
     }
-    val convertToObject = implicitly[StringSerializable[T]].fromString _
+    val convertToObject = SerializeFunction(implicitly[StringSerializable[T]].fromString)
     stringRdd.map(convertToObject)
   }
 }

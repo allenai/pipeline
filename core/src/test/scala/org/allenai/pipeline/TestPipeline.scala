@@ -14,7 +14,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val p3 = Producer.fromMemory(3)
     val p4 = Producer.fromMemory(4)
     val outputDir = new File(scratchDir, "test1")
-    val pipeline = Pipeline.saveToFileSystem(outputDir)
+    val pipeline = Pipeline(outputDir)
 
     import IoHelpers._
     val p1File = new File(pipeline.Persist.Singleton.asText(p1).artifact.url)
@@ -58,7 +58,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val p1 = Producer.fromMemory(1)
 
     val outputDir = new File(scratchDir, "testRunOne")
-    val pipeline = Pipeline.saveToFileSystem(outputDir)
+    val pipeline = Pipeline(outputDir)
 
     import IoHelpers._
     val p2 = pipeline.Persist.Singleton.asText(AddOne(p1))

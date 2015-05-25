@@ -84,9 +84,9 @@ object IoHelpers extends ColumnFormats {
   }
   implicit def asProducer[T](x: T) = Producer.fromMemory(x)
   implicit def asFlatArtifact(url: URI) =
-    CoreArtifacts.handleFileUrls.urlToArtifact[FlatArtifact].apply(url)
+    CreateCoreArtifacts.fromFileUrls.urlToArtifact[FlatArtifact].apply(url)
   implicit def asStructuredArtifact(url: URI) =
-    CoreArtifacts.handleFileUrls.urlToArtifact[StructuredArtifact].apply(url)
+    CreateCoreArtifacts.fromFileUrls.urlToArtifact[StructuredArtifact].apply(url)
 
   implicit def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
     new StringSerializable[T] {
