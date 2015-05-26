@@ -4,3 +4,5 @@
 .settings
 bin/
 target/
+logs/
+pipeline-output/
