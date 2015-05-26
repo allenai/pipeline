@@ -43,5 +43,5 @@ object CreateRddArtifacts {
   }
 
   def fromFileOrS3Urls(credentials: => BasicAWSCredentials) =
-  UrlToArtifact.chain(fromFileUrls, fromS3Urls(credentials))
+    UrlToArtifact.chain(fromFileUrls, fromS3Urls(credentials))
 }

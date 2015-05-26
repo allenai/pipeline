@@ -20,10 +20,11 @@ object ArtifactFactory {
   def apply(urlHandler: UrlToArtifact, fallbackUrlHandlers: UrlToArtifact*): ArtifactFactory =
     new ArtifactFactory {
       val urlHandlerChain =
-        if (fallbackUrlHandlers.size == 0)
+        if (fallbackUrlHandlers.size == 0) {
           urlHandler
-        else
+        } else {
           UrlToArtifact.chain(urlHandler, fallbackUrlHandlers.head, fallbackUrlHandlers.tail: _*)
+        }
 
       def createArtifact[A <: Artifact: ClassTag](url: URI): A = {
         val fn = urlHandlerChain.urlToArtifact[A]

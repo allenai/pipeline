@@ -35,8 +35,8 @@ class PartitionedRddIo[T: ClassTag: StringSerializable](
     val partitions = sc.parallelize(partitionArtifacts, partitionArtifacts.size)
     val stringRdd = partitions.mapPartitions {
       artifacts =>
-      import org.allenai.pipeline.IoHelpers._
-      val io = LineIteratorIo.text[String]
+        import org.allenai.pipeline.IoHelpers._
+        val io = LineIteratorIo.text[String]
         for {
           a <- artifacts
           row <- io.read(a)

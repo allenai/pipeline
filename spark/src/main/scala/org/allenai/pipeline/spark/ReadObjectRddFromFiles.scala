@@ -7,21 +7,22 @@ import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
 
-import java.io.{File, InputStream}
+import java.io.{ File, InputStream }
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
+/** Created by rodneykinney on 5/24/15.
+  */
 
-case class ReadObjectRddFromFiles[T: StringSerializable : ClassTag](
-  filePaths: Producer[Iterable[String]],
-  sparkContext: SparkContext,
-  numPartitions: Option[Int] = None
-  ) extends Producer[RDD[T]] with Ai2SimpleStepInfo {
+case class ReadObjectRddFromFiles[T: StringSerializable: ClassTag](
+    filePaths: Producer[Iterable[String]],
+    sparkContext: SparkContext,
+    numPartitions: Option[Int] = None
+) extends Producer[RDD[T]] with Ai2SimpleStepInfo {
   override def create = {
     DeserializeObject(
       ReadStreamContents(
-        ReadInputStreamRddFromFiles(filePaths, numPartitions, sparkContext))).get
+        ReadInputStreamRddFromFiles(filePaths, numPartitions, sparkContext)
+      )
+    ).get
   }
 
   override def stepInfo = {
@@ -31,15 +32,16 @@ case class ReadObjectRddFromFiles[T: StringSerializable : ClassTag](
         "filePaths" -> filePaths,
         "numPartitions" -> numPartitions
       )
-    .copy(description = Some(s"Read an RDD of [$className] from lines in the input files"))
+      .copy(description = Some(s"Read an RDD of [$className] from lines in the input files"))
   }
 }
 
 case class ReadInputStreamRddFromFiles(
   paths: Producer[Iterable[String]],
   numPartitions: Option[Int] = None,
-  sparkContext: SparkContext)
-  extends Producer[RDD[() => InputStream]] with Ai2SimpleStepInfo {
+  sparkContext: SparkContext
+)
+    extends Producer[RDD[() => InputStream]] with Ai2SimpleStepInfo {
   override def create = {
     val pathsRdd =
       numPartitions
@@ -56,9 +58,8 @@ case class ReadInputStreamRddFromFiles(
     super.stepInfo
       .addParameters(
         "paths" -> paths,
-        "numPartitions" -> numPartitions)
+        "numPartitions" -> numPartitions
+      )
 
 }
-
-
 

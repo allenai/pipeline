@@ -4,9 +4,8 @@ import org.allenai.pipeline.IoHelpers._
 
 import java.io.File
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
+/** Created by rodneykinney on 5/24/15.
+  */
 class TestReadObjects extends SparkTest {
   "ReadObjectRdd" should "read from files" in {
     val paths = Read.Collection.fromText[String](new File("src/test/resources/paths.txt"))

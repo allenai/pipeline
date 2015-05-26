@@ -1,16 +1,15 @@
 package org.allenai.pipeline.spark.examples
 
 import org.allenai.pipeline.IoHelpers._
-import org.allenai.pipeline.{CreateCoreArtifacts, ArtifactFactory, Pipeline}
-import org.allenai.pipeline.spark.{SparkPipeline, CreateRddArtifacts, ReadObjectRddFromFiles}
+import org.allenai.pipeline.{ CreateCoreArtifacts, ArtifactFactory, Pipeline }
+import org.allenai.pipeline.spark.{ SparkPipeline, CreateRddArtifacts, ReadObjectRddFromFiles }
 
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{ SparkContext, SparkConf }
 
 import java.io.File
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
+/** Created by rodneykinney on 5/24/15.
+  */
 object CountWordsAndLinesPipeline extends App {
   val sc = initSparkContext()
 
@@ -46,7 +45,7 @@ object CountWordsAndLinesPipeline extends App {
   def initSparkContext() = {
     val conf = new SparkConf()
     conf.set("spark.master", "local")
-    conf.set("spark.app.name", "unit-test")
+    conf.set("spark.app.name", "sample-pipeline")
     new SparkContext(conf)
   }
 

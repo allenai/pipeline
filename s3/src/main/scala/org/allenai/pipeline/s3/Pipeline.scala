@@ -1,15 +1,14 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.pipeline.{Pipeline => basePipeline, ConfiguredPipeline, ArtifactFactory}
+import org.allenai.pipeline.{ Pipeline => basePipeline, ConfiguredPipeline => baseConfiguredPipeline, ArtifactFactory }
 
 import com.amazonaws.auth.BasicAWSCredentials
 import com.typesafe.config.Config
 
 import java.net.URI
 
-/**
- * Created by rodneykinney on 5/24/15.
- */
+/** Created by rodneykinney on 5/24/15.
+  */
 object Pipeline {
   // Create a Pipeline that writes output to the given root path in S3
   def apply(credentials: BasicAWSCredentials, bucket: String, rootPath: String) = {
@@ -21,6 +20,6 @@ object Pipeline {
 
 object ConfiguredPipeline {
   def apply(config: Config, credentials: BasicAWSCredentials) = {
-    new ConfiguredPipeline(config, ArtifactFactory(CreateCoreArtifacts.fromFileOrS3Urls(credentials)))
+    new baseConfiguredPipeline(config, ArtifactFactory(CreateCoreArtifacts.fromFileOrS3Urls(credentials)))
   }
 }
