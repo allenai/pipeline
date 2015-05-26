@@ -26,7 +26,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
   it should "optionally persist" in {
     val outputDir = new File(scratchDir, "testOptionallyPersist")
-    val pipeline = new ConfiguredPipeline(
+    val pipeline = ConfiguredPipeline(
       baseConfig
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
     )
@@ -41,7 +41,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
   it should "optionally persist to absolute URL" in {
     val outputDir = new File(scratchDir, "testOptionallyPersist2")
     val configuredFile = new File(scratchDir, "subDir/mySpecialPath")
-    val pipeline = new ConfiguredPipeline(
+    val pipeline = ConfiguredPipeline (
       baseConfig
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
         .withValue("output.persist.Step2", ConfigValueFactory.fromAnyRef(configuredFile.toURI.toString))
@@ -57,7 +57,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
   it should "recognize dryRun flag" in {
     val outputDir = new File(scratchDir, "testDryRun")
-    val pipeline = new ConfiguredPipeline(
+    val pipeline = ConfiguredPipeline (
       baseConfig
         .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
         .withValue("dryRun", ConfigValueFactory.fromAnyRef(true))
@@ -72,12 +72,12 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
   it should "recognize runOnly flag" in {
     val outputDir = new File(scratchDir, "testRunOnly")
-    val config = baseConfig
+    val cfg = baseConfig
       .withValue("output.dir", ConfigValueFactory.fromAnyRef(outputDir.getCanonicalPath))
       .withValue("runOnly", ConfigValueFactory.fromAnyRef("Step3"))
 
     // config specifies runOnly for step3 with no persisted upstream dependencies
-    val pipeline = new ConfiguredPipeline(config)
+    val pipeline = ConfiguredPipeline(cfg)
     val step2 = AddOne(step1)
     val step2Persisted = pipeline.optionallyPersist(AddOne(step2), "Step3", format)
     val outputFile = new File(step2Persisted.asInstanceOf[PersistedProducer[Int, FlatArtifact]].artifact.url)
@@ -94,7 +94,7 @@ class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
 
     // config specifies runOnly for step3 but step2 is not persisted
     an[IllegalArgumentException] should be thrownBy {
-      val pipeline = new ConfiguredPipeline(config)
+      val pipeline = ConfiguredPipeline(config)
       val step2 = pipeline.optionallyPersist(AddOne(step1), "Step2", format)
       pipeline.optionallyPersist(AddOne(step2), "Step3", format)
       pipeline.run("test")

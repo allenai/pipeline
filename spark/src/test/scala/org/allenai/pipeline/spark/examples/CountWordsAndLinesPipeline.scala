@@ -16,8 +16,7 @@ object CountWordsAndLinesPipeline extends App {
   val outputDir = new File("pipeline-output")
 
   val pipeline = {
-    val artifactFactory = ArtifactFactory(CreateRddArtifacts.fromFileUrls, CreateCoreArtifacts.fromFileUrls)
-    new Pipeline(outputDir.toURI, artifactFactory) with SparkPipeline {
+    new Pipeline(outputDir.toURI) with SparkPipeline {
       val sparkContext = sc
     }
   }

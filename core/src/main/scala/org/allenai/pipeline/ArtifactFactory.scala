@@ -34,20 +34,6 @@ object ArtifactFactory {
       }
     }
 
-  def resolveUrl(rootUrl: URI)(s: String): URI = {
-    val parsed = new URI(s)
-    parsed.getScheme match {
-      case null =>
-        val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
-        new URI(
-          rootUrl.getScheme,
-          rootUrl.getHost,
-          fullPath,
-          rootUrl.getFragment
-        )
-      case _ => parsed
-    }
-  }
 }
 
 /** Supports creation of a particular type of Artifact from a URL.
