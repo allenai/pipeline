@@ -1,9 +1,7 @@
 package org.allenai.pipeline
 
-import java.io.{InputStream, FileWriter, PrintWriter, File}
-
 import org.allenai.common.Resource
-import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 import org.allenai.pipeline.IoHelpers.Read
 
 import org.apache.commons.io.IOUtils
@@ -11,7 +9,7 @@ import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
 import scala.io.Source
 
-import java.io.{ IOException, File, FileWriter, PrintWriter }
+import java.io.{File, FileWriter, InputStream, PrintWriter}
 import java.lang.Thread.UncaughtExceptionHandler
 
 /** Created by rodneykinney on 5/14/15.
@@ -48,7 +46,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "cache when versionHistory is equal" in {
-    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pipeline = Pipeline(new File(scratchDir, "testVersionHistory"))
     val pp1 = ppVersionHistTest(pipeline, Seq("v1.0"))
     val pp2 = ppVersionHistTest(pipeline, Seq("v1.0"))
     pipeline.run("versioning test")
@@ -57,7 +55,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "recompute when versionHistory is unequal" in {
-    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pipeline = Pipeline(new File(scratchDir, "testVersionHistory"))
     val pp1 = ppVersionHistTest(pipeline, Seq("v1.0"))
     val pp2 = ppVersionHistTest(pipeline, Seq("v1.1"))
     pipeline.run("versioning test")
@@ -66,7 +64,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "only account for the last element of versionHistory" in {
-    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pipeline = Pipeline(new File(scratchDir, "testVersionHistory"))
     val pp1 = ppVersionHistTest(pipeline, Seq("v1.1"))
     val pp2 = ppVersionHistTest(pipeline, Seq("v1.0","v1.1"))
     pipeline.run("versioning test")
@@ -75,7 +73,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "account for the last element of versionHistory" in {
-    val pipeline = Pipeline.saveToFileSystem(new File(scratchDir, "testVersionHistory"))
+    val pipeline = Pipeline(new File(scratchDir, "testVersionHistory"))
     val pp1 = ppVersionHistTest(pipeline, Seq("v1.1"))
     val pp2 = ppVersionHistTest(pipeline, Seq("v1.1","v1.2"))
     pipeline.run("versioning test")
