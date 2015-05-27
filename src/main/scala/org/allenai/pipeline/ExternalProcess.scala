@@ -20,6 +20,8 @@ import java.util.UUID
   *                        Examples:
   *                        StringToken("cp") InputFileToken("src") OutputFileToken("target")
   *                        StringToken("python") InputFileToken("script") StringToken("-o") OutputFileToken("output")
+  *
+  * Producers based on ExternalProcess should be created with class RunExternalProcess.
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
@@ -114,28 +116,15 @@ object ExternalProcess {
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
 
-  def apply(
-    commandTokens: CommandToken*
-  )(
-    inputs: Map[String, Producer[() => InputStream]] = Map(),
-    requireStatusCode: Iterable[Int] = List(0)
-  ): CommandOutputComponents = {
-    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
-    val processCmd = new RunExternalProcess(commandTokens, inputs)
-    val baseName = processCmd.stepInfo.className
-    val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
-    val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
-    val outputStreams =
-      for (name <- outputNames) yield {
-        val outputProducer =
-          new ExtractOutputComponent(s"outputs.$name", _.outputs(name), processCmd, requireStatusCode)
-        (name, outputProducer)
-      }
-    CommandOutputComponents(stdout, stderr, outputStreams.toMap)
-  }
+  case class CommandOutput(returnCode: Int,
+                           stdout: () => InputStream,
+                           stderr: () => InputStream,
+                           outputs: Map[String, () => InputStream])
 }
 
-class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
+// Pattern: Name Producer subclasses with a verb.
+
+class RunExternalProcess private (commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
     new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
   }
@@ -154,39 +143,64 @@ class RunExternalProcess(commandTokens: Seq[CommandToken], inputs: Map[String, P
       .addParameters("cmd" -> cmd.mkString(" "))
   }
 }
+object RunExternalProcess {
+  import ExternalProcess.CommandOutput
 
-class ExtractOutputComponent(
-    name: String,
-    f: CommandOutput => () => InputStream,
-    processCmd: Producer[CommandOutput],
-    requireStatusCode: Iterable[Int] = List(0)
-) extends Producer[() => InputStream] {
-  override protected def create: () => InputStream = {
-    val result = processCmd.get
-    result match {
-      case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
-        f(result)
-      case CommandOutput(status, _, stderr, _) =>
-        val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
-        sys.error(s"Command ${processCmd.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
-    }
-    f(processCmd.get)
+  def apply(
+         commandTokens: CommandToken*
+         )(
+         inputs: Map[String, Producer[() => InputStream]] = Map(),
+         requireStatusCode: Iterable[Int] = List(0)
+         ): CommandOutputComponents = {
+    val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
+    val processCmd = new RunExternalProcess(commandTokens, inputs)
+    val baseName = processCmd.stepInfo.className
+    val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
+    val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
+    val outputStreams =
+      for (name <- outputNames) yield {
+        val outputProducer =
+          new ExtractOutputComponent(s"outputs.$name", _.outputs(name), processCmd, requireStatusCode)
+        (name, outputProducer)
+      }
+    CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 
-  override def stepInfo: PipelineStepInfo =
-    PipelineStepInfo(className = name)
-      .addParameters("cmd" -> processCmd)
 
-  def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
-    val result = processCmd.get
-    result match {
-      case CommandOutput(0, _, _, _) => f(result)
-      case CommandOutput(_, _, stderr, _) =>
-        sys.error(s" Failed to run command ${processCmd.stepInfo.parameters("cmd")}: $stderr")
+  class ExtractOutputComponent(
+                                name: String,
+                                f: CommandOutput => () => InputStream,
+                                processCmd: Producer[CommandOutput],
+                                requireStatusCode: Iterable[Int] = List(0)
+                                ) extends Producer[() => InputStream] {
+    override protected def create: () => InputStream = {
+      val result = processCmd.get
+      result match {
+        case CommandOutput(status, _, _, _) if requireStatusCode.toSet.contains(status) =>
+          f(result)
+        case CommandOutput(status, _, stderr, _) =>
+          val stderrString = IOUtils.readLines(stderr()).asScala.take(100)
+          sys.error(s"Command ${processCmd.stepInfo.parameters("cmd")} failed with status$status: $stderrString")
+      }
+      f(processCmd.get)
     }
 
+    override def stepInfo: PipelineStepInfo =
+      PipelineStepInfo(className = name)
+        .addParameters("cmd" -> processCmd)
+
+    def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
+      val result = processCmd.get
+      result match {
+        case CommandOutput(0, _, _, _) => f(result)
+        case CommandOutput(_, _, stderr, _) =>
+          sys.error(s" Failed to run command ${processCmd.stepInfo.parameters("cmd")}: $stderr")
+      }
+
+    }
   }
 }
+
 
 object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
   override def read(artifact: FlatArtifact): () => InputStream =
@@ -280,8 +294,8 @@ object VolatileResource {
     }
 }
 
-case class CommandOutput(returnCode: Int, stdout: () => InputStream, stderr: () => InputStream, outputs: Map[String, () => InputStream])
 
+// for RunExternalProcess
 case class CommandOutputComponents(
   stdout: Producer[() => InputStream],
   stderr: Producer[() => InputStream],

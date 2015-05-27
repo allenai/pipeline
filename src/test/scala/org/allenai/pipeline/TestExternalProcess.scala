@@ -27,7 +27,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      ExternalProcess("touch", OutputFileToken("target"))()
+      RunExternalProcess("touch", OutputFileToken("target"))()
         .outputs("target").persisted(StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
@@ -60,7 +60,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val inputArtifact = new FileArtifact(inputFile)
     val outputArtifact = new FileArtifact(outputFile)
 
-    val copy = ExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
+    val copy = RunExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
       inputs = Map("input" -> Read.fromArtifact(StreamIo, inputArtifact))
     )
       .outputs("output").persisted(StreamIo, outputArtifact)
