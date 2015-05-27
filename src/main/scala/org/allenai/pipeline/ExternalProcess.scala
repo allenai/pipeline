@@ -124,12 +124,17 @@ object ExternalProcess {
 
 // Pattern: Name Producer subclasses with a verb.
 
-class RunExternalProcess private (commandTokens: Seq[CommandToken], inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
+class RunExternalProcess private (
+                                   commandTokens: Seq[CommandToken],
+                                   _versionHistory: Seq[String],
+                                   inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
     new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
   }
 
   val parameters = inputs.map { case (name, src) => (name, src) }.toList
+
+  override def versionHistory = _versionHistory
 
   override def stepInfo = {
     val cmd = commandTokens.map {
@@ -150,10 +155,11 @@ object RunExternalProcess {
          commandTokens: CommandToken*
          )(
          inputs: Map[String, Producer[() => InputStream]] = Map(),
+         versionHistory: Seq[String] = Seq(),
          requireStatusCode: Iterable[Int] = List(0)
          ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
-    val processCmd = new RunExternalProcess(commandTokens, inputs)
+    val processCmd = new RunExternalProcess(commandTokens, versionHistory, inputs)
     val baseName = processCmd.stepInfo.className
     val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
     val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
