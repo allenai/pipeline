@@ -1,7 +1,7 @@
 package org.allenai.pipeline
 
 import org.allenai.common.Resource
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.allenai.pipeline.IoHelpers.Read
 
 import org.apache.commons.io.IOUtils
@@ -9,7 +9,7 @@ import org.apache.commons.io.IOUtils
 import scala.collection.JavaConverters._
 import scala.io.Source
 
-import java.io.{File, FileWriter, InputStream, PrintWriter}
+import java.io.{ File, FileWriter, InputStream, PrintWriter }
 import java.lang.Thread.UncaughtExceptionHandler
 
 /** Created by rodneykinney on 5/14/15.
@@ -35,15 +35,14 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     outputFile should exist
   }
 
-  def ppVersionHistTest(pipeline: Pipeline, vh1 : Seq[String]):
-    ( PersistedProducer[() => InputStream, FlatArtifact]) =
-  {
-    val touchFile1 =
-      RunExternalProcess("touch", OutputFileToken("target"))(
-        versionHistory = vh1
-      ).outputs("target")
-    pipeline.persist(touchFile1, StreamIo)
-  }
+  def ppVersionHistTest(pipeline: Pipeline, vh1: Seq[String]): (PersistedProducer[() => InputStream, FlatArtifact]) =
+    {
+      val touchFile1 =
+        RunExternalProcess("touch", OutputFileToken("target"))(
+          versionHistory = vh1
+        ).outputs("target")
+      pipeline.persist(touchFile1, StreamIo)
+    }
 
   it should "cache when versionHistory is equal" in {
     val pipeline = Pipeline(new File(scratchDir, "testVersionHistory"))
@@ -60,13 +59,13 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val pp2 = ppVersionHistTest(pipeline, Seq("v1.1"))
     pipeline.run("versioning test")
 
-    pp1.artifact.url.getRawPath() should not equal(pp2.artifact.url.getRawPath())
+    pp1.artifact.url.getRawPath() should not equal (pp2.artifact.url.getRawPath())
   }
 
   it should "only account for the last element of versionHistory" in {
     val pipeline = Pipeline(new File(scratchDir, "testVersionHistory"))
     val pp1 = ppVersionHistTest(pipeline, Seq("v1.1"))
-    val pp2 = ppVersionHistTest(pipeline, Seq("v1.0","v1.1"))
+    val pp2 = ppVersionHistTest(pipeline, Seq("v1.0", "v1.1"))
     pipeline.run("versioning test")
 
     pp1.artifact.url.getRawPath() should equal(pp2.artifact.url.getRawPath())
@@ -75,10 +74,10 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   it should "account for the last element of versionHistory" in {
     val pipeline = Pipeline(new File(scratchDir, "testVersionHistory"))
     val pp1 = ppVersionHistTest(pipeline, Seq("v1.1"))
-    val pp2 = ppVersionHistTest(pipeline, Seq("v1.1","v1.2"))
+    val pp2 = ppVersionHistTest(pipeline, Seq("v1.1", "v1.2"))
     pipeline.run("versioning test")
 
-    pp1.artifact.url.getRawPath() should not equal(pp2.artifact.url.getRawPath())
+    pp1.artifact.url.getRawPath() should not equal (pp2.artifact.url.getRawPath())
   }
 
   it should "capture stdout" in {

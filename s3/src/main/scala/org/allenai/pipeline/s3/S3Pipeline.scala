@@ -1,7 +1,6 @@
 package org.allenai.pipeline.s3
 
-
-import org.allenai.pipeline.{ConfiguredPipeline, UrlToArtifact, Pipeline}
+import org.allenai.pipeline.{ ConfiguredPipeline, UrlToArtifact, Pipeline }
 
 import com.amazonaws.auth.BasicAWSCredentials
 import com.typesafe.config.Config
@@ -19,13 +18,15 @@ trait S3Pipeline extends Pipeline {
 object S3Pipeline {
   def apply(
     rootUrl: URI,
-    awsCredentials: BasicAWSCredentials = S3Config.environmentCredentials())
-  = new S3Pipeline {
+    awsCredentials: BasicAWSCredentials = S3Config.environmentCredentials()
+  ) = new S3Pipeline {
+    def rootOutputUrl = rootUrl
     override def credentials = awsCredentials
   }
   def configured(
     cfg: Config,
-    awsCredentials: BasicAWSCredentials = S3Config.environmentCredentials()) = {
+    awsCredentials: BasicAWSCredentials = S3Config.environmentCredentials()
+  ) = {
     new ConfiguredPipeline with S3Pipeline {
       override val config = cfg
       override def credentials = awsCredentials

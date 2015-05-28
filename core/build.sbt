@@ -1,5 +1,7 @@
 import Dependencies._
 
+organization := "org.allenai"
+
 StylePlugin.enableLineLimit := false
 
 dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"

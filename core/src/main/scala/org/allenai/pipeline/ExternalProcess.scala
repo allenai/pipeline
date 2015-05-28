@@ -72,10 +72,11 @@ class ExternalProcess(val commandTokens: CommandToken*) {
     commandTokens.foreach {
       case OutputFileToken(name) =>
         val fOut = new File(scratchDir, name)
-        if(!fOut.exists()) {
+        if (!fOut.exists()) {
           val stCmd = cmd.mkString(" ")
           throw new RuntimeException(
-            f"Script should have written an output file at:${fOut.getCanonicalPath}\n  command=$stCmd")
+            f"Script should have written an output file at:${fOut.getCanonicalPath}\n  command=$stCmd"
+          )
         }
       case _ =>
     }
@@ -116,18 +117,21 @@ object ExternalProcess {
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
 
-  case class CommandOutput(returnCode: Int,
-                           stdout: () => InputStream,
-                           stderr: () => InputStream,
-                           outputs: Map[String, () => InputStream])
+  case class CommandOutput(
+    returnCode: Int,
+    stdout: () => InputStream,
+    stderr: () => InputStream,
+    outputs: Map[String, () => InputStream]
+  )
 }
 
 // Pattern: Name Producer subclasses with a verb.
 
 class RunExternalProcess private (
-                                   commandTokens: Seq[CommandToken],
-                                   _versionHistory: Seq[String],
-                                   inputs: Map[String, Producer[() => InputStream]]) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
+    commandTokens: Seq[CommandToken],
+    _versionHistory: Seq[String],
+    inputs: Map[String, Producer[() => InputStream]]
+) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
     new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
   }
@@ -152,12 +156,12 @@ object RunExternalProcess {
   import ExternalProcess.CommandOutput
 
   def apply(
-         commandTokens: CommandToken*
-         )(
-         inputs: Map[String, Producer[() => InputStream]] = Map(),
-         versionHistory: Seq[String] = Seq(),
-         requireStatusCode: Iterable[Int] = List(0)
-         ): CommandOutputComponents = {
+    commandTokens: CommandToken*
+  )(
+    inputs: Map[String, Producer[() => InputStream]] = Map(),
+    versionHistory: Seq[String] = Seq(),
+    requireStatusCode: Iterable[Int] = List(0)
+  ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
     val processCmd = new RunExternalProcess(commandTokens, versionHistory, inputs)
     val baseName = processCmd.stepInfo.className
@@ -172,13 +176,12 @@ object RunExternalProcess {
     CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 
-
   class ExtractOutputComponent(
-                                name: String,
-                                f: CommandOutput => () => InputStream,
-                                processCmd: Producer[CommandOutput],
-                                requireStatusCode: Iterable[Int] = List(0)
-                                ) extends Producer[() => InputStream] {
+      name: String,
+      f: CommandOutput => () => InputStream,
+      processCmd: Producer[CommandOutput],
+      requireStatusCode: Iterable[Int] = List(0)
+  ) extends Producer[() => InputStream] {
     override protected def create: () => InputStream = {
       val result = processCmd.get
       result match {
@@ -206,7 +209,6 @@ object RunExternalProcess {
     }
   }
 }
-
 
 object StreamIo extends ArtifactIo[() => InputStream, FlatArtifact] {
   override def read(artifact: FlatArtifact): () => InputStream =
@@ -299,7 +301,6 @@ object VolatileResource {
           .addParameters("src" -> artifact.url)
     }
 }
-
 
 // for RunExternalProcess
 case class CommandOutputComponents(

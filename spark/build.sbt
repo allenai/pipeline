@@ -1,5 +1,7 @@
 import Dependencies._
 
+organization := "org.allenai"
+
 StylePlugin.enableLineLimit := false
 
 dependencyOverrides += "commons-codec" % "commons-codec" % "1.6"

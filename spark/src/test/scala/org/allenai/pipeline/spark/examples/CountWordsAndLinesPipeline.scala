@@ -16,7 +16,8 @@ object CountWordsAndLinesPipeline extends App {
   val outputDir = new File("pipeline-output")
 
   val pipeline = {
-    new Pipeline(outputDir.toURI) with SparkPipeline {
+    new Pipeline with SparkPipeline {
+      override def rootOutputUrl = new File(System.getProperty("user.dir")).toURI
       val sparkContext = sc
     }
   }
