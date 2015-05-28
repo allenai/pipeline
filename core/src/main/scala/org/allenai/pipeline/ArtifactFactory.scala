@@ -14,13 +14,32 @@ trait ArtifactFactory {
     * @return The artifact
     */
   def createArtifact[A <: Artifact: ClassTag](url: URI): A
+
+  /** If path is an absolute URL, create an Artifact at that location.
+    * If it is a relative path, create it relative to the given root URL
+    */
+  def createArtifact[A <: Artifact: ClassTag](rootUrl: URI, path: String): A = {
+    val parsed = new URI(path)
+    val url = parsed.getScheme match {
+      case null =>
+        val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
+        new URI(
+          rootUrl.getScheme,
+          rootUrl.getHost,
+          fullPath,
+          rootUrl.getFragment
+        )
+      case _ => parsed
+    }
+    createArtifact[A](url)
+  }
 }
 
 object ArtifactFactory {
   def apply(urlHandler: UrlToArtifact, fallbackUrlHandlers: UrlToArtifact*): ArtifactFactory =
     new ArtifactFactory {
       val urlHandlerChain =
-        if (fallbackUrlHandlers.size == 0) {
+        if (fallbackUrlHandlers.isEmpty) {
           urlHandler
         } else {
           UrlToArtifact.chain(urlHandler, fallbackUrlHandlers.head, fallbackUrlHandlers.tail: _*)
