@@ -29,7 +29,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      RunExternalProcess("touch", OutputFileToken("target"))()
+      RunExternalProcess("touch", OutputFileToken("target"))(Map())
         .outputs("target").persisted(StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
@@ -38,7 +38,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   def ppVersionHistTest(pipeline: Pipeline, vh1: Seq[String]): (PersistedProducer[() => InputStream, FlatArtifact]) =
     {
       val touchFile1 =
-        RunExternalProcess("touch", OutputFileToken("target"))(
+        RunExternalProcess("touch", OutputFileToken("target"))(Map(),
           versionHistory = vh1
         ).outputs("target")
       pipeline.persist(touchFile1, StreamIo)

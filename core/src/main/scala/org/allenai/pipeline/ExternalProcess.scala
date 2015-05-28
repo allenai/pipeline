@@ -158,7 +158,7 @@ object RunExternalProcess {
   def apply(
     commandTokens: CommandToken*
   )(
-    inputsOld3: Map[String, Producer[() => InputStream]] = Map(),
+    inputsOld3: Map[String, Producer[() => InputStream]],
     versionHistory: Seq[String] = Seq(),
     requireStatusCode: Iterable[Int] = List(0)
   ): CommandOutputComponents = {
