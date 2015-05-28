@@ -20,16 +20,16 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   "ExecuteShellCommand" should "return status code" in {
     val testTrue = new ExternalProcess("test", "a", "=", "a")
-    testTrue.run(Map()).returnCode should equal(0)
+    testTrue.run(Seq()).returnCode should equal(0)
     val testFalse = new ExternalProcess("test", "a", "=", "b")
-    testFalse.run(Map()).returnCode should equal(1)
+    testFalse.run(Seq()).returnCode should equal(1)
   }
 
   it should "create output files" in {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      RunExternalProcess("touch", OutputFileToken("target"))(Map())
+      RunExternalProcess("touch", OutputFileToken("target"))(Seq())
         .outputs("target").persisted(StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
@@ -38,7 +38,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   def ppVersionHistTest(pipeline: Pipeline, vh1: Seq[String]): (PersistedProducer[() => InputStream, FlatArtifact]) =
     {
       val touchFile1 =
-        RunExternalProcess("touch", OutputFileToken("target"))(Map(),
+        RunExternalProcess("touch", OutputFileToken("target"))(Seq(),
           versionHistory = vh1
         ).outputs("target")
       pipeline.persist(touchFile1, StreamIo)
@@ -82,12 +82,12 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   it should "capture stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
-    val stdout = IOUtils.readLines(echo.run(Map()).stdout()).asScala.mkString("\n")
+    val stdout = IOUtils.readLines(echo.run(Seq()).stdout()).asScala.mkString("\n")
     stdout should equal("hello world")
   }
   it should "capture stderr" in {
     val noSuchParameter = new ExternalProcess("touch", "-x", "foo")
-    val stderr = IOUtils.readLines(noSuchParameter.run(Map()).stderr()).asScala.mkString("\n")
+    val stderr = IOUtils.readLines(noSuchParameter.run(Seq()).stderr()).asScala.mkString("\n")
     stderr.size should be > 0
   }
   it should "throw an exception if command is not found" in {
@@ -98,7 +98,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
       override def uncaughtException(t: Thread, e: Throwable): Unit = ()
     })
     an[Exception] shouldBe thrownBy {
-      noSuchCommand.run(Map())
+      noSuchCommand.run(Seq())
     }
     // Restore exception handling
     Thread.setDefaultUncaughtExceptionHandler(defaultHandler)
@@ -115,7 +115,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val outputArtifact = new FileArtifact(outputFile)
 
     val copy = RunExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
-      inputsOld3 = Map("input" -> inputArtifact)
+      inputsOld3 = Seq(inputArtifact)
     )
       .outputs("output").persisted(StreamIo, outputArtifact)
     copy.get
@@ -130,7 +130,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   it should "pipe stdin to stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
     val wc = new ExternalProcess("wc", "-c")
-    val result = wc.run(Map(),stdinput = echo.run(Map()).stdout)
+    val result = wc.run(Seq(),stdinput = echo.run(Seq()).stdout)
     IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
   }
 }
