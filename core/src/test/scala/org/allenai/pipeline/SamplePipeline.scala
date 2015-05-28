@@ -21,9 +21,8 @@ class SamplePipeline extends UnitSpec
   val featureFile = "features.txt"
   val labelFile = "labels.txt"
 
-  val pipeline = Pipeline(scratchDir)
-
   "Sample Experiment" should "complete" in {
+    val pipeline = Pipeline(scratchDir)
 
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
@@ -57,6 +56,8 @@ class SamplePipeline extends UnitSpec
   }
 
   "Subsequent Experiment" should "re-use existing data" in {
+    val pipeline = Pipeline(scratchDir)
+
     val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
     val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
     val docFeatures = new FeaturizeDocuments(docs) // use in place of featureData above
@@ -88,6 +89,8 @@ class SamplePipeline extends UnitSpec
 
     // Pipeline using different instances, with some shared steps
     val (trainDataFile2, measureFile2) = {
+      val pipeline = Pipeline(scratchDir)
+
       val docDir = new DirectoryArtifact(new File(inputDir, "xml"))
       val docs = Read.fromArtifact(ParseDocumentsFromXML, docDir)
       val docFeatures = new FeaturizeDocuments(docs)

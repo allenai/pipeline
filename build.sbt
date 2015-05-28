@@ -3,17 +3,17 @@ import Dependencies._
 import ReleaseKeys._
 
 val core = Project(
-  id = "pipeline-core",
+  id = "core",
   base = file("core")
 )
 
 val s3 = Project(
-  id = "pipeline-s3",
+  id = "s3",
   base = file("s3")
 ).dependsOn(core)
 
 val spark = Project(
-  id = "pipeline-spark",
+  id = "spark",
   base = file("spark")
 ).dependsOn(core, s3)
 

@@ -218,6 +218,20 @@ class ProducerWithPersistence[T, A <: Artifact](
 
 }
 
+class ProducerWithPersistenceDisabled[T, A <: Artifact](
+    val original: Producer[T],
+    val io: Serializer[T, A] with Deserializer[T, A],
+    val artifact: A
+) extends PersistedProducer[T, A] {
+  override def create = original.get
+  override def stepInfo = original.stepInfo
+  override def changePersistence[A2 <: Artifact](
+    io: Serializer[T, A2] with Deserializer[T, A2],
+    artifact: A2
+  ): PersistedProducer[T, A2] =
+    new ProducerWithPersistenceDisabled(original, io, artifact)
+
+}
 //
 // Allow un-zipping of Producer instances
 // e.g.:

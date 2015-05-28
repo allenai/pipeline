@@ -41,7 +41,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
         RunExternalProcess("touch", OutputFileToken("target"))(
           versionHistory = vh1
         ).outputs("target")
-      pipeline.persist(touchFile1, StreamIo)
+      pipeline.persist(touchFile1, StreamIo, s"${touchFile1.stepInfo.signature.id}")
     }
 
   it should "cache when versionHistory is equal" in {

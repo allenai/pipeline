@@ -1,5 +1,6 @@
 import Dependencies._
 
+name := "pipeline-core"
 organization := "org.allenai"
 
 StylePlugin.enableLineLimit := false

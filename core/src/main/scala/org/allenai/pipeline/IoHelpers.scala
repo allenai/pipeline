@@ -82,7 +82,6 @@ object IoHelpers extends ColumnFormats {
     case f if f.exists && f.isDirectory => new DirectoryArtifact(f)
     case _ => new ZipFileArtifact(f)
   }
-  implicit def asProducer[T](x: T) = Producer.fromMemory(x)
   implicit def asFlatArtifact(url: URI) =
     CreateCoreArtifacts.fromFileUrls.urlToArtifact[FlatArtifact].apply(url)
   implicit def asStructuredArtifact(url: URI) =

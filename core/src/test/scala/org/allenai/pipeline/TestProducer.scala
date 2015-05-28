@@ -1,13 +1,10 @@
 package org.allenai.pipeline
 
+import java.io.File
+
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
-import org.apache.commons.io.FileUtils
-import org.scalatest.BeforeAndAfterAll
-
 import scala.util.Random
-
-import java.io.File
 
 /** Created by rodneykinney on 8/19/14.
   */
@@ -85,11 +82,11 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   }
 
   "PersistentCachedProducer" should "read from file if exists" in {
-    val pStep = pipeline.Persist.Collection.asText(randomNumbers)
+    val pStep = randomNumbers.persisted(LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = pipeline.Persist.Collection.asText(randomNumbers)
+    val otherStep = randomNumbers.persisted(LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
     otherStep.get should equal(pStep.get)
   }
 
@@ -112,7 +109,13 @@ class TestProducer extends UnitSpec with ScratchDirectory {
 
   "Persisted iterator" should "read from file if exists" in {
     val persisted = pipeline.Persist.Iterator.asText(randomIterator.withCachingEnabled)
-    val otherStep = pipeline.Persist.Iterator.asText(randomIterator.withCachingDisabled)
+    val otherStep = pipeline.persistToArtifact(
+      randomIterator.withCachingDisabled,
+      LineIteratorIo.text[Double],
+      persisted.artifact,
+      "RNG2"
+    )
+    persisted.get.toList should equal(otherStep.get.toList)
   }
 
   "Consumed iterator" should "be called only once" in {
@@ -211,8 +214,8 @@ class TestProducer extends UnitSpec with ScratchDirectory {
           .addFields(this, "seed", "length")
     }
 
-    val rng1 = pipeline.Persist.Collection.asJson(new RNG(42, 100))
-    val rng2 = pipeline.Persist.Collection.asJson(new RNG(117, 100))
+    val rng1 = pipeline.Persist.Collection.asJson(new RNG(42, 100), "RNG1")
+    val rng2 = pipeline.Persist.Collection.asJson(new RNG(117, 100), "RNG2")
 
     rng1.stepInfo.signature should not equal (rng2.stepInfo.signature)
 
