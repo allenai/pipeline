@@ -26,7 +26,7 @@ import java.util.UUID
 class ExternalProcess(val commandTokens: CommandToken*) {
 
   def run(
-    inputsOld2: Map[String, () => InputStream] = Map(),
+    inputsOld2: Map[String, () => InputStream],
     stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)
   ) = {
     {
