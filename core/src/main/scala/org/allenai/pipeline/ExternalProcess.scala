@@ -26,26 +26,26 @@ import java.util.UUID
 class ExternalProcess(val commandTokens: CommandToken*) {
 
   def run(
-    inputs: Map[String, () => InputStream] = Map(),
+    inputsOld2: Map[String, () => InputStream] = Map(),
     stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)
   ) = {
     {
-      val inputNames = inputs.map(_._1).toSet
+      val inputNames = inputsOld2.map(_._1).toSet
       val inputTokenNames = commandTokens.collect { case InputFileToken(name) => name }.toSet
       val unusedInputs = inputNames -- inputTokenNames
       require(unusedInputs.size == 0, s"The following inputs are not used: [${unusedInputs.mkString(",")}}]")
       val unboundTokens = inputTokenNames -- inputNames
       require(unboundTokens.size == 0, s"The following input tokens were not found: [${unboundTokens.mkString(",")}}]")
       val outputNames = commandTokens.collect { case OutputFileToken(name) => name }.toSet
-      require(inputNames.size == inputs.size, "Names of inputs must be unique")
-      require((inputNames ++ outputNames).size == inputs.size + outputNames.size, "Cannot share names between inputs and outputs")
+      require(inputNames.size == inputsOld2.size, "Names of inputs must be unique")
+      require((inputNames ++ outputNames).size == inputsOld2.size + outputNames.size, "Cannot share names between inputs and outputs")
       require(((inputNames ++ outputNames) intersect Set("stderr", "stdout")).isEmpty, "Cannot use 'stderr' or 'stdout' for name")
     }
 
     val scratchDir = Files.createTempDirectory(null).toFile
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
-    for ((name, data) <- inputs) {
+    for ((name, data) <- inputsOld2) {
       StreamIo.write(data, new FileArtifact(new File(scratchDir, name)))
     }
 
@@ -130,13 +130,13 @@ object ExternalProcess {
 class RunExternalProcess private (
     commandTokens: Seq[CommandToken],
     _versionHistory: Seq[String],
-    inputs: Map[String, Producer[() => InputStream]]
+    inputsOld1: Map[String, Producer[() => InputStream]]
 ) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
-    new ExternalProcess(commandTokens: _*).run(inputs.mapValues(_.get))
+    new ExternalProcess(commandTokens: _*).run(inputsOld1.mapValues(_.get))
   }
 
-  val parameters = inputs.map { case (name, src) => (name, src) }.toList
+  val parameters = inputsOld1.map { case (name, src) => (name, src) }.toList
 
   override def versionHistory = _versionHistory
 
@@ -158,12 +158,12 @@ object RunExternalProcess {
   def apply(
     commandTokens: CommandToken*
   )(
-    inputs: Map[String, Producer[() => InputStream]] = Map(),
+    inputsOld3: Map[String, Producer[() => InputStream]] = Map(),
     versionHistory: Seq[String] = Seq(),
     requireStatusCode: Iterable[Int] = List(0)
   ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
-    val processCmd = new RunExternalProcess(commandTokens, versionHistory, inputs)
+    val processCmd = new RunExternalProcess(commandTokens, versionHistory, inputsOld3)
     val baseName = processCmd.stepInfo.className
     val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
     val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)

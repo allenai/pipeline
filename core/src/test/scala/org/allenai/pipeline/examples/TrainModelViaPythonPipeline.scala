@@ -23,7 +23,7 @@ object TrainModelViaPythonPipeline extends App {
       OutputFileToken("modelFile"),
       "-data",
       InputFileToken("trainingData")
-    )(inputs =
+    )(inputsOld3 =
         Map("trainingData" -> trainData, "script" -> new FileArtifact(new File(inputDir, "trainModel.py"))))
 
   // Capture the output of the process and persist it
@@ -38,7 +38,7 @@ object TrainModelViaPythonPipeline extends App {
       InputFileToken("modelFile"),
       "-data",
       InputFileToken("testDataFile")
-    )(inputs = Map(
+    )(inputsOld3 = Map(
         "script" -> new FileArtifact(new File(inputDir, "scoreModel.py")),
         "modelFile" -> modelFile,
         "testDataFile" -> testData

@@ -115,7 +115,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val outputArtifact = new FileArtifact(outputFile)
 
     val copy = RunExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
-      inputs = Map("input" -> Read.fromArtifact(StreamIo, inputArtifact))
+      inputsOld3 = Map("input" -> Read.fromArtifact(StreamIo, inputArtifact))
     )
       .outputs("output").persisted(StreamIo, outputArtifact)
     copy.get
