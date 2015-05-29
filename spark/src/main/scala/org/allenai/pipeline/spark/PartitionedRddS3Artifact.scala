@@ -8,7 +8,7 @@ import scala.collection.JavaConverters._
 
 import java.net.URI
 
-class PartitionedRddS3Artifact(val s3Config: S3Config, val rootPath: String) extends PartitionedRddArtifact[S3FlatArtifact] {
+class PartitionedRddS3Artifact(val s3Config: S3Config, val rootPath: String) extends PartitionedRddArtifact {
   private val cleanRoot = rootPath.reverse.dropWhile(_ == '/').reverse
 
   private val successArtifact = new S3FlatArtifact(s"$cleanRoot/_SUCCESS", s3Config)

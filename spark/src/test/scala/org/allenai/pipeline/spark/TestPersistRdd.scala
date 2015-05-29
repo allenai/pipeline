@@ -22,7 +22,7 @@ class TestPersistRdd extends SparkTest with ScratchDirectory {
     val pp = {
       import org.allenai.pipeline.IoHelpers._
       val af = ArtifactFactory(CreateRddArtifacts.fromFileUrls)
-      val outputArtifact = af.createArtifact[PartitionedRddArtifact[FlatArtifact]](outputFile.toURI)
+      val outputArtifact = af.createArtifact[PartitionedRddArtifact](outputFile.toURI)
       p.persisted(new PartitionedRddIo[Double](sparkContext), outputArtifact)
     }
     val result = pp.get

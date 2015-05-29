@@ -25,7 +25,7 @@ trait SparkPipeline extends Pipeline {
     val io = new PartitionedRddIo[T](sparkContext)
     val stepName = Option(name).getOrElse(original.stepInfo.className)
     val path = s"data/$stepName.${hashId(original, io)}$suffix"
-    val artifact = createOutputArtifact[PartitionedRddArtifact[FlatArtifact]](path)
+    val artifact = createOutputArtifact[PartitionedRddArtifact](path)
     persistToArtifact(original, io, artifact)
   }
 

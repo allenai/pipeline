@@ -11,9 +11,9 @@ import scala.reflect.ClassTag
   */
 class PartitionedRddIo[T: ClassTag: StringSerializable](
   sc: SparkContext
-) extends ArtifactIo[RDD[T], PartitionedRddArtifact[FlatArtifact]]
+) extends ArtifactIo[RDD[T], PartitionedRddArtifact]
     with BasicPipelineStepInfo {
-  override def write(data: RDD[T], artifact: PartitionedRddArtifact[FlatArtifact]): Unit = {
+  override def write(data: RDD[T], artifact: PartitionedRddArtifact): Unit = {
     val makeArtifact = artifact.makePartitionArtifact
     val convertToString = SerializeFunction(implicitly[StringSerializable[T]].toString)
     val stringRdd = data.map(convertToString)
@@ -30,7 +30,7 @@ class PartitionedRddIo[T: ClassTag: StringSerializable](
     artifact.saveWasSuccessful()
   }
 
-  override def read(artifact: PartitionedRddArtifact[FlatArtifact]): RDD[T] = {
+  override def read(artifact: PartitionedRddArtifact): RDD[T] = {
     val partitionArtifacts = artifact.getExistingPartitionArtifacts.toVector
     if (partitionArtifacts.nonEmpty) {
       val partitions = sc.parallelize(partitionArtifacts, partitionArtifacts.size)
