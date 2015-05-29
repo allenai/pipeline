@@ -17,10 +17,10 @@ object CreateRddArtifacts {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
-        case url if c.isAssignableFrom(classOf[PartitionedRddArtifact])
+        case url if c.isAssignableFrom(classOf[PartitionedRddFileArtifact])
           && "file" == url.getScheme =>
           new PartitionedRddFileArtifact(new File(url)).asInstanceOf[A]
-        case url if c.isAssignableFrom(classOf[PartitionedRddArtifact])
+        case url if c.isAssignableFrom(classOf[PartitionedRddFileArtifact])
           && null == url.getScheme =>
           new PartitionedRddFileArtifact(new File(url.getPath)).asInstanceOf[A]
       }
@@ -32,7 +32,7 @@ object CreateRddArtifacts {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
-        case url if c.isAssignableFrom(classOf[PartitionedRddArtifact])
+        case url if c.isAssignableFrom(classOf[PartitionedRddS3Artifact])
           && List("s3", "s3n").contains(url.getScheme) =>
           val bucket = url.getHost
           val path = url.getPath.dropWhile(_ == '/')
