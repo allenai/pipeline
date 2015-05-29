@@ -3,6 +3,7 @@ package org.allenai.pipeline.spark.examples
 import org.allenai.pipeline.{ Ai2StepInfo, Producer }
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.SparkContext._
 
 /** Created by rodneykinney on 5/24/15.
   */

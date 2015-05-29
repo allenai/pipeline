@@ -43,11 +43,11 @@ class PartitionedRddIo[T: ClassTag: StringSerializable](
             row <- io.read(a)
           } yield row
       }
-      if (stringRdd.isEmpty()) {
-        sc.emptyRDD[T]
-      } else {
+      if (stringRdd.take(1).length > 0) {
         val convertToObject = SerializeFunction(implicitly[StringSerializable[T]].fromString)
         stringRdd.map(convertToObject)
+      } else {
+        sc.emptyRDD[T]
       }
     } else {
       sc.emptyRDD[T]
