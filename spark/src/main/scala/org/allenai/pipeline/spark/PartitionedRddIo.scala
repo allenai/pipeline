@@ -26,24 +26,32 @@ class PartitionedRddIo[T: ClassTag: StringSerializable](
         Iterator(1)
     }
     // Force execution of Spark job
-    savedPartitions.sum()
+    savedPartitions.count()
     artifact.saveWasSuccessful()
   }
 
   override def read(artifact: PartitionedRddArtifact[FlatArtifact]): RDD[T] = {
     val partitionArtifacts = artifact.getExistingPartitionArtifacts.toVector
-    val partitions = sc.parallelize(partitionArtifacts, partitionArtifacts.size)
-    val stringRdd = partitions.mapPartitions {
-      artifacts =>
-        import org.allenai.pipeline.IoHelpers._
-        val io = LineIteratorIo.text[String]
-        for {
-          a <- artifacts
-          row <- io.read(a)
-        } yield row
+    if (partitionArtifacts.nonEmpty) {
+      val partitions = sc.parallelize(partitionArtifacts, partitionArtifacts.size)
+      val stringRdd = partitions.mapPartitions {
+        artifacts =>
+          import org.allenai.pipeline.IoHelpers._
+          val io = LineIteratorIo.text[String]
+          for {
+            a <- artifacts
+            row <- io.read(a)
+          } yield row
+      }
+      if (stringRdd.isEmpty()) {
+        sc.emptyRDD[T]
+      } else {
+        val convertToObject = SerializeFunction(implicitly[StringSerializable[T]].fromString)
+        stringRdd.map(convertToObject)
+      }
+    } else {
+      sc.emptyRDD[T]
     }
-    val convertToObject = SerializeFunction(implicitly[StringSerializable[T]].fromString)
-    stringRdd.map(convertToObject)
   }
 }
 
