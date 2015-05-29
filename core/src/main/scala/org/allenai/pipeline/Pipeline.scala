@@ -124,10 +124,11 @@ trait Pipeline extends Logging {
     name: String = null
   ): PersistedProducer[T, A] = {
     val persisted = original.persisted(io, artifact)
-    var stepName = Option(name).getOrElse(original.stepInfo.className)
+    val stepNameBase = Option(name).getOrElse(original.stepInfo.className)
     var i = 1
+    var stepName = stepNameBase
     while (steps.contains(stepName)) {
-      stepName = s"$stepName.$i"
+      stepName = s"$stepNameBase.$i"
       i += 1
     }
     steps(stepName) = persisted
