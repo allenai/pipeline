@@ -11,16 +11,15 @@ class PartitionedRddFileArtifact(rootDir: File) extends PartitionedRddArtifact {
       || rootDir.mkdirs, s"Unable to find or create directory $rootDir"
   )
 
-  private val successFile = new FileArtifact(new File(rootDir, "_SUCCESS"))
-
   def makePartitionArtifact: Int => FileArtifact = {
     val root = rootDir
     i: Int => new FileArtifact(new File(root, "part-%05d".format(i)))
   }
 
-  def saveWasSuccessful(): Unit = {
+  private def successFile = new FileArtifact(new File(rootDir, "_SUCCESS"))
+
+  def saveWasSuccessful(): Unit =
     successFile.write(w => w.write(""))
-  }
 
   /** Return true if this data has been written to the persistent store. */
   override def exists: Boolean = successFile.exists
