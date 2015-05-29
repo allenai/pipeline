@@ -88,7 +88,7 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
   override def stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
-      className = s"LineCollectionIo[$className]",
+      className = s"ReadCollection[$className]",
       parameters = Map("charSet" -> codec.charSet.toString),
       description = Some(s"Read collection of [$className] into memory")
     )
