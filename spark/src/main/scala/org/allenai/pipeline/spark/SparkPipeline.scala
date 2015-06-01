@@ -26,7 +26,11 @@ trait SparkPipeline extends Pipeline {
     val stepName = Option(name).getOrElse(original.stepInfo.className)
     val path = s"data/$stepName.${hashId(original, io)}$suffix"
     val artifact = createOutputArtifact[PartitionedRddArtifact](path)
-    persistToArtifact(original, io, artifact)
+    // Similar to Iterators, RDDs are lazy data structures.
+    // Caching them in memory will generally force re-calculation of the results
+    // Therefore, when persisting, we disable in-memory caching so that
+    // the results will always be read from the persistent storage
+    persistToArtifact(original, io, artifact).withCachingDisabled
   }
 
   override def urlToArtifact = UrlToArtifact.chain(super.urlToArtifact, CreateRddArtifacts.fromFileUrls)

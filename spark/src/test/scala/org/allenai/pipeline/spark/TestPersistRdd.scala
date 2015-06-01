@@ -1,9 +1,7 @@
 package org.allenai.pipeline.spark
 
 import org.allenai.common.testkit.ScratchDirectory
-import org.allenai.pipeline.{ BasicPipelineStepInfo, ArtifactFactory, FlatArtifact, Producer }
-
-import org.apache.spark.rdd.RDD
+import org.allenai.pipeline._
 
 import scala.util.Random
 
@@ -13,6 +11,8 @@ import java.io.File
   */
 class TestPersistRdd extends SparkTest with ScratchDirectory {
 
+  import org.allenai.pipeline.IoHelpers._
+
   "RddProducer" should "persist correctly" in {
     val outputFile = new File(scratchDir, "test-persist")
     val partitionCount = 10
@@ -20,7 +20,6 @@ class TestPersistRdd extends SparkTest with ScratchDirectory {
     val rows = (0 until 100).map(i => rand.nextDouble)
     val p = Producer.fromMemory(sparkContext.parallelize(rows, partitionCount))
     val pp = {
-      import org.allenai.pipeline.IoHelpers._
       val af = ArtifactFactory(CreateRddArtifacts.fromFileUrls)
       val outputArtifact = af.createArtifact[PartitionedRddArtifact](outputFile.toURI)
       p.persisted(new PartitionedRddIo[Double](sparkContext), outputArtifact)
@@ -35,15 +34,27 @@ class TestPersistRdd extends SparkTest with ScratchDirectory {
     outputFile.listFiles.size should be(partitionCount + 1)
   }
 
-  //  it should "return persisted value" in {
-  //    val rand = new Random()
-  //
-  //    val rdd = sparkContext.parallelize((0 to 10).toVector, 10).map(i => rand.nextDouble())
-  //    val p = Producer.fromMemory(rdd)
-  //    val first = p.get.collect().toSet
-  //    val second = p.get.collect().toSet
-  //
-  //    first should not equal(second)
-  //  }
+  it should "not cache persisted RDDs in memory" in {
+    val rand = new Random()
+    val doubles = (0 until 1000).map(i => rand.nextDouble)
+    val dir = new File(scratchDir, "persistCache")
+    val numbersFile = new File(dir, "numbers.txt")
+    LineCollectionIo.text[Double].write(doubles, new FileArtifact(numbersFile))
+
+    val pipeline = SparkPipeline(sparkContext, dir.toURI)
+
+    val numbersProducer = {
+      val read = Producer.fromMemory(sparkContext.textFile(numbersFile.getPath).map(_.toDouble))
+      pipeline.persistRdd(read)
+    }
+
+    val first = numbersProducer.get.collect().toSet
+    // If the RDD is recomputed, deleting this file will cause it to fail
+    numbersFile.delete()
+    // Should succeed because RDD is read from persisted location
+    val second = numbersProducer.get.collect().toSet
+
+    first should equal(second)
+  }
 
 }
