@@ -50,7 +50,8 @@ class TestProducer extends UnitSpec with ScratchDirectory {
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = cachedRandomNumbers.persisted(
+    val otherStep = new ProducerWithPersistence(
+      cachedRandomNumbers,
       LineCollectionIo.text[Double],
       pStep.artifact
     )
@@ -60,7 +61,8 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   "PersistedProducer" should "always read from file if caching disabled" in {
     val outputFile = new FileArtifact(new File(outputDir, "savedNumbersWithChanges.txt"))
     val io = LineCollectionIo.text[Double]
-    val pStep = randomNumbers.persisted(
+    val pStep = new ProducerWithPersistence(
+      randomNumbers,
       io,
       outputFile
     ).withCachingDisabled
@@ -82,11 +84,11 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   }
 
   "PersistentCachedProducer" should "read from file if exists" in {
-    val pStep = randomNumbers.persisted(LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
+    val pStep = new ProducerWithPersistence(randomNumbers, LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = randomNumbers.persisted(LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
+    val otherStep = new ProducerWithPersistence(randomNumbers, LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
     otherStep.get should equal(pStep.get)
   }
 
@@ -126,7 +128,7 @@ class TestProducer extends UnitSpec with ScratchDirectory {
         n.toIterator
       }
     }
-
+    "".hashCode
     consumedIterator.get.size should equal(20)
   }
 

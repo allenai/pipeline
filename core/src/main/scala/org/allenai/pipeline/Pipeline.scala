@@ -1,19 +1,20 @@
 package org.allenai.pipeline
 
-import java.io.File
-import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.Date
-
-import com.typesafe.config.Config
 import org.allenai.common.Config._
 import org.allenai.common.Logging
 import org.allenai.pipeline.IoHelpers._
+
+import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
+
+import java.io.File
+import java.net.URI
+import java.text.SimpleDateFormat
+import java.util.Date
 
 /** A top-level data flow pipeline.
   * Provides methods for persisting Producers in a consistent location,
@@ -123,7 +124,7 @@ trait Pipeline extends Logging {
     artifact: A,
     name: String = null
   ): PersistedProducer[T, A] = {
-    val persisted = original.persisted(io, artifact)
+    val persisted = new ProducerWithPersistence(original, io, artifact)
     val stepNameBase = Option(name).getOrElse(original.stepInfo.className)
     var i = 1
     var stepName = stepNameBase
@@ -131,8 +132,12 @@ trait Pipeline extends Logging {
       stepName = s"$stepNameBase.$i"
       i += 1
     }
-    steps(stepName) = persisted
-    persisted
+    addTarget(stepName, persisted)
+  }
+
+  def addTarget[T, A <: Artifact](stepName: String, target: PersistedProducer[T, A]) = {
+    steps(stepName) = target
+    target
   }
 
   protected[this] def urlToArtifact = CreateCoreArtifacts.fromFileUrls
@@ -283,7 +288,7 @@ trait ConfiguredPipeline extends Pipeline {
           case Some(step) =>
             runOnly(rawTitle, step)
           case None =>
-            import ConfigReader._
+            import org.allenai.common.Config.ConfigReader._
             config.get[Seq[String]]("runOnly") match {
               case Some(steps) =>
                 runOnly(rawTitle, steps: _*)
@@ -307,7 +312,12 @@ trait ConfiguredPipeline extends Pipeline {
         case path: String if path != "false" =>
           super.persistToArtifact(original, io, createOutputArtifact[A](path), name)
         case java.lang.Boolean.FALSE | "false" =>
-          new ProducerWithPersistenceDisabled(original, io, createOutputArtifact[A](""))
+          // Disable persistence
+          new ProducerWithPersistence(original, io, createOutputArtifact[A]("save-disabled")) {
+            override def create = original.get
+
+            override def stepInfo = original.stepInfo
+          }
         case _ =>
           super.persist(original, io, name, suffix)
       }
