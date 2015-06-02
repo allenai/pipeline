@@ -10,17 +10,22 @@ import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata
 import org.allenai.common.Logging
 import org.allenai.pipeline._
 
-case class S3Config(bucket: String, credentials: BasicAWSCredentials = S3Config.environmentCredentials()) {
+case class S3Config(bucket: String, credentials: S3Credentials = S3Config.environmentCredentials()) {
   @transient
-  lazy val service = new AmazonS3Client(credentials)
+  lazy val service = {
+    val S3Credentials(accessKey, secretKey) = credentials
+    new AmazonS3Client(new BasicAWSCredentials(accessKey, secretKey))
+  }
 }
 
+case class S3Credentials(accessKey: String, secretKey: String)
+
 object S3Config {
-  def environmentCredentials(): BasicAWSCredentials = {
+  def environmentCredentials(): S3Credentials = {
     val credentials = new EnvironmentVariableCredentialsProvider().getCredentials
     val accessKey = credentials.getAWSAccessKeyId
     val secretKey = credentials.getAWSSecretKey
-    new BasicAWSCredentials(accessKey, secretKey)
+    new S3Credentials(accessKey, secretKey)
   }
 }
 

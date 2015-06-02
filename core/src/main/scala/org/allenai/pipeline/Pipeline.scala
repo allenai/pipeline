@@ -1,20 +1,19 @@
 package org.allenai.pipeline
 
+import java.io.File
+import java.net.URI
+import java.text.SimpleDateFormat
+import java.util.Date
+
+import com.typesafe.config.Config
 import org.allenai.common.Config._
 import org.allenai.common.Logging
 import org.allenai.pipeline.IoHelpers._
-
-import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
-
-import java.io.File
-import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.Date
 
 /** A top-level data flow pipeline.
   * Provides methods for persisting Producers in a consistent location,
@@ -150,16 +149,23 @@ trait Pipeline extends Logging {
   def createOutputArtifact[A <: Artifact: ClassTag](path: String): A =
     artifactFactory.createArtifact[A](rootOutputUrl, path)
 
-  /** Run only specified steps in the pipeline.  Upstream dependencies must exist already.  They will not be computed */
-  def runOnly(title: String, targetNames: String*) = {
-    val targets = targetNames.flatMap(steps.get)
+  def getStepsByName(targetNames: Iterable[String]) = {
+    val targets = targetNames.flatMap(s => steps.get(s).map(p => (s, p)))
     if (targets.size != targetNames.size) {
       val unresolveNames = targetNames.filterNot(steps.contains)
       sys.error(s"Step names not found: ${unresolveNames.mkString("[", ",", "]")}")
     }
+    targets
+  }
 
-    val targetStepInfo = targets.map(_.stepInfo).toSet
-    val allDependencies = targets.flatMap(Workflow.upstreamDependencies)
+  /** Run only specified steps in the pipeline.  Upstream dependencies must exist already.  They will not be computed */
+  def runOnly(title: String, targetNames: String*): Iterable[(String, Any)] = {
+    runOnly(title, getStepsByName(targetNames))
+  }
+
+  def runOnly(title: String, targets: Iterable[(String, Producer[_])]): Iterable[(String, Any)] = {
+    val targetStepInfo = targets.map(_._2.stepInfo).toSet
+    val allDependencies = targets.flatMap { case (s, p) => Workflow.upstreamDependencies(p) }
     val nonExistentDependencies =
       for {
         p <- allDependencies if p.isInstanceOf[PersistedProducer[_, _]]
@@ -172,14 +178,17 @@ trait Pipeline extends Logging {
       val dependencyNames = nonExistentDependencies.map(_.className).mkString(",")
       s"Cannot run steps [$targetNames]. Upstream dependencies [$dependencyNames] have not been computed"
     })
-    runPipelineReturnResults(title, targetNames.map(s => (s, steps(s))))
+    runPipelineReturnResults(title, targets)
   }
 
-  protected[this] def runPipelineReturnResults(rawTitle: String, outputsWithNames: Iterable[(String, Producer[_])]) = {
-    val outputs = outputsWithNames.map(_._2)
-    val result = try {
+  protected[this] def runPipelineReturnResults(rawTitle: String, targets: Iterable[(String, Producer[_])]): Iterable[(String, Any)] = {
+    // Order the outputs so that the ones with the fewest dependencies are executed first
+    val outputs = targets.toVector.map {
+      case (name, p) => (Workflow.upstreamDependencies(p).size, name, p)
+    }.sortBy(_._1).map { case (count, name, p) => (name, p) }
+    val result: Seq[(String, Any)] = try {
       val start = System.currentTimeMillis
-      val result = outputs.map(_.get)
+      val result = outputs.map { case (name, p) => (name, p.get) }
       val duration = (System.currentTimeMillis - start) / 1000.0
       logger.info(f"Ran pipeline in $duration%.3f s")
       result
@@ -193,7 +202,7 @@ trait Pipeline extends Logging {
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
     val workflowArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.workflow.json")
-    val workflow = Workflow.forPipeline(outputsWithNames.toMap)
+    val workflow = Workflow.forPipeline(targets.toMap)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
@@ -201,7 +210,7 @@ trait Pipeline extends Logging {
 
     val signatureArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter
-    val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toList.toJson
+    val signatures = targets.map { case (s, p) => signatureFormat.write(p.stepInfo.signature) }.toList.toJson
     signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
 
     logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
@@ -230,13 +239,12 @@ trait Pipeline extends Logging {
     }
   }
 
-  def dryRun(outputDir: File, rawTitle: String): Iterable[(String, Producer[_])] = {
-    val outputs = steps.values.toList
+  def dryRun(outputDir: File, rawTitle: String, targets: Iterable[(String, Producer[_])] = persistedSteps.toList): Unit = {
     val title = s"${
       rawTitle.replaceAll("""\s+""", "-")
     }-dryRun"
     val workflowArtifact = new FileArtifact(new File(outputDir, s"$title.workflow.json"))
-    val workflow = Workflow.forPipeline(persistedSteps)
+    val workflow = Workflow.forPipeline(targets)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
@@ -244,13 +252,12 @@ trait Pipeline extends Logging {
 
     val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
     val signatureFormat = Signature.jsonWriter
-    val signatures = outputs.map(p => signatureFormat.write(p.stepInfo.signature)).toJson
+    val signatures = targets.map { case (s, p) => signatureFormat.write(p.stepInfo.signature) }.toJson
     signatureArtifact.write {
       writer => writer.write(signatures.prettyPrint)
     }
 
     logger.info(s"Summary written to $outputDir")
-    List()
   }
 
   protected[this] val steps =
@@ -277,24 +284,40 @@ trait ConfiguredPipeline extends Pipeline {
     config.get[String]("output.dir").map(s => new URI(s))
       .getOrElse(new File(System.getProperty("user.dir")).toURI)
 
+  protected[this] def getStringList(key: String) =
+    config.get[String](key) match {
+      case Some(s) => List(s)
+      case None => config.get[Seq[String]](key) match {
+        case Some(sList) => sList
+        case None => List()
+      }
+    }
+
   override def run(rawTitle: String) = {
+    val (targets, isRunOnly) =
+      getStringList("runOnly") match {
+        case seq if seq.nonEmpty =>
+          (getStepsByName(seq), true)
+        case _ =>
+          getStringList("runUntil") match {
+            case seq if seq.nonEmpty =>
+              (getStepsByName(seq), false)
+            case _ =>
+              (persistedSteps.toList, false)
+          }
+      }
+
     config.get[Boolean]("dryRun") match {
       case Some(true) =>
         val outputDir = config.get[String]("dryRunOutput")
           .getOrElse(System.getProperty("user.dir"))
-        dryRun(new File(outputDir), rawTitle)
+        dryRun(new File(outputDir), rawTitle, targets)
+        List()
       case _ =>
-        config.get[String]("runOnly") match {
-          case Some(step) =>
-            runOnly(rawTitle, step)
-          case None =>
-            import org.allenai.common.Config.ConfigReader._
-            config.get[Seq[String]]("runOnly") match {
-              case Some(steps) =>
-                runOnly(rawTitle, steps: _*)
-              case None =>
-                super.run(rawTitle)
-            }
+        if (isRunOnly) {
+          runOnly(rawTitle, targets)
+        } else {
+          runPipelineReturnResults(rawTitle, targets)
         }
     }
   }

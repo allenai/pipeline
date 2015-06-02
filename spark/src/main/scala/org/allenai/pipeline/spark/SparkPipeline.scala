@@ -3,9 +3,8 @@ package org.allenai.pipeline.spark
 import java.net.URI
 
 import org.allenai.pipeline._
-import org.allenai.pipeline.s3.S3Pipeline
+import org.allenai.pipeline.s3.{ S3Credentials, S3Pipeline }
 
-import com.amazonaws.auth.BasicAWSCredentials
 import com.typesafe.config.Config
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -55,7 +54,7 @@ object SparkPipeline {
   def apply(
     sc: SparkContext,
     rootUrl: URI,
-    awsCredentials: BasicAWSCredentials = null
+    awsCredentials: S3Credentials = null
   ) =
     awsCredentials match {
       case null =>
@@ -75,7 +74,7 @@ object SparkPipeline {
   def configured(
     cfg: Config,
     sc: SparkContext,
-    awsCredentials: BasicAWSCredentials = null
+    awsCredentials: S3Credentials = null
   ) =
     awsCredentials match {
       case null =>

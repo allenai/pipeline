@@ -1,9 +1,7 @@
 package org.allenai.pipeline.spark
 
 import org.allenai.pipeline._
-import org.allenai.pipeline.s3.S3Config
-
-import com.amazonaws.auth.BasicAWSCredentials
+import org.allenai.pipeline.s3.{ S3Credentials, S3Config }
 
 import scala.reflect.ClassTag
 
@@ -28,7 +26,7 @@ object CreateRddArtifacts {
     }
   }
 
-  def fromS3Urls(credentials: => BasicAWSCredentials): UrlToArtifact = new UrlToArtifact {
+  def fromS3Urls(credentials: => S3Credentials): UrlToArtifact = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
@@ -42,6 +40,6 @@ object CreateRddArtifacts {
     }
   }
 
-  def fromFileOrS3Urls(credentials: => BasicAWSCredentials) =
+  def fromFileOrS3Urls(credentials: => S3Credentials) =
     UrlToArtifact.chain(fromFileUrls, fromS3Urls(credentials))
 }

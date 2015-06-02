@@ -42,15 +42,15 @@ class PartitionedRddS3Artifact(
       resp.getObjectSummaries.asScala
         .filter(_.getSize > 0)
         .map(_.getKey)
-        .filter(path => path.substring(rootPath.size).startsWith(prefix))
 
-    var resp = client.listObjects(s3Config.bucket, rootPath)
+    val fullPrefix = s"$cleanRoot/$prefix"
+    var resp = client.listObjects(s3Config.bucket, fullPrefix)
     var keys = extractKeys(resp)
     while (resp.isTruncated) {
       resp = client.listNextBatchOfObjects(resp)
       val newKeys = extractKeys(resp)
       keys ++= newKeys
     }
-    keys.toList.map(k => k.substring(prefix.length).toInt)
+    keys.toList.map(k => k.substring(fullPrefix.length).toInt)
   }
 }
