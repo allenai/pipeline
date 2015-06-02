@@ -29,7 +29,7 @@ trait SparkPipeline extends Pipeline {
     // Caching them in memory will generally force re-calculation of the results
     // Therefore, when persisting, we disable in-memory caching so that
     // the results will always be read from the persistent storage
-    persistToArtifact(original, io, artifact).withCachingDisabled
+    persistToArtifact(original, io, artifact, stepName).withCachingDisabled
   }
 
   override def urlToArtifact = UrlToArtifact.chain(super.urlToArtifact, CreateRddArtifacts.fromFileUrls)
