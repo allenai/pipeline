@@ -2,20 +2,7 @@ import Dependencies._
 
 import ReleaseKeys._
 
-val core = Project(
-  id = "core",
-  base = file("core")
-)
-
-val s3 = Project(
-  id = "s3",
-  base = file("s3")
-).dependsOn(core)
-
-val spark = Project(
-  id = "spark",
-  base = file("spark")
-).dependsOn(core, s3)
+StylePlugin.enableLineLimit := false
 
 organization := "org.allenai"
 crossScalaVersions := Seq("2.11.5")
@@ -43,3 +30,11 @@ enablePlugins(LibraryPlugin)
 PublishTo.ai2Public
 
 dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"
+libraryDependencies ++= Seq(
+  sprayJson,
+  commonsIO,
+  ai2Common,
+  allenAiTestkit % "test",
+  scalaReflection,
+  awsJavaSdk
+)

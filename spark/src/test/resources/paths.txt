@@ -1,4 +1,0 @@
-src/test/resources/file1.txt
-src/test/resources/file2.txt
-src/test/resources/file3.txt
-src/test/resources/file4.txt
