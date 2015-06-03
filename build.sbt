@@ -2,6 +2,11 @@ import Dependencies._
 
 import ReleaseKeys._
 
+val pipeline = Project(
+  id = "allenai-pipeline",
+  base = file(".")
+)
+
 StylePlugin.enableLineLimit := false
 
 organization := "org.allenai"
