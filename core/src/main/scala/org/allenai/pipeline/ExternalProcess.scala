@@ -26,7 +26,7 @@ import java.util.UUID
 class ExternalProcess(val commandTokens: CommandToken*) {
 
   def run(
-    inputsOld2: Map[String, () => InputStream],
+    inputsOld2: Map[String, Extarg],
     stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)
   ) = {
     {
@@ -45,8 +45,11 @@ class ExternalProcess(val commandTokens: CommandToken*) {
     val scratchDir = Files.createTempDirectory(null).toFile
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
-    for ((name, data) <- inputsOld2) {
-      StreamIo.write(data, new FileArtifact(new File(scratchDir, name)))
+    for ((name, extarg) <- inputsOld2) {
+      extarg match {
+        case ExtargStream(data) =>
+          StreamIo.write(data.get, new FileArtifact(new File(scratchDir, name)))
+      }
     }
 
     import scala.sys.process._
@@ -96,9 +99,11 @@ class ExternalProcess(val commandTokens: CommandToken*) {
 
 object ExternalProcess {
 
-  sealed trait CommandToken {
+  trait Namable {
     def name: String
   }
+
+  sealed trait CommandToken extends Namable
 
   case class StringToken(name: String) extends CommandToken
 
@@ -106,14 +111,25 @@ object ExternalProcess {
 
   case class OutputFileToken(name: String) extends CommandToken
 
+  /** Things which ExternalProcess is prepared to consume, currently
+    * only ExtargStream */
+  sealed trait Extarg
+
+  case class ExtargStream(a : Producer[() => InputStream]) extends Extarg
+
+  class ExternalProcessArgException(s : String) extends Throwable
+
   import scala.language.implicitConversions
 
-  implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]): Producer[() => InputStream] = {
-    p.copy(create = () =>
-      StreamIo.read(p.artifact.asInstanceOf[FlatArtifact]))
+  implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]): Extarg = {
+    ExtargStream(p.copy(create = () =>
+          StreamIo.read(p.artifact.asInstanceOf[FlatArtifact]))
+    )
   }
 
-  implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A): Producer[() => InputStream] = StaticResource(artifact)
+  implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A): Extarg = {
+    ExtargStream(StaticResource(artifact))
+  }
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
 
@@ -130,11 +146,16 @@ object ExternalProcess {
 class RunExternalProcess private (
     commandTokens: Seq[CommandToken],
     _versionHistory: Seq[String],
-    inputsOld1: Map[String, Producer[() => InputStream]]
+    inputsOld1: Map[String, Extarg]
 ) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
   override def create = {
-    new ExternalProcess(commandTokens: _*).run(inputsOld1.mapValues(_.get))
-  }
+    new ExternalProcess(commandTokens: _*).run(
+      inputsOld1.mapValues(x =>
+        x match {
+          case ExtargStream(v) => v.get; x
+        }
+      ))
+    }
 
   val parameters = inputsOld1.map { case (name, src) => (name, src) }.toList
 
@@ -158,7 +179,7 @@ object RunExternalProcess {
   def apply(
     commandTokens: CommandToken*
   )(
-    inputsOld3: Map[String, Producer[() => InputStream]],
+    inputsOld3: Map[String, Extarg],
     versionHistory: Seq[String] = Seq(),
     requireStatusCode: Iterable[Int] = List(0)
   ): CommandOutputComponents = {
