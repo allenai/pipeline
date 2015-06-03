@@ -41,7 +41,7 @@ object TrainModelViaPythonPipeline extends App {
       InputFileToken("modelFile"),
       "-data",
       InputFileToken("testDataFile")
-    )(inputsOld3 = Seq(
+    )(inputs = Seq(
         new FileArtifact(new File(inputDir, "scoreModel.py")),
         modelFile,
         testData

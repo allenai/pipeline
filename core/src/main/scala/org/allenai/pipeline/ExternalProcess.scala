@@ -25,7 +25,7 @@ import java.util.UUID
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
-  def run(inputsOld2 : Seq[Extarg],
+  def run(inputs : Seq[Extarg],
           stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)) =
   {
     val commandTokensToBind = commandTokens.filter{
@@ -37,7 +37,7 @@ class ExternalProcess(val commandTokens: CommandToken*) {
     {
       val inputTokenNames = commandTokens.map(_.name)
       val cRunBinds = commandTokensToBind.length
-      require(cRunBinds == inputsOld2.length, s"found ${inputsOld2.length} but need exactly ${cRunBinds} arguments")
+      require(cRunBinds == inputs.length, s"found ${inputs.length} but need exactly ${cRunBinds} arguments")
       val outputNames = commandTokens.collect { case OutputFileToken(name) => name}.toSet
     }
 
@@ -46,7 +46,7 @@ class ExternalProcess(val commandTokens: CommandToken*) {
 
     val commandTokens2 : Seq[CommandToken] = commandTokensToBind.toSeq
     val argsBound : Seq[(_,_,String)] =
-      commandTokens2.zip(inputsOld2).zipWithIndex.map{
+      commandTokens2.zip(inputs).zipWithIndex.map{
         case ((name, data), i) =>
           val v : String =
             (name,data) match {
@@ -147,11 +147,11 @@ object ExternalProcess {
 class RunExternalProcess private (
     val commandTokens: Seq[CommandToken],
     _versionHistory: Seq[String],
-    inputsOld1: Seq[Extarg]
+    inputs: Seq[Extarg]
 ) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
     override def create = {
       new ExternalProcess(commandTokens: _*).run(
-        inputsOld1.map(x =>
+        inputs.map(x =>
           x match {
             case ExtargStream(v) => v.get; x
           }
@@ -171,7 +171,7 @@ class RunExternalProcess private (
     // TODO: extract method
     super.stepInfo
       .copy(className = "ExternalProcess")
-      .addParameters(commandTokens.map(_.toString()).zip(inputsOld1).toList : _*)
+      .addParameters(commandTokens.map(_.toString()).zip(inputs).toList : _*)
       .addParameters("cmd" -> cmd.mkString(" "))
   }
 }
@@ -181,12 +181,12 @@ object RunExternalProcess {
   def apply(
     commandTokens: CommandToken*
   )(
-    inputsOld3: Seq[Extarg],
+    inputs: Seq[Extarg],
     versionHistory: Seq[String] = Seq(),
     requireStatusCode: Iterable[Int] = List(0)
   ): CommandOutputComponents = {
     val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
-    val processCmd = new RunExternalProcess(commandTokens, versionHistory, inputsOld3)
+    val processCmd = new RunExternalProcess(commandTokens, versionHistory, inputs)
     val baseName = processCmd.stepInfo.className
     val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
     val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
