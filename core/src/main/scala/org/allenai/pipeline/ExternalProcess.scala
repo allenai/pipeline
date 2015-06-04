@@ -57,13 +57,9 @@ class ExternalProcess(val commandTokens: CommandToken*) {
       (e: String) => err.append(e)
     )
 
-    val cmd : Seq[String] = commandTokens.map {
-      case InputFileToken(name) => new File(scratchDir, name).getCanonicalPath
-      case OutputFileToken(name) => new File(scratchDir, name).getCanonicalPath
-      case t => t.name
-    }
+    val cmd1 : Seq[String] = cmd(commandTokens, scratchDir)
 
-    val status = (cmd #< stdinput()) ! logger
+    val status = (cmd1 #< stdinput()) ! logger
     out.close()
     err.close()
 
@@ -121,6 +117,14 @@ object ExternalProcess {
             }
           (name, data, v)
       }
+  }
+
+  def cmd(commandTokens:Seq[CommandToken], scratchDir:File) : Seq[String] = {
+    commandTokens.map {
+      case InputFileToken(name) => new File(scratchDir, name).getCanonicalPath
+      case OutputFileToken(name) => new File(scratchDir, name).getCanonicalPath
+      case t => t.name
+    }
   }
 
   import scala.language.implicitConversions
