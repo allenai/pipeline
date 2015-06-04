@@ -155,12 +155,11 @@ class RunExternalProcess private (
     inputs: Seq[Extarg]
 ) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
     override def create = {
-      new ExternalProcess(commandTokens: _*).run(
-        inputs.map(x =>
-          x match {
-            case ExtargStream(v) => v.get; x
-          }
-        ))
+      // side effect: generate demand
+      inputs.foreach({
+        case ExtargStream(v) => v.get
+      })
+      new ExternalProcess(commandTokens: _*).run(inputs)
     }
 
   //val parameters = inputsOld1.map { case (name, src) => (name, src) }.toList
