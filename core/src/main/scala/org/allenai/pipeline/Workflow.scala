@@ -1,13 +1,12 @@
 package org.allenai.pipeline
 
-import org.allenai.common.Resource
+import java.net.URI
 
+import org.allenai.common.Resource
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.io.Source
-
-import java.net.URI
 
 /** DAG representation of the execution of a set of Producers.
   */
@@ -34,10 +33,10 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     val errors = errorNodes()
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
-      (id, info) <- nodes.toList.sortBy(_._2.className)
+      (id, info) <- nodes.toList.sortBy(_._2.stepName)
       path <- info.outputLocation
     } yield {
-      s"""<a href="$path">${info.className}</a>"""
+      s"""<a href="$path">${info.stepName}</a>"""
     }
     val addNodes =
       for ((id, info) <- nodes) yield {
@@ -59,15 +58,17 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
           case _ if sinks contains id => "sinkNode"
           case _ => ""
         }
+        val name = info.stepName
+        val desc = info.description.getOrElse(if (name == info.className) "" else info.className)
         s"""        g.setNode("$id", {
-           |          class: "$clazz",
-           |          labelType: "html",
-           |          label: generateStepContent(${info.className.toJson},
-           |            ${info.description.getOrElse("").toJson},
-           |            ${info.executionInfo.toJson},
-           |            ${params.toJson},
-           |            ${linksJson})
-           |        });""".stripMargin
+                                    |       class: "$clazz",
+                                                            |       labelType: "html",
+                                                            |       label: generateStepContent(${name.toJson},
+                                                                                                               |         ${desc.toJson},
+                                                                                                                                         |         ${info.executionInfo.toJson},
+                                                                                                                                                                                 |         ${params.toJson},
+                                                                                                                                                                                                             |         ${linksJson})
+                                                                                                                                                                                                                                     |     });""".stripMargin
       }
     val addEdges =
       for (Link(from, to, name) <- links) yield {
@@ -87,6 +88,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
 
 /** Represents a PipelineStep without its dependencies */
 case class Node(
+  stepName: String,
   className: String,
   classVersion: String = "",
   srcUrl: Option[URI] = None,
@@ -99,7 +101,7 @@ case class Node(
 )
 
 object Node {
-  def apply(step: PipelineStep): Node = {
+  def apply(stepName: String, step: PipelineStep): Node = {
     val stepInfo = step.stepInfo
     val outputMissing = step match {
       case persisted: PersistedProducer[_, _] =>
@@ -111,6 +113,7 @@ object Node {
       case _ => ""
     }
     Node(
+      stepName,
       stepInfo.className,
       stepInfo.classVersion,
       stepInfo.srcUrl,
@@ -128,7 +131,8 @@ object Node {
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: PipelineStep*): Workflow = {
+  def forPipeline(steps: Iterable[(String, PipelineStep)]): Workflow = {
+    val idToName = steps.map { case (k, v) => (v.stepInfo.signature.id, k) }.toMap
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
       Seq(s) ++ s.stepInfo.dependencies.flatMap {
         case (name, step) =>
@@ -136,10 +140,12 @@ object Workflow {
       }
 
     val nodeList = for {
-      step <- steps
+      (name, step) <- steps
       childStep <- findNodes(step)
     } yield {
-      (childStep.stepInfo.signature.id, Node.apply(childStep))
+      val id = childStep.stepInfo.signature.id
+      val childName = idToName.getOrElse(id, childStep.stepInfo.className)
+      (id, Node(childName, childStep))
     }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
@@ -149,7 +155,7 @@ object Workflow {
     val nodes = nodeList.toMap
 
     val links = (for {
-      step <- steps
+      (stepName, step) <- steps
       (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
     Workflow(nodes, links)
@@ -171,7 +177,7 @@ object Workflow {
           case s => sys.error(s"Invalid URI: $s")
         }
       }
-      jsonFormat9(Node.apply)
+      jsonFormat10(Node.apply)
     }
     jsonFormat(Workflow.apply, "nodes", "links")
   }

@@ -1,15 +1,14 @@
 package org.allenai.pipeline
 
-import org.allenai.common.Resource
-import org.allenai.pipeline.ExternalProcess._
-
-import org.apache.commons.io.{ FileUtils, IOUtils }
-
-import scala.collection.JavaConverters._
-
 import java.io.{ ByteArrayInputStream, File, FileWriter, InputStream }
 import java.nio.file.Files
 import java.util.UUID
+
+import org.allenai.common.Resource
+import org.allenai.pipeline.ExternalProcess._
+import org.apache.commons.io.{ FileUtils, IOUtils }
+
+import scala.collection.JavaConverters._
 
 /** Executes an arbitrary system process
   * @param commandTokens   The set of tokens that comprise the command to be executed.
@@ -21,7 +20,7 @@ import java.util.UUID
   *                        StringToken("cp") InputFileToken("src") OutputFileToken("target")
   *                        StringToken("python") InputFileToken("script") StringToken("-o") OutputFileToken("output")
   *
-  * Producers based on ExternalProcess should be created with class RunExternalProcess.
+  *                        Producers based on ExternalProcess should be created with class RunExternalProcess.
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
@@ -123,9 +122,11 @@ object ExternalProcess {
   import scala.language.implicitConversions
 
   implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]): Extarg = {
-    ExtargStream(p.copy(create = () =>
-          StreamIo.read(p.artifact.asInstanceOf[FlatArtifact]))
-    )
+    ExtargStream(p.copy(create =
+      () => {
+        p.get
+        StreamIo.read(p.artifact.asInstanceOf[FlatArtifact])
+      }))
   }
 
   implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A): Extarg = {
@@ -176,6 +177,7 @@ class RunExternalProcess private (
   }
 }
 object RunExternalProcess {
+
   import ExternalProcess.CommandOutput
 
   def apply(

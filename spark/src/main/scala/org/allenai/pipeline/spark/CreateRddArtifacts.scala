@@ -1,9 +1,7 @@
 package org.allenai.pipeline.spark
 
 import org.allenai.pipeline._
-import org.allenai.pipeline.s3.S3Config
-
-import com.amazonaws.auth.BasicAWSCredentials
+import org.allenai.pipeline.s3.{ S3Credentials, S3Config }
 
 import scala.reflect.ClassTag
 
@@ -17,10 +15,10 @@ object CreateRddArtifacts {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
-        case url if c.isAssignableFrom(classOf[PartitionedRddArtifact[FlatArtifact]])
+        case url if c.isAssignableFrom(classOf[PartitionedRddFileArtifact])
           && "file" == url.getScheme =>
           new PartitionedRddFileArtifact(new File(url)).asInstanceOf[A]
-        case url if c.isAssignableFrom(classOf[PartitionedRddArtifact[FlatArtifact]])
+        case url if c.isAssignableFrom(classOf[PartitionedRddFileArtifact])
           && null == url.getScheme =>
           new PartitionedRddFileArtifact(new File(url.getPath)).asInstanceOf[A]
       }
@@ -28,11 +26,11 @@ object CreateRddArtifacts {
     }
   }
 
-  def fromS3Urls(credentials: => BasicAWSCredentials): UrlToArtifact = new UrlToArtifact {
+  def fromS3Urls(credentials: => S3Credentials): UrlToArtifact = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
-        case url if c.isAssignableFrom(classOf[PartitionedRddArtifact[_]])
+        case url if c.isAssignableFrom(classOf[PartitionedRddS3Artifact])
           && List("s3", "s3n").contains(url.getScheme) =>
           val bucket = url.getHost
           val path = url.getPath.dropWhile(_ == '/')
@@ -42,6 +40,6 @@ object CreateRddArtifacts {
     }
   }
 
-  def fromFileOrS3Urls(credentials: => BasicAWSCredentials) =
+  def fromFileOrS3Urls(credentials: => S3Credentials) =
     UrlToArtifact.chain(fromFileUrls, fromS3Urls(credentials))
 }

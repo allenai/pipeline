@@ -17,20 +17,20 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val pipeline = Pipeline(outputDir)
 
     import IoHelpers._
-    val p1File = new File(pipeline.Persist.Singleton.asText(p1).artifact.url)
-    val p2File = new File(pipeline.Persist.Singleton.asText(p2).artifact.url)
-    val p3File = new File(pipeline.Persist.Singleton.asText(p3).artifact.url)
-    val p4Persisted = pipeline.Persist.Singleton.asText(p4)
+    val p1File = new File(pipeline.Persist.Singleton.asText(p1, "One").artifact.url)
+    val p2File = new File(pipeline.Persist.Singleton.asText(p2, "Two").artifact.url)
+    val p3File = new File(pipeline.Persist.Singleton.asText(p3, "Three").artifact.url)
+    val p4Persisted = pipeline.Persist.Singleton.asText(p4, "Four")
     val p4File = new File(p4Persisted.artifact.url)
 
     an[IllegalArgumentException] should be thrownBy {
       val p5 = AddOne(p4Persisted)
-      pipeline.Persist.Singleton.asText(p5)
+      pipeline.Persist.Singleton.asText(p5, "Five")
       // p5 has p4 as a dependency, but p4 has not been computed yet
-      pipeline.runOnly("test", p5)
+      pipeline.runOnly("test", "Five")
     }
 
-    pipeline.runOnly("test", p1)
+    pipeline.runOnly("test", "One")
     p1File should exist
     p2File should not(exist)
 
@@ -39,10 +39,9 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     p3File should exist
     p4File should exist
 
-    an[IllegalArgumentException] should be thrownBy {
-      val p5 = Producer.fromMemory(5)
-      // p5 has not been persisted, so we should not specify it as an output
-      pipeline.runOnly("test", p5)
+    a[RuntimeException] should be thrownBy {
+      // No such step
+      pipeline.runOnly("test", "Six")
     }
 
     val p5 = new Producer[Int] with Ai2SimpleStepInfo {
@@ -51,23 +50,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     }
     pipeline.Persist.Singleton.asText(p5)
     // p5 is persisted and its dependency exists.  All clear!
-    pipeline.runOnly("test", p5)
-  }
-
-  it should "respect tmpOutput argument in runOne()" in {
-    val p1 = Producer.fromMemory(1)
-
-    val outputDir = new File(scratchDir, "testRunOne")
-    val pipeline = Pipeline(outputDir)
-
-    import IoHelpers._
-    val p2 = pipeline.Persist.Singleton.asText(AddOne(p1))
-
-    val tmpOutput = new File(outputDir, "temp-output/prod2")
-    pipeline.runOne(p2, Some(tmpOutput.toURI.toString))
-
-    new File(outputDir, "data/prod2") should not(exist)
-    tmpOutput should exist
+    pipeline.runOnly("test", "Five")
   }
 
 }

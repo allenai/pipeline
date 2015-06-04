@@ -29,8 +29,8 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      RunExternalProcess("touch", OutputFileToken("target"))(Seq())
-        .outputs("target").persisted(StreamIo, outputArtifact)
+      new ProducerWithPersistence(RunExternalProcess("touch", OutputFileToken("target"))(Seq())
+        .outputs("target"), StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
   }
@@ -41,7 +41,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
         RunExternalProcess("touch", OutputFileToken("target"))(Seq(),
           versionHistory = vh1
         ).outputs("target")
-      pipeline.persist(touchFile1, StreamIo)
+      pipeline.persist(touchFile1, StreamIo, s"${touchFile1.stepInfo.signature.id}")
     }
 
   it should "cache when versionHistory is equal" in {
@@ -114,10 +114,10 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val inputArtifact = new FileArtifact(inputFile)
     val outputArtifact = new FileArtifact(outputFile)
 
-    val copy = RunExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
+    val copy = new ProducerWithPersistence(RunExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
       inputs = Seq(inputArtifact)
     )
-      .outputs("output").persisted(StreamIo, outputArtifact)
+      .outputs("output"),StreamIo, outputArtifact)
     copy.get
     outputFile should exist
     Source.fromFile(outputFile).mkString should equal("Some data\n")

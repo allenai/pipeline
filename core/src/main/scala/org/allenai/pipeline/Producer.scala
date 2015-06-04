@@ -66,15 +66,10 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     result
   }
 
-  /** Persist the result of this step.
-    * Once computed, write the result to the given artifact.
-    * If the artifact we are using for persistence exists,
-    * return the deserialized object rather than recomputing it.
-    *
-    * @tparam  A  the type of artifact being written to (i.e. directory, file)
-    * @param  io  the serialization for data of type T
-    * @param  artifactSource  creation of the artifact to be written
-    */
+  // It doesn't really make sense for a Producer class to control how it's persisted,
+  // because it might depend on the context of a pipeline
+  // Prefer using the Pipeline.persist(...) methods instead
+  @Deprecated
   def persisted[A <: Artifact](
     io: Serializer[T, A] with Deserializer[T, A],
     artifactSource: => A
@@ -153,11 +148,6 @@ trait PersistedProducer[T, A <: Artifact] extends Producer[T] {
   def original: Producer[T]
   def io: Serializer[T, A] with Deserializer[T, A]
   def artifact: A
-
-  def changePersistence[A2 <: Artifact](
-    io: Serializer[T, A2] with Deserializer[T, A2],
-    artifact: A2
-  ): PersistedProducer[T, A2]
 }
 
 /** Implements persistence of a Producer.
@@ -209,13 +199,6 @@ class ProducerWithPersistence[T, A <: Artifact](
       new ProducerWithPersistence(original, io, artifact) with CachingEnabled
     }
   }
-
-  override def changePersistence[A2 <: Artifact](
-    io: Serializer[T, A2] with Deserializer[T, A2],
-    artifact: A2
-  ) =
-    new ProducerWithPersistence[T, A2](original, io, artifact)
-
 }
 
 //

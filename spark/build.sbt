@@ -1,5 +1,6 @@
 import Dependencies._
 
+name := "pipeline-spark"
 organization := "org.allenai"
 
 StylePlugin.enableLineLimit := false

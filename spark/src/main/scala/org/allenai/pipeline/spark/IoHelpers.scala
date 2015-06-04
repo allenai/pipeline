@@ -4,7 +4,6 @@ import org.allenai.common.Resource
 import org.allenai.pipeline.{ PipelineStepInfo, Producer }
 import org.allenai.pipeline.s3.{ S3FlatArtifact, S3Config }
 
-import com.amazonaws.auth.BasicAWSCredentials
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
