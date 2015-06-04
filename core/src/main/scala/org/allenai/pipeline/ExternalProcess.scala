@@ -44,24 +44,7 @@ class ExternalProcess(val commandTokens: CommandToken*) {
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
     val commandTokens2 : Seq[CommandToken] = commandTokensToBind.toSeq
-    val argsBound : Seq[(_,_,String)] =
-      commandTokens2.zip(inputs).zipWithIndex.map{
-        case ((name, data), i) =>
-          val v : String =
-            (name,data) match {
-              case (StringToken(s),_) => s
-              case (InputFileToken(nameTemp), ExtargStream(b)) =>
-                // Write ExtargStream arguments to temporary files
-                //
-                // TODO: nameTemp = f"tmp$i"
-                val f = new File(scratchDir, nameTemp)
-                StreamIo.write(b.get, new FileArtifact(f))
-                f.getCanonicalPath()
-              case _ =>
-                throw new ExternalProcessArgException(s"Type mismatch on argument $i")
-            }
-          (name,data,v)
-      }
+    argsBound(inputs, commandTokens2, scratchDir)
 
     import scala.sys.process._
     val captureStdoutFile = new File(scratchDir, "stdout")
@@ -118,6 +101,27 @@ object ExternalProcess {
   case class ExtargStream(a : Producer[() => InputStream]) extends Extarg
 
   class ExternalProcessArgException(s : String) extends Throwable
+
+  def argsBound(inputs: Seq[Extarg], commandTokens2: Seq[CommandToken], scratchDir:File):
+    Seq[(CommandToken, Extarg, String)] = {
+      commandTokens2.zip(inputs).zipWithIndex.map {
+        case ((name, data), i) =>
+          val v: String =
+            (name, data) match {
+              case (StringToken(s), _) => s
+              case (InputFileToken(nameTemp), ExtargStream(b)) =>
+                // Write ExtargStream arguments to temporary files
+                //
+                // TODO: nameTemp = f"tmp$i"
+                val f = new File(scratchDir, nameTemp)
+                StreamIo.write(b.get, new FileArtifact(f))
+                f.getCanonicalPath()
+              case _ =>
+                throw new ExternalProcessArgException(s"Type mismatch on argument $i")
+            }
+          (name, data, v)
+      }
+  }
 
   import scala.language.implicitConversions
 
