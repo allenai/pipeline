@@ -26,7 +26,7 @@ trait Pipeline extends Logging {
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
   def run(title: String) = {
-    runPipelineReturnResults(title, persistedSteps)
+    runPipelineReturnResults(title, persistedSteps.keys)
   }
 
   def persistedSteps = steps.toMap
@@ -172,10 +172,11 @@ trait Pipeline extends Logging {
 
   /** Run only specified steps in the pipeline.  Upstream dependencies must exist already.  They will not be computed */
   def runOnly(title: String, targetNames: String*): Iterable[(String, Any)] = {
-    runOnly(title, getStepsByName(targetNames))
+    runOnly(title, targetNames)
   }
 
-  def runOnly(title: String, targets: Iterable[(String, Producer[_])]): Iterable[(String, Any)] = {
+  def runOnly(title: String, targetNames: Iterable[String]): Iterable[(String, Any)] = {
+    val targets = getStepsByName(targetNames)
     val targetStepInfo = targets.map(_._2.stepInfo).toSet
     val allDependencies = targets.flatMap { case (s, p) => Workflow.upstreamDependencies(p) }
     val nonExistentDependencies =
@@ -186,15 +187,15 @@ trait Pipeline extends Logging {
         if !pp.artifact.exists
       } yield pp.stepInfo
     require(nonExistentDependencies.isEmpty, {
-      val targetNames = targetStepInfo.map(_.className).mkString(",")
       val dependencyNames = nonExistentDependencies.map(_.className).mkString(",")
-      s"Cannot run steps [$targetNames]. Upstream dependencies [$dependencyNames] have not been computed"
+      s"Cannot run steps [${targetNames.mkString(",")}]. Upstream dependencies [$dependencyNames] have not been computed"
     })
-    runPipelineReturnResults(title, targets)
+    runPipelineReturnResults(title, targetNames)
   }
 
-  protected[this] def runPipelineReturnResults(rawTitle: String, targets: Iterable[(String, Producer[_])]): Iterable[(String, Any)] = {
+  protected[this] def runPipelineReturnResults(rawTitle: String, targetNames: Iterable[String]): Iterable[(String, Any)] = {
     // Order the outputs so that the ones with the fewest dependencies are executed first
+    val targets = getStepsByName(targetNames)
     val outputs = targets.toVector.map {
       case (name, p) => (Workflow.upstreamDependencies(p).size, name, p)
     }.sortBy(_._1).map { case (count, name, p) => (name, p) }
@@ -214,7 +215,7 @@ trait Pipeline extends Logging {
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
     val workflowArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.workflow.json")
-    val workflow = Workflow.forPipeline(targets.toMap)
+    val workflow = Workflow.forPipeline(persistedSteps, targetNames)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
@@ -222,7 +223,7 @@ trait Pipeline extends Logging {
 
     val signatureArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter
-    val signatures = targets.map { case (s, p) => signatureFormat.write(p.stepInfo.signature) }.toList.toJson
+    val signatures = targetNames.map { s => signatureFormat.write(steps(s).stepInfo.signature) }.toList.toJson
     signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
 
     logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
@@ -251,12 +252,12 @@ trait Pipeline extends Logging {
     }
   }
 
-  def dryRun(outputDir: File, rawTitle: String, targets: Iterable[(String, Producer[_])] = persistedSteps.toList): Unit = {
+  def dryRun(outputDir: File, rawTitle: String, targets: Iterable[String] = persistedSteps.keys): Unit = {
     val title = s"${
       rawTitle.replaceAll("""\s+""", "-")
     }-dryRun"
     val workflowArtifact = new FileArtifact(new File(outputDir, s"$title.workflow.json"))
-    val workflow = Workflow.forPipeline(targets)
+    val workflow = Workflow.forPipeline(persistedSteps, targets)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
@@ -264,7 +265,7 @@ trait Pipeline extends Logging {
 
     val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
     val signatureFormat = Signature.jsonWriter
-    val signatures = targets.map { case (s, p) => signatureFormat.write(p.stepInfo.signature) }.toJson
+    val signatures = targets.map { s => signatureFormat.write(steps(s).stepInfo.signature) }.toList.toJson
     signatureArtifact.write {
       writer => writer.write(signatures.prettyPrint)
     }
@@ -309,13 +310,13 @@ trait ConfiguredPipeline extends Pipeline {
     val (targets, isRunOnly) =
       getStringList("runOnly") match {
         case seq if seq.nonEmpty =>
-          (getStepsByName(seq), true)
+          (seq, true)
         case _ =>
           getStringList("runUntil") match {
             case seq if seq.nonEmpty =>
-              (getStepsByName(seq), false)
+              (seq, false)
             case _ =>
-              (persistedSteps.toList, false)
+              (persistedSteps.keys, false)
           }
       }
 

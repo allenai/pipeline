@@ -131,8 +131,9 @@ object Node {
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: Iterable[(String, PipelineStep)]): Workflow = {
+  def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String]): Workflow = {
     val idToName = steps.map { case (k, v) => (v.stepInfo.signature.id, k) }.toMap
+    val nameToStep = steps.toMap
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
       Seq(s) ++ s.stepInfo.dependencies.flatMap {
         case (name, step) =>
@@ -140,7 +141,8 @@ object Workflow {
       }
 
     val nodeList = for {
-      (name, step) <- steps
+      name <- targets
+      step = nameToStep(name)
       childStep <- findNodes(step)
     } yield {
       val id = childStep.stepInfo.signature.id
@@ -155,7 +157,8 @@ object Workflow {
     val nodes = nodeList.toMap
 
     val links = (for {
-      (stepName, step) <- steps
+      stepName <- targets
+      step = nameToStep(stepName)
       (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
     Workflow(nodes, links)
