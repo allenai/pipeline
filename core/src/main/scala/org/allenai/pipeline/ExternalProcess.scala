@@ -27,24 +27,11 @@ class ExternalProcess(val commandTokens: CommandToken*) {
   def run(inputs : Seq[Extarg],
           stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)) =
   {
-    val commandTokensToBind = commandTokens.filter{
-      case StringToken(_) => false
-      case InputFileToken(_) => true
-      case OutputFileToken(_) => false   // handled through CommandOutput.outputs
-    }
-
-    {
-      val inputTokenNames = commandTokens.map(_.name)
-      val cRunBinds = commandTokensToBind.length
-      require(cRunBinds == inputs.length, s"found ${inputs.length} but need exactly ${cRunBinds} arguments")
-      val outputNames = commandTokens.collect { case OutputFileToken(name) => name}.toSet
-    }
-
     val scratchDir = Files.createTempDirectory(null).toFile
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
-    val commandTokens2 : Seq[CommandToken] = commandTokensToBind.toSeq
-    argsBound(inputs, commandTokens2, scratchDir)
+    // TODO: val ab =
+    argsBound(inputs, commandTokens, scratchDir)
 
     import scala.sys.process._
     val captureStdoutFile = new File(scratchDir, "stdout")
@@ -98,8 +85,21 @@ object ExternalProcess {
 
   class ExternalProcessArgException(s : String) extends Throwable
 
-  def argsBound(inputs: Seq[Extarg], commandTokens2: Seq[CommandToken], scratchDir:File):
-    Seq[(CommandToken, Extarg, String)] = {
+  def argsBound(inputs: Seq[Extarg], commandTokens: Seq[CommandToken], scratchDir:File):
+      Seq[(CommandToken, Extarg, String)] =
+  {
+      val commandTokensToBind = commandTokens.filter{
+        case StringToken(_) => false
+        case InputFileToken(_) => true
+        case OutputFileToken(_) => false   // handled through CommandOutput.outputs
+      }
+      val commandTokens2 : Seq[CommandToken] = commandTokensToBind.toSeq
+      val _ = {
+        val inputTokenNames = commandTokens.map(_.name)
+        val cRunBinds = commandTokensToBind.length
+        require(cRunBinds == inputs.length, s"found ${inputs.length} but need exactly ${cRunBinds} arguments")
+        val outputNames = commandTokens.collect { case OutputFileToken(name) => name}.toSet
+      }
       commandTokens2.zip(inputs).zipWithIndex.map {
         case ((name, data), i) =>
           val v: String =
@@ -171,6 +171,7 @@ class RunExternalProcess private (
   override def versionHistory = _versionHistory
 
   override def stepInfo = {
+    val ab = argsBound(inputs, commandTokens, new File(".")) // TODO remove bogus dir
     val cmd = commandTokens.map {
       case InputFileToken(name) => s"<$name>"
       case OutputFileToken(name) => s"<$name>"
