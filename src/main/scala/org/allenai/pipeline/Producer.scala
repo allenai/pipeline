@@ -19,10 +19,9 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     * The user code should provide the className, classVersion, parameters and dependencies.
     * Usually these are provided via one of the convenience mixins: Ai2StepInfo, Ai2SparkStepInfo.
     *
-    * When persisted via Pipeline.persist, the fileid is determined as
-    * s"${stepInfo.className}.${stepInfo.signature.id}. The fileid may mean different things
-    * in different contexts, for example, if T is an RDD, many files may be persisted under the
-    * fileid/.* path.
+    * When persisted via Pipeline.persist, the location of the persisted output is determined by
+    * the stepInfo, usually as <stepInfo.className>.<stepInfo.signature.id>. The location may refer to
+    * a flat file, a directory, or some other resource, represented by an Artifact
     */
   override def stepInfo: PipelineStepInfo
 
