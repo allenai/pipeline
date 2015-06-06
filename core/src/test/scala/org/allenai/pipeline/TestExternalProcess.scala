@@ -124,7 +124,6 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
     copy.stepInfo.dependencies.size should equal(1)
     Workflow.upstreamDependencies(copy).size should equal(2)
-    copy.stepInfo.dependencies.head._2.stepInfo.parameters("cmd") should equal("cp <input> <output>")
   }
 
   it should "pipe stdin to stdout" in {
