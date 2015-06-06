@@ -113,7 +113,7 @@ object ExternalProcess {
     * of nondeterministic components which could disrupt signature stability, such as the
     * temporary directory prefix. */
   def argsBound(inputs: Seq[Extarg], commandTokens: Seq[CommandToken]) :
-      Seq[(CommandToken, Option[Extarg], String)] =
+      List[(CommandToken, Option[Extarg], String)] =
   {
       val jab = joinArgsBound(commandTokens.toList, inputs.toList).toList
       val paths : List[String] = jab.zipWithIndex.map({
@@ -203,9 +203,14 @@ class RunExternalProcess private (
       case OutputFileToken(name) => s"<$name>"
       case t => t.name
     }
-    // TODO: extract method
+    val dep : Map[String, Producer[_]] = ab.toList.flatMap({
+        case (InputFileToken(p),Some(ExtargStream(prod)),n) => List((n,prod))
+        case _ => List()
+      }).toMap
     super.stepInfo
-      .copy(className = "ExternalProcess")
+      .copy(
+        className = "ExternalProcess",
+        dependencies = dep)
       .addParameters(commandTokens.map(_.toString()).zip(inputs).toList : _*)
       .addParameters("cmd" -> cmd.mkString(" "))
   }
@@ -253,9 +258,10 @@ object RunExternalProcess {
       f(processCmd.get)
     }
 
-    override def stepInfo: PipelineStepInfo =
-      PipelineStepInfo(className = name)
+    override def stepInfo: PipelineStepInfo = {
+      PipelineStepInfo(className = name)  // TODO: deps?
         .addParameters("cmd" -> processCmd)
+    }
 
     def ifSuccessful[T](f: CommandOutput => T): () => T = { () =>
       val result = processCmd.get
