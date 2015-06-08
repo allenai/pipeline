@@ -41,18 +41,5 @@ pomExtra := (
 // Enable the LibraryPlugin for release workflow support
 enablePlugins(LibraryPlugin)
 PublishTo.ai2Public
-// We need to override the default versioning scheme provided by the LibraryPlugin
-// because we want to Use semantic versioning for public releases.
-// TODO(markschaake|?): enhance the org.allenai.plugins.ReleasePlugin to make it simple
-// to switch between versioning schemes.
-// These overrides are copied from the underlying sbt-release plugin's sources for default
-// semantic version.
-// See: https://github.com/sbt/sbt-release/blob/master/src/main/scala/ReleasePlugin.scala
-nextVersion <<= (versionBump) { bumpType: sbtrelease.Version.Bump =>
-  ver => sbtrelease.Version(ver).map(_.bump(bumpType).asSnapshot.string).getOrElse(sbtrelease.versionFormatError)
-}
-releaseVersion := { ver =>
-  sbtrelease.Version(ver).map(_.withoutQualifier.string).getOrElse(sbtrelease.versionFormatError)
-}
 
 dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"

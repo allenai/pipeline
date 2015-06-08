@@ -124,29 +124,29 @@ trait Pipeline extends Logging {
     name: String = null
   ): PersistedProducer[T, A] = {
     val persisted = new ProducerWithPersistence(original, io, artifact)
-    val stepNameBase = Option(name).getOrElse(original.stepInfo.className)
-    var i = 1
-    var stepName = stepNameBase
-    while (steps.contains(stepName)) {
-      stepName = s"$stepNameBase.$i"
-      i += 1
-    }
+    val stepName = Option(name).getOrElse(original.stepInfo.className)
     addTarget(stepName, persisted)
   }
 
-  def persistCustom[T, P <: Producer[T], A <: Artifact : ClassTag](
+  def persistCustom[T, P <: Producer[T], A <: Artifact: ClassTag](
     original: P,
     makePersisted: (P, A) => PersistedProducer[T, A],
     name: String = null,
     suffix: String = ""
-    ): PersistedProducer[T, A] = {
+  ): PersistedProducer[T, A] = {
     val stepName = Option(name).getOrElse(original.stepInfo.className)
     val path = s"data/$stepName.${original.stepInfo.signature.id}$suffix"
     val artifact = createOutputArtifact[A](path)
     addTarget(stepName, makePersisted(original, artifact))
   }
 
-  def addTarget[T, A <: Artifact](stepName: String, target: PersistedProducer[T, A]) = {
+  def addTarget[T, A <: Artifact](name: String, target: PersistedProducer[T, A]) = {
+    var i = 1
+    var stepName = name
+    while (steps.contains(stepName)) {
+      stepName = s"$name.$i"
+      i += 1
+    }
     steps(stepName) = target
     target
   }
