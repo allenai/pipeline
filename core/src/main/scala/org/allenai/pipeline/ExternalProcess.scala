@@ -211,8 +211,9 @@ class RunExternalProcess private (
       .copy(
         className = "ExternalProcess",
         dependencies = dep)
-      .addParameters(commandTokens.map(_.toString()).zip(inputs).toList : _*)
       .addParameters("cmd" -> cmd.mkString(" "))
+      // TODO: remove username from path to cmd parameter, or avoid entirely
+      // TODO: make an Extarg for string parameters and report with .addParameters
   }
 }
 object RunExternalProcess {
