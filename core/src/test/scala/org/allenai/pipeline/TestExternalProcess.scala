@@ -87,6 +87,17 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     ).stdout
   }
 
+  "ScriptToken" should "be invariant of home directory" in {
+    val proc1 = ExtprocForScriptTokenTest(scratchDir, "/home/bert/src/pipelineFoo/supersort.pl")
+    val proc2 = ExtprocForScriptTokenTest(scratchDir, "/home/ernie/src/pipelineFoo/supersort.pl")
+    proc1.stepInfo.signature.id should equal(proc2.stepInfo.signature.id)
+  }
+  
+  def ExtprocForScriptTokenTest(scratchDir: File, afile: String) = {
+    val f = new File(scratchDir, afile)
+    RunExternalProcess(ScriptToken(f.getAbsolutePath()))(Seq()).stdout
+  }
+
   "RunExternalProcess signature" should "be invariant between identical producers" in {
     val rfile = "in1.txt"
     Resource.using(new java.io.PrintWriter(new java.io.FileWriter(new File(scratchDir, rfile)))) {

@@ -78,6 +78,26 @@ object ExternalProcess {
 
   case class OutputFileToken(name: String) extends CommandToken
 
+  /** Specify the location of an ExternalProcess entry point, using an
+    * absolute file path. RunExternalProcess provides only the .getName
+    * portion of a ScriptToken's absolute path when declaring its signature.
+    * RunExternalProcess by this mechanism becomes able to retrieve a cached
+    * result on a machine different from the machine that recorded the cached
+    * result.  If the entire absolute path were submitted, it would cause the
+    * signature to hash spurious information.  For example, if a certain
+    * pipeline was being change tracked in a source directory under a user's
+    * home directory, then no other user could exchange cached data without
+    * being logged on some machine with the same home directory.
+    *
+    * ScriptToken is similar to StringToken in not soliciting an Extarg.
+    * */
+  case class ScriptToken(abspath: String) extends CommandToken {
+    override def name: String = {
+      val f : File = new File(abspath)
+      f.getName  // the .getName of "/usr/bin/perl" is "perl".  Like unix "basename"
+    }
+  }
+  
   /** Things which ExternalProcess is prepared to consume, currently
     * only ExtargStream */
   sealed trait Extarg
@@ -122,6 +142,7 @@ object ExternalProcess {
             case ((StringToken(s), arg), i) => s
             case ((InputFileToken(nameTemp1), Some(ExtargStream(b))), i) => nameAuto(i)
             case ((OutputFileToken(nameTemp1), _), i) => if(nameTemp1 != null) nameTemp1 else nameAuto(i)
+            case ((ScriptToken(path), _), i) => path
             case (_,i) =>
               throw new ExternalProcessArgException(s"Type mismatch on argument $i")
           }
@@ -152,6 +173,7 @@ object ExternalProcess {
       case (InputFileToken(_),_,path) => new File(scratchDir,path).getCanonicalPath
       case (OutputFileToken(name),_,path) => new File(scratchDir,path).getCanonicalPath
       case (StringToken(t),_,_) => t
+      case (ScriptToken(path),_,_) => path
     }
   }
 
@@ -206,13 +228,16 @@ class RunExternalProcess private (
     val dep : Map[String, Producer[_]] = ab.toList.flatMap({
         case (InputFileToken(p),Some(ExtargStream(prod)),n) => List((n,prod))
         case _ => List()
+        // StringInputToken is not a depenency, just like the code of a Producer
+        // implemented in Scala is not a depenency, since the hashing of either
+        // would make cache hits undesirably rare.  Instead, provide semantic
+        // versioning using .versionHistory.
       }).toMap
     super.stepInfo
       .copy(
         className = "ExternalProcess",
         dependencies = dep)
       .addParameters("cmd" -> cmd.mkString(" "))
-      // TODO: remove username from path to cmd parameter, or avoid entirely
       // TODO: make an Extarg for string parameters and report with .addParameters
   }
 }
