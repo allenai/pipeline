@@ -29,7 +29,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      new ProducerWithPersistence(RunExternalProcess("touch", OutputFileToken("target"))(Seq())
+      new ProducerWithPersistence(RunExternalProcess(ScriptToken("touch"), OutputFileToken("target"))(Seq())
         .outputs("target"), StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
@@ -38,7 +38,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   def ppVersionHistTest(pipeline: Pipeline, vh1: Seq[String]): (PersistedProducer[() => InputStream, FlatArtifact]) =
     {
       val touchFile1 =
-        RunExternalProcess("touch", OutputFileToken("target"))(Seq(),
+        RunExternalProcess(ScriptToken("touch"), OutputFileToken("target"))(Seq(),
           versionHistory = vh1
         ).outputs("target")
       pipeline.persist(touchFile1, StreamIo, s"${touchFile1.stepInfo.signature.id}")
@@ -82,7 +82,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   def CatFileForTest(scratchDir: File, rfile: String, vh1: Seq[String]): Producer[() => InputStream] = {
     val fa = new FileArtifact(new File(scratchDir, rfile))
-    RunExternalProcess("cat", InputFileToken("target"))(Seq(fa),
+    RunExternalProcess(ScriptToken("cat"), InputFileToken("target"))(Seq(fa),
       versionHistory = vh1
     ).stdout
   }
@@ -145,7 +145,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val inputArtifact = new FileArtifact(inputFile)
     val outputArtifact = new FileArtifact(outputFile)
 
-    val copy = new ProducerWithPersistence(RunExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
+    val copy = new ProducerWithPersistence(RunExternalProcess(ScriptToken("cp"), InputFileToken("input"), OutputFileToken("output"))(
       inputs = Seq(inputArtifact)
     )
       .outputs("output"),StreamIo, outputArtifact)

@@ -19,14 +19,17 @@ object TrainModelViaPythonPipeline extends App {
   val trainModel =
     RunExternalProcess(
       "python",
-      InputFileToken("script"),
+      ScriptToken(new File(inputDir, "trainModel.py").getAbsolutePath),
       OutputFileToken("modelFile"),
       "-data",
       InputFileToken("trainingData")
     )(
         Seq(
-          trainData,
-          new FileArtifact(new File(inputDir, "trainModel.py")))
+          trainData
+        ),
+        versionHistory = Seq(
+          "v1.0"
+        )
       )
 
   // Capture the output of the process and persist it
@@ -35,16 +38,18 @@ object TrainModelViaPythonPipeline extends App {
   val measureModel =
     RunExternalProcess(
       "python",
-      InputFileToken("script"),
+      ScriptToken(new File(inputDir, "scoreModel.py").getAbsolutePath),
       OutputFileToken("prFile"),
       "-model",
       InputFileToken("modelFile"),
       "-data",
       InputFileToken("testDataFile")
     )(inputs = Seq(
-        new FileArtifact(new File(inputDir, "scoreModel.py")),
         modelFile,
         testData
+      ),
+        versionHistory = Seq(
+        "v1.0"
       ))
 
   pipeline.persist(measureModel.outputs("prFile"), StreamIo, "PrecisionRecall")

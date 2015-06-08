@@ -72,25 +72,37 @@ object ExternalProcess {
 
   sealed trait CommandToken extends Namable
 
+  /** A string provided by the ExternalProcess template.  Does not solicit
+    * a value at run().
+    */
   case class StringToken(name: String) extends CommandToken
 
+  /** An ExternalProcess input artifact, specified when applying a
+    * RunExternalProcess template, or at ExternalProcess.run.  Solicits
+    * a value at run().
+    */
   case class InputFileToken(name: String) extends CommandToken
 
+  /** An ExternalProcess output artifact, specified when applying a
+    * RunExternalProcess template, or at ExternalProcess.run.  Solicits
+    * a value at run().
+    */
   case class OutputFileToken(name: String) extends CommandToken
 
-  /** Specify the location of an ExternalProcess entry point, using an
-    * absolute file path. RunExternalProcess provides only the .getName
-    * portion of a ScriptToken's absolute path when declaring its signature.
-    * RunExternalProcess by this mechanism becomes able to retrieve a cached
-    * result on a machine different from the machine that recorded the cached
-    * result.  If the entire absolute path were submitted, it would cause the
+  /** Specify the location of an ExternalProcess entry point, using a file
+    * path.  We recommend the file path to be absolute.  RunExternalProcess
+    * provides only the .getName portion of a ScriptToken's absolute path
+    * to the pipeline when declaring the signature of the RunExternalProcess.
+    * ScriptToken enables producers following a RunExternalProcess to retrieve a
+    * cached artifact on a machine other than the machine that recorded the cached
+    * artifact.  If the entire absolute path were submitted, it would cause the
     * signature to hash spurious information.  For example, if a certain
     * pipeline was being change tracked in a source directory under a user's
     * home directory, then no other user could exchange cached data without
     * being logged on some machine with the same home directory.
     *
-    * ScriptToken is similar to StringToken in not soliciting an Extarg.
-    * */
+    * Does not solicit a value at run().
+    */
   case class ScriptToken(abspath: String) extends CommandToken {
     override def name: String = {
       val f : File = new File(abspath)
@@ -188,7 +200,7 @@ object ExternalProcess {
   }
 
   implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A): Extarg = {
-    ExtargStream(StaticResource(artifact))
+    ExtargStream(DynamicResource(artifact))
   }
 
   implicit def convertToToken(s: String): StringToken = StringToken(s)
@@ -262,7 +274,6 @@ object RunExternalProcess {
           new ExtractOutputComponent(s"outputs.$name", _.outputs(name), processCmd, requireStatusCode)
         (name, outputProducer)
       }
-    // debug: val names = for((name,_) <- outputStreams) yield name
     CommandOutputComponents(stdout, stderr, outputStreams.toMap)
   }
 
@@ -285,7 +296,7 @@ object RunExternalProcess {
     }
 
     override def stepInfo: PipelineStepInfo = {
-      PipelineStepInfo(className = name)  // TODO: deps?
+      PipelineStepInfo(className = name)
         .addParameters("cmd" -> processCmd)
     }
 
