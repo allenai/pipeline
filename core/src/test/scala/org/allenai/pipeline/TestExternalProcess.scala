@@ -80,6 +80,26 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     pp1.artifact.url.getRawPath() should not equal (pp2.artifact.url.getRawPath())
   }
 
+  def CatFileForTest(scratchDir: File, rfile: String, vh1: Seq[String]): Producer[() => InputStream] = {
+    val fa = new FileArtifact(new File(scratchDir, rfile))
+    RunExternalProcess("cat", InputFileToken("target"))(Seq(fa),
+      versionHistory = vh1
+    ).stdout
+  }
+
+  "RunExternalProcess signature" should "be invariant between identical producers" in {
+    val rfile = "in1.txt"
+    Resource.using(new java.io.PrintWriter(new java.io.FileWriter(new File(scratchDir, rfile)))) {
+      _.println("hello")
+    }
+    val pipeline = Pipeline(new File(scratchDir, "ExtargSignature"))
+    val cat1 = CatFileForTest(scratchDir, rfile, List("v1.0"))
+    val cat2 = CatFileForTest(scratchDir, rfile, List("v1.0"))
+    val sig1 = cat1.stepInfo.signature.infoString
+    val sig2 = cat2.stepInfo.signature.infoString
+    sig1 should equal(sig2)
+  }
+
   it should "capture stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
     val stdout = IOUtils.readLines(echo.run(Seq()).stdout()).asScala.mkString("\n")
