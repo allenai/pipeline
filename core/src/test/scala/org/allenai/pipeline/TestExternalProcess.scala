@@ -163,4 +163,40 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val result = wc.run(Seq(),stdinput = echo.run(Seq()).stdout)
     IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
   }
+
+  def consumeExtargForCoerceTest(absdScript: String, a: Extarg) = {
+    RunExternalProcess(ScriptToken("cat"), InputFileToken(""))(
+      Seq(a),
+      versionHistory = Seq("v1.0")
+    )
+  }
+
+  it should "coerce a Producer[() -> InputStream] to Extarg" in {
+    import ExternalProcess._
+    val echo = RunExternalProcess("echo", "hello", "world")(Seq())
+    val cat1 = consumeExtargForCoerceTest("", echo.stdout)  // should find convertProducerToInputData
+  }
+
+  it should "coerce a PersistedProducer[() -> InputStream,_] to Extarg" in {
+    import ExternalProcess._
+    val pipeline = Pipeline(scratchDir)
+    val echo = RunExternalProcess("echo", "hello", "world")(Seq())
+    val echop = pipeline.persist(echo.stdout, StreamIo, "hint_out")
+    val cat1 = consumeExtargForCoerceTest("", echop)  // finds convertPersistedProducer1ToInputData
+    // TODO: why isn't convertPersistedProducer2ToInputData enough?
+  }
+
+  it should "coerce an artifact to Extarg" in {
+    import ExternalProcess._
+
+    val dir = new File(scratchDir, "testCoerce")
+    dir.mkdirs()
+    val inputFile = new File(dir, "a1")
+    Resource.using(new PrintWriter(new FileWriter(inputFile))) {
+      _.println("Some data")
+    }
+    val inputArtifact = new FileArtifact(inputFile)
+
+    val cat1 = consumeExtargForCoerceTest("", inputArtifact)  // should find convertArtifactToInputData
+  }
 }

@@ -6,6 +6,7 @@ import java.util.UUID
 
 import org.allenai.common.Resource
 import org.allenai.pipeline.ExternalProcess._
+import org.allenai.pipeline.IoHelpers._
 import org.apache.commons.io.{ FileUtils, IOUtils }
 
 import scala.annotation.tailrec
@@ -191,12 +192,25 @@ object ExternalProcess {
 
   import scala.language.implicitConversions
 
-  implicit def convertToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]): Extarg = {
+  /* TODO: pipeline.persist to ExternalProcess */
+  implicit def convertPersistedProducer1ToInputData[A <: FlatArtifact](p: PersistedProducer[() => InputStream, A]): ExtargStream = {
     ExtargStream(p.copy(create =
       () => {
         p.get
         StreamIo.read(p.artifact.asInstanceOf[FlatArtifact])
       }))
+  }
+
+  implicit def convertPersistedProducer2ToInputData[T, A <: FlatArtifact](p: PersistedProducer[T, A]): ExtargStream = {
+    ExtargStream(p.copy(create =
+      () => {
+        p.get
+        StreamIo.read(p.artifact.asInstanceOf[FlatArtifact])
+      }))
+  }
+
+  implicit def convertProducerToInputData(p: Producer[() => InputStream]): Extarg = {
+    ExtargStream(p)
   }
 
   implicit def convertArtifactToInputData[A <: FlatArtifact](artifact: A): Extarg = {

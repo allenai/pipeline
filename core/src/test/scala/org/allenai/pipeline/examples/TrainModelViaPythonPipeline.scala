@@ -9,6 +9,7 @@ import java.io.File
   * to train a model and to score the test data
   */
 object TrainModelViaPythonPipeline extends App {
+  import ExternalProcess._
   val inputDir = new File("src/test/resources/pipeline")
   val pipeline = Pipeline(new File("pipeline-output"))
 
