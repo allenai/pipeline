@@ -87,7 +87,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "capture stdout newlines" in {
-    val s = "An old silent pond...\nA frog jumps into the pond,\nsplash! Silence again.\n"
+    val s = "An old silent pond...\\nA frog jumps into the pond,\\nsplash! Silence again.\\n"
     val echo = new ExternalProcess("printf", s)
     val cLines = IOUtils.readLines(echo.run(Map()).stdout()).asScala.count(_ => true)
     cLines should equal(3)
