@@ -85,6 +85,14 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val stdout = IOUtils.readLines(echo.run().stdout()).asScala.mkString("\n")
     stdout should equal("hello world")
   }
+
+  it should "capture stdout newlines" in {
+    val s = "An old silent pond...\nA frog jumps into the pond,\nsplash! Silence again.\n"
+    val echo = new ExternalProcess("printf", s)
+    val cLines = IOUtils.readLines(echo.run(Map()).stdout()).asScala.count(_ => true)
+    cLines should equal(3)
+  }
+
   it should "capture stderr" in {
     val noSuchParameter = new ExternalProcess("touch", "-x", "foo")
     val stderr = IOUtils.readLines(noSuchParameter.run().stderr()).asScala.mkString("\n")
