@@ -38,7 +38,7 @@ dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"
 libraryDependencies ++= Seq(
   sprayJson,
   commonsIO,
-  ai2Common,
+  allenAiCommon,
   allenAiTestkit % "test",
   scalaReflection,
   awsJavaSdk
