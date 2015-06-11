@@ -1,102 +1,126 @@
 package org.allenai.pipeline
 
+import scala.reflect.ClassTag
+
 import java.io.File
 import java.net.URI
 
-/** Factory interface for creating flat Artifact instances. */
-trait FlatArtifactFactory[T] {
-  def flatArtifact(input: T): FlatArtifact
-}
+/** Creates an Artifact from a URL
+  */
+trait ArtifactFactory {
+  /** @param url The location of the Artifact.  The scheme (protocol) is used to determine the
+    *            specific implementation.
+    * @tparam A The type of the Artifact to create.  May be an abstract or concrete type
+    * @return The artifact
+    */
+  def createArtifact[A <: Artifact: ClassTag](url: URI): A
 
-/** Factory interface for creating structured Artifact instances. */
-trait StructuredArtifactFactory[T] {
-  def structuredArtifact(input: T): StructuredArtifact
+  /** If path is an absolute URL, create an Artifact at that location.
+    * If it is a relative path, create it relative to the given root URL
+    */
+  def createArtifact[A <: Artifact: ClassTag](rootUrl: URI, path: String): A = {
+    val parsed = new URI(path)
+    val url = parsed.getScheme match {
+      case null =>
+        val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
+        new URI(
+          rootUrl.getScheme,
+          rootUrl.getHost,
+          fullPath,
+          rootUrl.getFragment
+        )
+      case _ => parsed
+    }
+    createArtifact[A](url)
+  }
 }
-
-trait ArtifactFactory[T] extends FlatArtifactFactory[T] with StructuredArtifactFactory[T]
 
 object ArtifactFactory {
-  def fromUrl(outputUrl: URI): ArtifactFactory[String] = {
-    outputUrl match {
-      case url if url.getScheme == "s3" || url.getScheme == "s3n" =>
-        new S3(S3Config(url.getHost), Some(url.getPath))
-      case url if url.getScheme == "file" || url.getScheme == null =>
-        new RelativeFileSystem(new File(url.getPath))
-      case _ => sys.error(s"Illegal dir: $outputUrl")
+  def apply(urlHandler: UrlToArtifact, fallbackUrlHandlers: UrlToArtifact*): ArtifactFactory =
+    new ArtifactFactory {
+      val urlHandlerChain =
+        if (fallbackUrlHandlers.isEmpty) {
+          urlHandler
+        } else {
+          UrlToArtifact.chain(urlHandler, fallbackUrlHandlers.head, fallbackUrlHandlers.tail: _*)
+        }
+
+      def createArtifact[A <: Artifact: ClassTag](url: URI): A = {
+        val fn = urlHandlerChain.urlToArtifact[A]
+        val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
+        require(fn.isDefinedAt(url), s"Cannot create $clazz from $url")
+        fn(url)
+      }
     }
-  }
-  def flatArtifactFromAbsoluteUrl(s: String): Option[FlatArtifact] = {
-    val url = new URI(s)
-    url.getScheme() match {
-      case "file" =>
-        Some(new FileArtifact(new File(url.getPath)))
-      case "s3" | "s3n" =>
-        Some(new S3FlatArtifact(url.getPath.dropWhile(_ == '/'), S3Config(url.getHost)))
-      case _ => None
+
+}
+
+/** Supports creation of a particular type of Artifact from a URL.
+  * Allows chaining together of different implementations that recognize different input URLs
+  * and support creation of different Artifact types
+  */
+trait UrlToArtifact {
+  /** Return a PartialFunction indicating whether the given Artifact type can be created from an input URL
+    * @tparam A The Artifact type to be created
+    * @return A PartialFunction where isDefined will return true if an Artifact of type A can
+    *         be created from the given URL
+    */
+  def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A]
+}
+
+object UrlToArtifact {
+  // Chain together a series of UrlToArtifact instances
+  // The result will be a UrlToArtifact that supports creation of the union of Artifact types and input URLs
+  // that are supported by the individual inputs
+  def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) =
+    new UrlToArtifact {
+      override def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
+        var fn = first.urlToArtifact[A] orElse second.urlToArtifact[A]
+        for (o <- others) {
+          fn = fn orElse o.urlToArtifact[A]
+        }
+        fn
+      }
     }
+
+  object Empty extends UrlToArtifact {
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] =
+      PartialFunction.empty[URI, A]
   }
-  def structuredArtifactFromAbsoluteUrl(s: String): Option[StructuredArtifact] = {
-    val url = new URI(s)
-    url.getScheme() match {
-      case "file" if s.endsWith(".zip") =>
-        Some(new ZipFileArtifact(new File(url.getPath)))
-      case "file" =>
-        Some(new DirectoryArtifact(new File(url.getPath)))
-      case "s3" | "s3n" =>
-        Some(new S3ZipArtifact(url.getPath.dropWhile(_ == '/'), S3Config(url.getHost)))
-      case _ => None
+
+}
+
+object CreateCoreArtifacts {
+  // Create a FlatArtifact or StructuredArtifact from an absolute file:// URL
+  val fromFileUrls: UrlToArtifact = new UrlToArtifact {
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
+      val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
+      val fn: PartialFunction[URI, A] = {
+        case url if c.isAssignableFrom(classOf[FileArtifact])
+          && "file" == url.getScheme =>
+          new FileArtifact(new File(url)).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[FileArtifact])
+          && null == url.getScheme =>
+          new FileArtifact(new File(url.getPath)).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[DirectoryArtifact])
+          && "file" == url.getScheme
+          && new File(url).exists
+          && new File(url).isDirectory =>
+          new DirectoryArtifact(new File(url)).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[DirectoryArtifact])
+          && null == url.getScheme
+          && new File(url.getPath).exists
+          && new File(url.getPath).isDirectory =>
+          new DirectoryArtifact(new File(url.getPath)).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[ZipFileArtifact])
+          && "file" == url.getScheme =>
+          new ZipFileArtifact(new File(url)).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[ZipFileArtifact])
+          && null == url.getScheme =>
+          new ZipFileArtifact(new File(url.getPath)).asInstanceOf[A]
+      }
+      fn
     }
   }
 }
 
-class RelativeFileSystem(rootDir: File)
-    extends ArtifactFactory[String] {
-  private def toFile(path: String): File = new File(rootDir, path)
-
-  override def flatArtifact(name: String): FlatArtifact = new FileArtifact(toFile(name))
-
-  override def structuredArtifact(name: String): StructuredArtifact = {
-    val file = toFile(name)
-    if (file.exists && file.isDirectory) {
-      new DirectoryArtifact(file)
-    } else {
-      new ZipFileArtifact(file)
-    }
-  }
-}
-
-object AbsoluteFileSystem extends ArtifactFactory[File] {
-  override def flatArtifact(file: File): FlatArtifact = new FileArtifact(file)
-
-  override def structuredArtifact(file: File): StructuredArtifact = {
-    if (file.exists && file.isDirectory) {
-      new DirectoryArtifact(file)
-    } else {
-      new ZipFileArtifact(file)
-    }
-  }
-
-  def usingPaths: ArtifactFactory[String] =
-    new ArtifactFactory[String] {
-      override def flatArtifact(path: String): FlatArtifact =
-        AbsoluteFileSystem.flatArtifact(new File(path))
-
-      override def structuredArtifact(path: String): StructuredArtifact =
-        AbsoluteFileSystem.structuredArtifact(new File(path))
-    }
-}
-
-class S3(config: S3Config, rootPath: Option[String] = None)
-    extends ArtifactFactory[String] {
-  // Drop leading and training slashes
-  private def toPath(path: String): String = rootPath match {
-    case None => path
-    case Some(dir) =>
-      val base = dir.dropWhile(_ == '/').reverse.dropWhile(_ == '/').reverse
-      s"$base/$path"
-  }
-
-  override def flatArtifact(path: String): FlatArtifact = new S3FlatArtifact(toPath(path), config)
-
-  override def structuredArtifact(path: String): StructuredArtifact = new S3ZipArtifact(toPath(path), config)
-}

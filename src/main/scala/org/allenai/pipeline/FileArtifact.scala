@@ -10,8 +10,11 @@ import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
 
 /** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {
-  private val parentDir = file.getCanonicalFile.getParentFile
-  FileUtils.forceMkdir(parentDir)
+  private val parentDir = {
+    val f = file.getCanonicalFile.getParentFile
+    FileUtils.forceMkdir(f)
+    f
+  }
 
   override def exists: Boolean = file.exists
 
@@ -44,11 +47,14 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
 
   override def url: URI = dir.getCanonicalFile.toURI
 
-  private val parentDir = dir.getCanonicalFile.getParentFile
-  require(
-    (parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
-    s"Unable to find or create directory $dir"
-  )
+  private val parentDir = {
+    val f = dir.getCanonicalFile.getParentFile
+    require(
+      (f.exists && f.isDirectory) || f.mkdirs,
+      s"Unable to find or create directory $dir"
+    )
+    f
+  }
 
   override def exists: Boolean = dir.exists && dir.isDirectory
 

@@ -34,7 +34,7 @@ object Ai2CodeInfo {
         // We have to guess which remote will have the commit in it
         val useRemote = remotes.size match {
           // If there is only one remote, use it
-          case 1 => remotes(0)
+          case 1 => remotes.head
           // People shouldn't push directly to the upstream allenai repo.  Instead the upstream
           // repo gets updated via a pull request, which will have a different commit sha
           // Use the first non-allenai repo found in the list, which will typically be

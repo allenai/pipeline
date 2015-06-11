@@ -63,6 +63,7 @@ case class PipelineStepInfo(
       case (id, Some(step: PipelineStep)) =>
         pipelineSteps += ((id, step))
       case (id, None) => // no-op: skip None
+      case (id, Some(x)) => otherPars += ((id, x))
       case x => otherPars += x
     }
     copy(

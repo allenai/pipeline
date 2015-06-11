@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
 case class SaveToArtifact[T, A <: Artifact](
-    val input: Producer[T],
-    val writer: SerializeToArtifact[T, A],
-    val artifact: A
+    input: Producer[T],
+    writer: Serializer[T, A],
+    artifact: A
 ) extends Producer[A] with BasicPipelineStepInfo {
   def create: A = {
     if (!artifact.exists) {

@@ -1,18 +1,15 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.UnitSpec
+import java.io.File
 
-import org.apache.commons.io.FileUtils
-import org.scalatest.BeforeAndAfterAll
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
 import scala.util.Random
-
-import java.io.File
 
 /** Created by rodneykinney on 8/19/14.
   */
 // scalastyle:off magic.number
-class TestProducer extends UnitSpec with BeforeAndAfterAll {
+class TestProducer extends UnitSpec with ScratchDirectory {
 
   import scala.language.reflectiveCalls
 
@@ -20,13 +17,9 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
 
   import org.allenai.pipeline.IoHelpers._
 
-  val outputDir = new File("test-output-producer")
+  val outputDir = new File(scratchDir, "test-output-producer")
 
-  val output = new RelativeFileSystem(outputDir)
-
-  val pipeline = new Pipeline {
-    override def artifactFactory = output
-  }
+  val pipeline = Pipeline(outputDir)
 
   val randomNumbers = new Producer[Iterable[Double]] with CachingDisabled {
     def create = {
@@ -53,24 +46,23 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistedProducer" should "read from file if exists" in {
-    val pStep = randomNumbers.persisted(
-      LineCollectionIo.text[Double],
-      output.flatArtifact("savedNumbers.txt")
-    )
+    val pStep = pipeline.Persist.Collection.asText(randomNumbers)
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = cachedRandomNumbers.persisted(
+    val otherStep = new ProducerWithPersistence(
+      cachedRandomNumbers,
       LineCollectionIo.text[Double],
-      new FileArtifact(new File(outputDir, "savedNumbers.txt"))
+      pStep.artifact
     )
     otherStep.get should equal(pStep.get)
   }
 
   "PersistedProducer" should "always read from file if caching disabled" in {
-    val outputFile = output.flatArtifact("savedNumbersWithChanges.txt")
+    val outputFile = new FileArtifact(new File(outputDir, "savedNumbersWithChanges.txt"))
     val io = LineCollectionIo.text[Double]
-    val pStep = randomNumbers.persisted(
+    val pStep = new ProducerWithPersistence(
+      randomNumbers,
       io,
       outputFile
     ).withCachingDisabled
@@ -92,17 +84,11 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "PersistentCachedProducer" should "read from file if exists" in {
-    val pStep = randomNumbers.persisted(
-      LineCollectionIo.text[Double],
-      output.flatArtifact("savedCachedNumbers.txt")
-    )
+    val pStep = new ProducerWithPersistence(randomNumbers, LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
 
     pStep.get should equal(pStep.get)
 
-    val otherStep = randomNumbers.persisted(
-      LineCollectionIo.text[Double],
-      output.flatArtifact("savedCachedNumbers.txt")
-    )
+    val otherStep = new ProducerWithPersistence(randomNumbers, LineCollectionIo.text[Double], new FileArtifact(new File(scratchDir, "rng.txt")))
     otherStep.get should equal(pStep.get)
   }
 
@@ -119,22 +105,19 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
   }
 
   "Persisted iterator" should "re-use value" in {
-    val persisted = randomIterator.persisted(
-      LineIteratorIo.text[Double],
-      output.flatArtifact("randomIterator.txt")
-    )
+    val persisted = pipeline.Persist.Iterator.asText(randomIterator)
     persisted.get.toList should equal(persisted.get.toList)
   }
 
   "Persisted iterator" should "read from file if exists" in {
-    val persisted = randomIterator.withCachingEnabled.persisted(
+    val persisted = pipeline.Persist.Iterator.asText(randomIterator.withCachingEnabled)
+    val otherStep = pipeline.persistToArtifact(
+      randomIterator.withCachingDisabled,
       LineIteratorIo.text[Double],
-      output.flatArtifact("savedCachedIterator.txt")
+      persisted.artifact,
+      "RNG2"
     )
-    val otherStep = randomIterator.withCachingDisabled.persisted(
-      LineIteratorIo.text[Double],
-      output.flatArtifact("savedCachedIterator.txt")
-    )
+    persisted.get.toList should equal(otherStep.get.toList)
   }
 
   "Consumed iterator" should "be called only once" in {
@@ -145,7 +128,7 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
         n.toIterator
       }
     }
-
+    "".hashCode
     consumedIterator.get.size should equal(20)
   }
 
@@ -233,8 +216,8 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
           .addFields(this, "seed", "length")
     }
 
-    val rng1 = pipeline.Persist.Collection.asJson(new RNG(42, 100))
-    val rng2 = pipeline.Persist.Collection.asJson(new RNG(117, 100))
+    val rng1 = pipeline.Persist.Collection.asJson(new RNG(42, 100), "RNG1")
+    val rng2 = pipeline.Persist.Collection.asJson(new RNG(117, 100), "RNG2")
 
     rng1.stepInfo.signature should not equal (rng2.stepInfo.signature)
 
@@ -269,17 +252,6 @@ class TestProducer extends UnitSpec with BeforeAndAfterAll {
     has3.stepInfo.signature.dependencies.size should equal(3)
 
     has2.stepInfo.signature.id should not equal (has3.stepInfo.signature.id)
-  }
-
-  override def beforeAll: Unit = {
-    require(
-      (outputDir.exists && outputDir.isDirectory) || outputDir.mkdirs,
-      s"Unable to create test output directory $outputDir"
-    )
-  }
-
-  override def afterAll: Unit = {
-    FileUtils.deleteDirectory(outputDir)
   }
 }
 

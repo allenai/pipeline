@@ -1,23 +1,31 @@
-package org.allenai.pipeline
-
-import org.allenai.common.Logging
-
-import com.amazonaws.AmazonServiceException
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata, PutObjectRequest }
+package org.allenai.pipeline.s3
 
 import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URI
 
-case class S3Config(service: AmazonS3Client, bucket: String)
+import com.amazonaws.AmazonServiceException
+import com.amazonaws.auth.{ BasicAWSCredentials, EnvironmentVariableCredentialsProvider }
+import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata, PutObjectRequest }
+import org.allenai.common.Logging
+import org.allenai.pipeline._
+
+case class S3Config(bucket: String, credentials: S3Credentials = S3Config.environmentCredentials()) {
+  @transient
+  lazy val service = {
+    val S3Credentials(accessKey, secretKey) = credentials
+    new AmazonS3Client(new BasicAWSCredentials(accessKey, secretKey))
+  }
+}
+
+case class S3Credentials(accessKey: String, secretKey: String)
 
 object S3Config {
-  def apply(accessKey: String, secretAccessKey: String, bucket: String): S3Config = {
-    S3Config(new AmazonS3Client(new BasicAWSCredentials(accessKey, secretAccessKey)), bucket)
-  }
-  def apply(bucket: String): S3Config = {
-    S3Config(new AmazonS3Client(), bucket)
+  def environmentCredentials(): S3Credentials = {
+    val credentials = new EnvironmentVariableCredentialsProvider().getCredentials
+    val accessKey = credentials.getAWSAccessKeyId
+    val secretKey = credentials.getAWSSecretKey
+    new S3Credentials(accessKey, secretKey)
   }
 }
 
@@ -82,11 +90,12 @@ trait S3Artifact[A <: Artifact] extends Logging {
 
   override def url: URI = new URI("s3", bucket, s"/$path", null)
 
-  protected val S3Config(service, bucket) = config
+  val service = config.service
+  val bucket = config.bucket
 
   override def exists: Boolean = {
     val result = try {
-      val resp = service.getObjectMetadata(bucket, path)
+      service.getObjectMetadata(config.bucket, path)
       true
     } catch {
       case e: AmazonServiceException if e.getStatusCode == 404 => false

@@ -7,6 +7,8 @@ val pipeline = Project(
   base = file(".")
 )
 
+StylePlugin.enableLineLimit := false
+
 organization := "org.allenai"
 crossScalaVersions := Seq("2.11.5")
 scalaVersion <<= crossScalaVersions { (vs: Seq[String]) => vs.head }
@@ -33,12 +35,11 @@ enablePlugins(LibraryPlugin)
 PublishTo.ai2Public
 
 dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"
-
 libraryDependencies ++= Seq(
   sprayJson,
-  awsJavaSdk,
   commonsIO,
   ai2Common,
   allenAiTestkit % "test",
-  scalaReflection
+  scalaReflection,
+  awsJavaSdk
 )

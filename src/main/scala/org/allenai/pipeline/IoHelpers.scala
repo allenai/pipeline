@@ -1,5 +1,8 @@
 package org.allenai.pipeline
 
+import java.io.File
+import java.net.URI
+
 import spray.json._
 
 import scala.reflect.ClassTag
@@ -10,10 +13,10 @@ object IoHelpers extends ColumnFormats {
   object Read {
     /** General deserialization method. */
     def fromArtifact[T, A <: Artifact](
-      reader: DeserializeFromArtifact[T, A],
+      reader: Deserializer[T, A],
       artifact: A
     ): Producer[T] =
-      new ReadFromArtifact(reader, artifact)
+      new ReadFromArtifact(reader, artifact.asInstanceOf[A])
 
     /** Read single object from flat file */
     object Singleton {
@@ -43,7 +46,7 @@ object IoHelpers extends ColumnFormats {
     }
 
     /** Read a collection of arrays of a single type from a flat file. */
-    object ArrayCollection {
+    object CollectionOfArrays {
       def fromText[T: StringSerializable: ClassTag](
         artifact: FlatArtifact,
         sep: Char = '\t'
@@ -58,7 +61,7 @@ object IoHelpers extends ColumnFormats {
     }
 
     /** Read an iterator of arrays of a single type from a flat file. */
-    object ArrayIterator {
+    object IteratorOfArrays {
       def fromText[T: StringSerializable: ClassTag](
         artifact: FlatArtifact,
         sep: Char = '\t'
@@ -71,10 +74,20 @@ object IoHelpers extends ColumnFormats {
         fromArtifact(io, artifact)
       }
     }
-
   }
+  import scala.language.implicitConversions
 
-  def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
+  implicit def asFileArtifact(f: File) = new FileArtifact(f)
+  implicit def asStructuredArtifact(f: File): StructuredArtifact = f match {
+    case f if f.exists && f.isDirectory => new DirectoryArtifact(f)
+    case _ => new ZipFileArtifact(f)
+  }
+  implicit def asFlatArtifact(url: URI) =
+    CreateCoreArtifacts.fromFileUrls.urlToArtifact[FlatArtifact].apply(url)
+  implicit def asStructuredArtifact(url: URI) =
+    CreateCoreArtifacts.fromFileUrls.urlToArtifact[StructuredArtifact].apply(url)
+
+  implicit def asStringSerializable[T](jsonFormat: JsonFormat[T]): StringSerializable[T] =
     new StringSerializable[T] {
       override def fromString(s: String): T = jsonFormat.read(s.parseJson)
 

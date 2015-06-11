@@ -19,10 +19,9 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     * The user code should provide the className, classVersion, parameters and dependencies.
     * Usually these are provided via one of the convenience mixins: Ai2StepInfo, Ai2SparkStepInfo.
     *
-    * When persisted via Pipeline.persist, the fileid is determined as
-    * s"${stepInfo.className}.${stepInfo.signature.id}. The fileid may mean different things
-    * in different contexts, for example, if T is an RDD, many files may be persisted under the
-    * fileid/.* path.
+    * When persisted via Pipeline.persist, the location of the persisted output is determined by
+    * the stepInfo, usually as <stepInfo.className>.<stepInfo.signature.id>. The location may refer to
+    * a flat file, a directory, or some other resource, represented by an Artifact
     */
   override def stepInfo: PipelineStepInfo
 
@@ -49,35 +48,32 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   }
 
   private var initialized = false
-  private var timing: Option[Duration] = None
+  protected[this] var timing: Option[Duration] = None
+  protected[this] var executionMode: Duration => ExecutionInfo = Executed
   private lazy val cachedValue: T = createAndTime
 
-  /** Report the amount of time taken in milliseconds, or None if the value is cached
-    * in memory or this stage has not been run yet.
+  /** Report the method by which this Producer's result was obtained
+    * (Read from disk, executed, not needed)
     */
-  def timeTaken: Option[Duration] = timing
+  def executionInfo: ExecutionInfo =
+    timing.map(executionMode).getOrElse(NotRequested)
 
   /** Call `create` but store time taken. */
-  private def createAndTime: T = {
+  protected[this] def createAndTime: T = {
     val (result, duration) = Timing.time(this.create)
     timing = Some(duration)
     result
   }
 
-  /** Persist the result of this step.
-    * Once computed, write the result to the given artifact.
-    * If the artifact we are using for persistence exists,
-    * return the deserialized object rather than recomputing it.
-    *
-    * @tparam  A  the type of artifact being written to (i.e. directory, file)
-    * @param  io  the serialization for data of type T
-    * @param  artifactSource  creation of the artifact to be written
-    */
+  // It doesn't really make sense for a Producer class to control how it's persisted,
+  // because it might depend on the context of a pipeline
+  // Prefer using the Pipeline.persist(...) methods instead
+  @Deprecated
   def persisted[A <: Artifact](
-    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
+    io: Serializer[T, A] with Deserializer[T, A],
     artifactSource: => A
   ): PersistedProducer[T, A] =
-    new PersistedProducer(this, io, artifactSource)
+    new ProducerWithPersistence(this, io, artifactSource)
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
     *
@@ -104,17 +100,21 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
   def copy[T2](
     create: () => T2 = self.create _,
     stepInfo: () => PipelineStepInfo = self.stepInfo _,
-    cachingEnabled: () => Boolean = self.cachingEnabled _
+    cachingEnabled: () => Boolean = self.cachingEnabled _,
+    executionInfo: () => ExecutionInfo = self.executionInfo _
   ): Producer[T2] = {
     val _create = create
     val _stepInfo = stepInfo
     val _cachingEnabled = cachingEnabled
+    val _executionInfo = executionInfo
     new Producer[T2] {
       override def create: T2 = _create()
 
       override def stepInfo = _stepInfo()
 
       override def cachingEnabled = _cachingEnabled()
+
+      override def executionInfo = _executionInfo()
     }
   }
 }
@@ -140,38 +140,52 @@ trait CachingDisabled extends CachingEnabled {
   override def cachingEnabled: Boolean = false
 }
 
-class PersistedProducer[T, -A <: Artifact](
-    step: Producer[T],
-    io: SerializeToArtifact[T, A] with DeserializeFromArtifact[T, A],
-    _artifact: A
-) extends Producer[T] {
-  self =>
+/** A Producer that will be stored in a specified Artifact
+  * using the specified serialization logic
+  */
+trait PersistedProducer[T, A <: Artifact] extends Producer[T] {
+  def original: Producer[T]
+  def io: Serializer[T, A] with Deserializer[T, A]
+  def artifact: A
+}
 
-  def artifact: Artifact = _artifact
+/** Implements persistence of a Producer.
+  * If the artifact exists when create() is called, reads from the artifact.
+  * If the artifact does not exist, compute the result, store it in the artifact and return the result
+  */
+class ProducerWithPersistence[T, A <: Artifact](
+    val original: Producer[T],
+    val io: Serializer[T, A] with Deserializer[T, A],
+    val artifact: A
+) extends PersistedProducer[T, A] {
+  self =>
 
   def create: T = {
     val className = stepInfo.className
     if (!artifact.exists) {
-      val result = step.get
+      val result = original.get
+      executionMode = ExecutedAndPersisted
       logger.debug(s"$className writing to $artifact using $io")
-      io.write(result, _artifact)
+      io.write(result, artifact)
       if (result.isInstanceOf[Iterator[_]]) {
+        executionMode = ExecuteAndBufferStream
         logger.debug(s"$className reading type Iterator from $artifact using $io")
-        io.read(_artifact)
+        io.read(artifact)
       } else {
         result
       }
     } else {
+      executionMode = ReadFromDisk
       logger.debug(s"$className reading from $artifact using $io")
-      io.read(_artifact)
+      io.read(artifact)
     }
   }
 
-  override def stepInfo = step.stepInfo.copy(outputLocation = Some(artifact.url))
+  override def stepInfo = original.stepInfo.copy(outputLocation = Some(artifact.url))
 
   override def withCachingDisabled = {
     if (cachingEnabled) {
-      new PersistedProducer(step, io, _artifact) with CachingDisabled
+      new ProducerWithPersistence(original, io, artifact) with CachingDisabled
     } else {
       this
     }
@@ -181,7 +195,7 @@ class PersistedProducer[T, -A <: Artifact](
     if (cachingEnabled) {
       this
     } else {
-      new PersistedProducer(step, io, _artifact) with CachingEnabled
+      new ProducerWithPersistence(original, io, artifact) with CachingEnabled
     }
   }
 }

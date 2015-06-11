@@ -61,7 +61,12 @@
         padding-top: 10px;
       }
 
-      .node rect {
+        .node .data {
+          border-top: 1px solid #2a75a1;
+          padding-top: 10px;
+        }
+
+        .node rect {
         stroke: #2a75a1;
         stroke-width: 2px;
         fill: #e2f0f8;
@@ -275,7 +280,12 @@
         fill: #C38888;
       }
 
-      #outputContainer {
+        .executionInfo {
+         font-size: 20%%;
+         float: right;
+        }
+
+        #outputContainer {
         position: absolute;
         top: 41px;
         left: 41px;
@@ -313,7 +323,7 @@
 %s
     </div>
     <script src="http://d3js.org/d3.v3.min.js"></script>
-    <script src="http://cpettitt.github.io/project/dagre-d3/v0.4.2/dagre-d3.min.js"></script>
+    <script src="http://cpettitt.github.io/project/dagre-d3/v0.4.6/dagre-d3.min.js"></script>
     <script>
       (function() {
         /**
@@ -337,42 +347,19 @@
          *
          * @return {string}   The HTML for the step contents.
          */
-        function generateStepContent(label, description, millis, data, links) {
+        function generateStepContent(label, description, execInfo, data, links) {
           var out = "<h2>" + label + "</h2>";
-          if(millis) {
-            var seconds = 1000;
-            var minutes = seconds * 60;
-            var hours = minutes * 60;
-            var days = hours * 24;
-            if (millis / days > 1) {
-              out += (millis / days).toFixed(2) + " days";
-            }
-            else if (millis / hours > 1) {
-              out += (millis / hours).toFixed(2) + " hours";
-            }
-            else if (millis / minutes > 1) {
-              out += (millis / minutes).toFixed(2) + " minutes";
-            }
-            else if (millis / seconds > 1) {
-              out += (millis / seconds).toFixed(2) + " seconds";
-            }
-            else {
-              out += millis.toFixed(0) + " millis";
-            }
-          }
-          else {
-            out += "cached";
-          }
           if(description) {
             out += "<p>" + description + "</p>";
           }
-          if(data && Array.isArray(data)) {
+          if(data && Array.isArray(data) && data.length > 0) {
             out += '<ul class="data">';
             data.forEach(function(d) {
               out += '<li>' + d + '</li>';
             });
             out += '</ul>';
-            if(links) {
+          }
+          if(links && links.length > 0) {
               out += '<ul class="links">';
               links.forEach(function(l) {
                 if(l instanceof Link) {
@@ -381,7 +368,7 @@
               });
               out += '</ul>';
             }
-          }
+          out += '<span class="executionInfo">' + execInfo + '</span>';
           return out;
         };
 
@@ -394,6 +381,12 @@
         // metadata about the node. In this case we're going to add labels to each of
         // our nodes.
 %s
+
+       // Round the corners of the nodes
+        g.nodes().forEach(function(v) {
+          var node = g.node(v);
+          node.rx = node.ry = 10;
+        });
 
         // Add edges to the graph. The first argument is the edge id. Here we use null
         // to indicate that an arbitrary edge id can be assigned automatically. The
