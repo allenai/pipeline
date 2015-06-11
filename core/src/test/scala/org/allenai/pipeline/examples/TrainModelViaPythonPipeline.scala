@@ -9,6 +9,7 @@ import java.io.File
   * to train a model and to score the test data
   */
 object TrainModelViaPythonPipeline extends App {
+  import ExternalProcess._
   val inputDir = new File("src/test/resources/pipeline")
   val pipeline = Pipeline(new File("pipeline-output"))
 
@@ -19,12 +20,18 @@ object TrainModelViaPythonPipeline extends App {
   val trainModel =
     RunExternalProcess(
       "python",
-      InputFileToken("script"),
+      ScriptToken(new File(inputDir, "trainModel.py").getAbsolutePath),
       OutputFileToken("modelFile"),
       "-data",
       InputFileToken("trainingData")
-    )(inputs =
-        Map("trainingData" -> trainData, "script" -> new FileArtifact(new File(inputDir, "trainModel.py"))))
+    )(
+        Seq(
+          trainData
+        ),
+        versionHistory = Seq(
+          "v1.0"
+        )
+      )
 
   // Capture the output of the process and persist it
   val modelFile = pipeline.persist(trainModel.outputs("modelFile"), StreamIo, "TrainedModel")
@@ -32,16 +39,18 @@ object TrainModelViaPythonPipeline extends App {
   val measureModel =
     RunExternalProcess(
       "python",
-      InputFileToken("script"),
+      ScriptToken(new File(inputDir, "scoreModel.py").getAbsolutePath),
       OutputFileToken("prFile"),
       "-model",
       InputFileToken("modelFile"),
       "-data",
       InputFileToken("testDataFile")
-    )(inputs = Map(
-        "script" -> new FileArtifact(new File(inputDir, "scoreModel.py")),
-        "modelFile" -> modelFile,
-        "testDataFile" -> testData
+    )(inputs = Seq(
+        modelFile,
+        testData
+      ),
+        versionHistory = Seq(
+        "v1.0"
       ))
 
   pipeline.persist(measureModel.outputs("prFile"), StreamIo, "PrecisionRecall")

@@ -20,16 +20,16 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   "ExecuteShellCommand" should "return status code" in {
     val testTrue = new ExternalProcess("test", "a", "=", "a")
-    testTrue.run().returnCode should equal(0)
+    testTrue.run(Seq()).returnCode should equal(0)
     val testFalse = new ExternalProcess("test", "a", "=", "b")
-    testFalse.run().returnCode should equal(1)
+    testFalse.run(Seq()).returnCode should equal(1)
   }
 
   it should "create output files" in {
     val outputFile = new File(scratchDir, "testTouchFile/output")
     val outputArtifact = new FileArtifact(outputFile)
     val touchFile =
-      new ProducerWithPersistence(RunExternalProcess("touch", OutputFileToken("target"))()
+      new ProducerWithPersistence(RunExternalProcess(ScriptToken("touch"), OutputFileToken("target"))(Seq())
         .outputs("target"), StreamIo, outputArtifact)
     touchFile.get
     outputFile should exist
@@ -38,7 +38,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   def ppVersionHistTest(pipeline: Pipeline, vh1: Seq[String]): (PersistedProducer[() => InputStream, FlatArtifact]) =
     {
       val touchFile1 =
-        RunExternalProcess("touch", OutputFileToken("target"))(
+        RunExternalProcess(ScriptToken("touch"), OutputFileToken("target"))(Seq(),
           versionHistory = vh1
         ).outputs("target")
       pipeline.persist(touchFile1, StreamIo, s"${touchFile1.stepInfo.signature.id}")
@@ -80,14 +80,45 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     pp1.artifact.url.getRawPath() should not equal (pp2.artifact.url.getRawPath())
   }
 
+  def CatFileForTest(scratchDir: File, rfile: String, vh1: Seq[String]): Producer[() => InputStream] = {
+    val fa = new FileArtifact(new File(scratchDir, rfile))
+    RunExternalProcess(ScriptToken("cat"), InputFileToken("target"))(Seq(fa),
+      versionHistory = vh1
+    ).stdout
+  }
+
+  "ScriptToken" should "be invariant of home directory" in {
+    val proc1 = ExtprocForScriptTokenTest(scratchDir, "/home/bert/src/pipelineFoo/supersort.pl")
+    val proc2 = ExtprocForScriptTokenTest(scratchDir, "/home/ernie/src/pipelineFoo/supersort.pl")
+    proc1.stepInfo.signature.id should equal(proc2.stepInfo.signature.id)
+  }
+  
+  def ExtprocForScriptTokenTest(scratchDir: File, afile: String) = {
+    val f = new File(scratchDir, afile)
+    RunExternalProcess(ScriptToken(f.getAbsolutePath()))(Seq()).stdout
+  }
+
+  "RunExternalProcess signature" should "be invariant between identical producers" in {
+    val rfile = "in1.txt"
+    Resource.using(new java.io.PrintWriter(new java.io.FileWriter(new File(scratchDir, rfile)))) {
+      _.println("hello")
+    }
+    val pipeline = Pipeline(new File(scratchDir, "ExtargSignature"))
+    val cat1 = CatFileForTest(scratchDir, rfile, List("v1.0"))
+    val cat2 = CatFileForTest(scratchDir, rfile, List("v1.0"))
+    val sig1 = cat1.stepInfo.signature.infoString
+    val sig2 = cat2.stepInfo.signature.infoString
+    sig1 should equal(sig2)
+  }
+
   it should "capture stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
-    val stdout = IOUtils.readLines(echo.run().stdout()).asScala.mkString("\n")
+    val stdout = IOUtils.readLines(echo.run(Seq()).stdout()).asScala.mkString("\n")
     stdout should equal("hello world")
   }
   it should "capture stderr" in {
     val noSuchParameter = new ExternalProcess("touch", "-x", "foo")
-    val stderr = IOUtils.readLines(noSuchParameter.run().stderr()).asScala.mkString("\n")
+    val stderr = IOUtils.readLines(noSuchParameter.run(Seq()).stderr()).asScala.mkString("\n")
     stderr.size should be > 0
   }
   it should "throw an exception if command is not found" in {
@@ -98,7 +129,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
       override def uncaughtException(t: Thread, e: Throwable): Unit = ()
     })
     an[Exception] shouldBe thrownBy {
-      noSuchCommand.run()
+      noSuchCommand.run(Seq())
     }
     // Restore exception handling
     Thread.setDefaultUncaughtExceptionHandler(defaultHandler)
@@ -114,26 +145,58 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val inputArtifact = new FileArtifact(inputFile)
     val outputArtifact = new FileArtifact(outputFile)
 
-    val copy = {
-      val p = RunExternalProcess("cp", InputFileToken("input"), OutputFileToken("output"))(
-        inputs = Map("input" -> Read.fromArtifact(StreamIo, inputArtifact))
-      )
-        .outputs("output")
-      new ProducerWithPersistence(p, StreamIo, outputArtifact)
-    }
+    val copy = new ProducerWithPersistence(RunExternalProcess(ScriptToken("cp"), InputFileToken("input"), OutputFileToken("output"))(
+      inputs = Seq(inputArtifact)
+    )
+      .outputs("output"),StreamIo, outputArtifact)
     copy.get
     outputFile should exist
     Source.fromFile(outputFile).mkString should equal("Some data\n")
 
     copy.stepInfo.dependencies.size should equal(1)
     Workflow.upstreamDependencies(copy).size should equal(2)
-    copy.stepInfo.dependencies.head._2.stepInfo.parameters("cmd") should equal("cp <input> <output>")
   }
 
   it should "pipe stdin to stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
     val wc = new ExternalProcess("wc", "-c")
-    val result = wc.run(stdinput = echo.run().stdout)
+    val result = wc.run(Seq(),stdinput = echo.run(Seq()).stdout)
     IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
+  }
+
+  def consumeExtargForCoerceTest(absdScript: String, a: Extarg) = {
+    RunExternalProcess(ScriptToken("cat"), InputFileToken(""))(
+      Seq(a),
+      versionHistory = Seq("v1.0")
+    )
+  }
+
+  it should "coerce a Producer[() -> InputStream] to Extarg" in {
+    import ExternalProcess._
+    val echo = RunExternalProcess("echo", "hello", "world")(Seq())
+    val cat1 = consumeExtargForCoerceTest("", echo.stdout)  // should find convertProducerToInputData
+  }
+
+  it should "coerce a PersistedProducer[() -> InputStream,_] to Extarg" in {
+    import ExternalProcess._
+    val pipeline = Pipeline(scratchDir)
+    val echo = RunExternalProcess("echo", "hello", "world")(Seq())
+    val echop = pipeline.persist(echo.stdout, StreamIo, "hint_out")
+    val cat1 = consumeExtargForCoerceTest("", echop)  // finds convertPersistedProducer1ToInputData
+    // TODO: why isn't convertPersistedProducer2ToInputData enough?
+  }
+
+  it should "coerce an artifact to Extarg" in {
+    import ExternalProcess._
+
+    val dir = new File(scratchDir, "testCoerce")
+    dir.mkdirs()
+    val inputFile = new File(dir, "a1")
+    Resource.using(new PrintWriter(new FileWriter(inputFile))) {
+      _.println("Some data")
+    }
+    val inputArtifact = new FileArtifact(inputFile)
+
+    val cat1 = consumeExtargForCoerceTest("", inputArtifact)  // should find convertArtifactToInputData
   }
 }
