@@ -9,9 +9,10 @@ import scala.reflect.ClassTag
 
 import java.io.{ File, InputStream }
 
-/** Created by rodneykinney on 5/24/15.
+/** Given a collection of S3 paths,
+  * parse each line of each file into an object
+  * using format given by the implicit StringSerializable
   */
-
 case class ReadObjectRddFromFiles[T: StringSerializable: ClassTag](
     filePaths: Producer[Iterable[String]],
     sparkContext: SparkContext,
@@ -36,6 +37,10 @@ case class ReadObjectRddFromFiles[T: StringSerializable: ClassTag](
   }
 }
 
+/** Given a collection of file names,
+  * produce an RDD in which each element
+  * represents the contents of a file as an InputStream
+  */
 case class ReadInputStreamRddFromFiles(
   paths: Producer[Iterable[String]],
   numPartitions: Option[Int] = None,

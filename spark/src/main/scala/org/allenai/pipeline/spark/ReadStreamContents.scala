@@ -1,15 +1,13 @@
 package org.allenai.pipeline.spark
 
-import org.allenai.common.Resource
-import org.allenai.pipeline.{ StreamClosingIterator, Ai2StepInfo, Producer }
+import java.io.InputStream
 
+import org.allenai.pipeline.{ Ai2StepInfo, Producer, StreamClosingIterator }
 import org.apache.spark.rdd.RDD
 
 import scala.io.Source
 
-import java.io.InputStream
-
-/** Created by rodneykinney on 5/24/15.
+/** Convert an RDD of InputStream sources into an RDD of String
   */
 case class ReadStreamContents(
   streams: Producer[RDD[() => InputStream]]

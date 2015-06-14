@@ -8,8 +8,6 @@ import scala.reflect.ClassTag
 import java.io.File
 import java.net.URI
 
-/** Created by rodneykinney on 5/24/15.
-  */
 object CreateRddArtifacts {
   val fromFileUrls: UrlToArtifact = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {

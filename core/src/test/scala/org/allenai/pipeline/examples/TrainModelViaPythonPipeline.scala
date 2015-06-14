@@ -45,13 +45,15 @@ object TrainModelViaPythonPipeline extends App {
       InputFileToken("modelFile"),
       "-data",
       InputFileToken("testDataFile")
-    )(inputs = Seq(
-        modelFile,
-        testData
-      ),
+    )(
+        inputs = Seq(
+          modelFile,
+          testData
+        ),
         versionHistory = Seq(
-        "v1.0"
-      ))
+          "v1.0"
+        )
+      )
 
   pipeline.persist(measureModel.outputs("prFile"), StreamIo, "PrecisionRecall")
 

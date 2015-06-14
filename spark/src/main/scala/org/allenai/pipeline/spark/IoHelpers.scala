@@ -9,8 +9,6 @@ import org.apache.spark.rdd.RDD
 
 import scala.io.Source
 
-/** Created by rodneykinney on 5/24/15.
-  */
 object IoHelpers {
   object ReadRdd {
     def fromS3(

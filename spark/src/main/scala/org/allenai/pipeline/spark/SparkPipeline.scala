@@ -46,7 +46,7 @@ trait ConfiguredSparkPipeline extends SparkPipeline with ConfiguredPipeline {
     suffix: String = ""
   ) = {
     val io = new PartitionedRddIo[T](sparkContext)
-    persist(original, io, name, suffix)
+    persist(original, io, name, suffix).withCachingDisabled
   }
 }
 

@@ -26,42 +26,44 @@ import scala.collection.JavaConverters._
   */
 class ExternalProcess(val commandTokens: CommandToken*) {
 
-  def run(inputs : Seq[Extarg],
-          stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)) =
-  {
-    val scratchDir = Files.createTempDirectory(null).toFile
-    sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
+  def run(
+    inputs: Seq[Extarg],
+    stdinput: () => InputStream = () => new ByteArrayInputStream(Array.emptyByteArray)
+  ) =
+    {
+      val scratchDir = Files.createTempDirectory(null).toFile
+      sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
-    val ab = argsBound(inputs, commandTokens).toList
+      val ab = argsBound(inputs, commandTokens).toList
 
-    import scala.sys.process._
-    val captureStdoutFile = new File(scratchDir, "stdout")
-    val captureStderrFile = new File(scratchDir, "stderr")
-    val out = new FileWriter(captureStdoutFile)
-    val err = new FileWriter(captureStderrFile)
+      import scala.sys.process._
+      val captureStdoutFile = new File(scratchDir, "stdout")
+      val captureStderrFile = new File(scratchDir, "stderr")
+      val out = new FileWriter(captureStdoutFile)
+      val err = new FileWriter(captureStderrFile)
 
-    val logger = ProcessLogger(
-      (o: String) => out.append(o),
-      (e: String) => err.append(e)
-    )
+      val logger = ProcessLogger(
+        (o: String) => out.append(o),
+        (e: String) => err.append(e)
+      )
 
-    prepareInputPaths(ab, scratchDir)
-    val cmd1 : List[String] = cmd(ab, scratchDir)
+      prepareInputPaths(ab, scratchDir)
+      val cmd1: List[String] = cmd(ab, scratchDir)
 
-    val status = (cmd1 #< stdinput()) ! logger
-    out.close()
-    err.close()
+      val status = (cmd1 #< stdinput()) ! logger
+      out.close()
+      err.close()
 
-    val outputNames = commandTokens.collect { case OutputFileToken(name) => name}
+      val outputNames = commandTokens.collect { case OutputFileToken(name) => name }
 
-    val outputStreams = for (name <- outputNames) yield {
-      (name, StreamIo.read(new FileArtifact(new File(scratchDir, name))))
+      val outputStreams = for (name <- outputNames) yield {
+        (name, StreamIo.read(new FileArtifact(new File(scratchDir, name))))
+      }
+      val stdout = StreamIo.read(new FileArtifact(captureStdoutFile))
+      val stderr = StreamIo.read(new FileArtifact(captureStderrFile))
+
+      CommandOutput(status, stdout, stderr, outputStreams.toMap)
     }
-    val stdout = StreamIo.read(new FileArtifact(captureStdoutFile))
-    val stderr = StreamIo.read(new FileArtifact(captureStderrFile))
-
-    CommandOutput(status, stdout, stderr, outputStreams.toMap)
-  }
 
 }
 
@@ -106,37 +108,41 @@ object ExternalProcess {
     */
   case class ScriptToken(abspath: String) extends CommandToken {
     override def name: String = {
-      val f : File = new File(abspath)
-      f.getName  // the .getName of "/usr/bin/perl" is "perl".  Like unix "basename"
+      val f: File = new File(abspath)
+      f.getName // the .getName of "/usr/bin/perl" is "perl".  Like unix "basename"
     }
   }
-  
+
   /** Things which ExternalProcess is prepared to consume, currently
-    * only ExtargStream */
+    * only ExtargStream
+    */
   sealed trait Extarg
 
-  case class ExtargStream(a : Producer[() => InputStream]) extends Extarg
+  case class ExtargStream(a: Producer[() => InputStream]) extends Extarg
 
-  class ExternalProcessArgException(s : String) extends Throwable
+  class ExternalProcessArgException(s: String) extends Throwable
 
   /** The policy for assiging Extargs to CommandTokens. */
   def joinArgsBound(
-                     commandTokens: Seq[CommandToken],
-                     inputs: Seq[Extarg]) : Seq[(CommandToken, Option[Extarg])] = {
+    commandTokens: Seq[CommandToken],
+    inputs: Seq[Extarg]
+  ): Seq[(CommandToken, Option[Extarg])] = {
     @tailrec
-    def iter(commandTokens: Seq[CommandToken],
-             inputs: Seq[Extarg],
-             c : Seq[(CommandToken, Option[Extarg])]) : Seq[(CommandToken, Option[Extarg])] = {
+    def iter(
+      commandTokens: Seq[CommandToken],
+      inputs: Seq[Extarg],
+      c: Seq[(CommandToken, Option[Extarg])]
+    ): Seq[(CommandToken, Option[Extarg])] = {
       (commandTokens, inputs) match {
         case ((tok: InputFileToken) :: tlA,
-              ExtargStream(st)      :: tlB) =>     iter(tlA, tlB, (tok, Some(ExtargStream(st))) +: c)
+          ExtargStream(st) :: tlB) => iter(tlA, tlB, (tok, Some(ExtargStream(st))) +: c)
         case ((tok: OutputFileToken) :: tlA, _) => iter(tlA, inputs, (tok, None) +: c)
-        case ((tok: StringToken) :: tlA, _) =>     iter(tlA, inputs, (tok, None) +: c)
-        case (hdA :: tlA, _) =>                    iter(tlA, inputs, (hdA, None) +: c)
-        case (Nil, hdB :: tlB) =>                  c.reverse
-          //TODO: require(false, s"too many arguments supplied"); c
-        case (Nil, Nil) =>                         c.reverse
-        case (_, _) =>                             c.reverse
+        case ((tok: StringToken) :: tlA, _) => iter(tlA, inputs, (tok, None) +: c)
+        case (hdA :: tlA, _) => iter(tlA, inputs, (hdA, None) +: c)
+        case (Nil, hdB :: tlB) => c.reverse
+        //TODO: require(false, s"too many arguments supplied"); c
+        case (Nil, Nil) => c.reverse
+        case (_, _) => c.reverse
       }
     }
     iter(commandTokens, inputs, Seq())
@@ -144,31 +150,31 @@ object ExternalProcess {
 
   /** Translate joinArgsBound into a contributed string for the final command, but stop short
     * of nondeterministic components which could disrupt signature stability, such as the
-    * temporary directory prefix. */
-  def argsBound(inputs: Seq[Extarg], commandTokens: Seq[CommandToken]) :
-      List[(CommandToken, Option[Extarg], String)] =
-  {
+    * temporary directory prefix.
+    */
+  def argsBound(inputs: Seq[Extarg], commandTokens: Seq[CommandToken]): List[(CommandToken, Option[Extarg], String)] =
+    {
       val jab = joinArgsBound(commandTokens.toList, inputs.toList).toList
-      val paths : List[String] = jab.zipWithIndex.map({
-        case ((tok:CommandToken, argopt:Option[Extarg]), i) =>
+      val paths: List[String] = jab.zipWithIndex.map({
+        case ((tok: CommandToken, argopt: Option[Extarg]), i) =>
           ((tok, argopt), i) match {
             case ((StringToken(s), arg), i) => s
             case ((InputFileToken(nameTemp1), Some(ExtargStream(b))), i) => nameAuto(i)
-            case ((OutputFileToken(nameTemp1), _), i) => if(nameTemp1 != null) nameTemp1 else nameAuto(i)
+            case ((OutputFileToken(nameTemp1), _), i) => if (nameTemp1 != null) nameTemp1 else nameAuto(i)
             case ((ScriptToken(path), _), i) => path
-            case (_,i) =>
+            case (_, i) =>
               throw new ExternalProcessArgException(s"Type mismatch on argument $i")
           }
       })
-      jab.zip(paths).map({case ((a,b),c) => (a,b,c)})
-  }
+      jab.zip(paths).map({ case ((a, b), c) => (a, b, c) })
+    }
 
   /** Default naming for temporary files holding input and output streams. */
-  private def nameAuto(i:Int) = f"tmp_${i}"
+  private def nameAuto(i: Int) = f"tmp_${i}"
 
   /** Write input ExtargStream arguments to temporary files */
-  def prepareInputPaths(args:List[(CommandToken, Option[Extarg], String)], scratchDir:File): Unit = {
-    args.zipWithIndex.foreach{ x : ((CommandToken, Option[Extarg], String),Int) =>
+  def prepareInputPaths(args: List[(CommandToken, Option[Extarg], String)], scratchDir: File): Unit = {
+    args.zipWithIndex.foreach { x: ((CommandToken, Option[Extarg], String), Int) =>
       x match {
         case ((InputFileToken(nameTemp), Some(ExtargStream(b)), name), i) =>
           val f = new File(scratchDir, name)
@@ -181,12 +187,12 @@ object ExternalProcess {
   }
 
   /** Translate every file hintname into a temporary directory path.  Return the final command. */
-  def cmd(args:List[(CommandToken, Option[Extarg], String)], scratchDir:File) : List[String] = {
+  def cmd(args: List[(CommandToken, Option[Extarg], String)], scratchDir: File): List[String] = {
     args.map {
-      case (InputFileToken(_),_,path) => new File(scratchDir,path).getCanonicalPath
-      case (OutputFileToken(name),_,path) => new File(scratchDir,path).getCanonicalPath
-      case (StringToken(t),_,_) => t
-      case (ScriptToken(path),_,_) => path
+      case (InputFileToken(_), _, path) => new File(scratchDir, path).getCanonicalPath
+      case (OutputFileToken(name), _, path) => new File(scratchDir, path).getCanonicalPath
+      case (StringToken(t), _, _) => t
+      case (ScriptToken(path), _, _) => path
     }
   }
 
@@ -228,19 +234,20 @@ object ExternalProcess {
 }
 
 /** An ExternalProcess wrapped with "Producer"ness on inputs and outputs.  A related
-  * pipeline convention: Name Producer subclasses with a verb. */
+  * pipeline convention: Name Producer subclasses with a verb.
+  */
 class RunExternalProcess private (
     val commandTokens: Seq[CommandToken],
     _versionHistory: Seq[String],
     inputs: Seq[Extarg]
 ) extends Producer[CommandOutput] with Ai2SimpleStepInfo {
-    override def create = {
-      // side effect: generate demand
-      inputs.foreach({
-        case ExtargStream(v) => v.get
-      })
-      new ExternalProcess(commandTokens: _*).run(inputs)
-    }
+  override def create = {
+    // side effect: generate demand
+    inputs.foreach({
+      case ExtargStream(v) => v.get
+    })
+    new ExternalProcess(commandTokens: _*).run(inputs)
+  }
 
   override def versionHistory = _versionHistory
 
@@ -251,20 +258,21 @@ class RunExternalProcess private (
       case OutputFileToken(name) => s"<$name>"
       case t => t.name
     }
-    val dep : Map[String, Producer[_]] = ab.toList.flatMap({
-        case (InputFileToken(p),Some(ExtargStream(prod)),n) => List((n,prod))
-        case _ => List()
-        // StringInputToken is not a depenency, just like the code of a Producer
-        // implemented in Scala is not a depenency, since the hashing of either
-        // would make cache hits undesirably rare.  Instead, provide semantic
-        // versioning using .versionHistory.
-      }).toMap
+    val dep: Map[String, Producer[_]] = ab.toList.flatMap({
+      case (InputFileToken(p), Some(ExtargStream(prod)), n) => List((n, prod))
+      case _ => List()
+      // StringInputToken is not a depenency, just like the code of a Producer
+      // implemented in Scala is not a depenency, since the hashing of either
+      // would make cache hits undesirably rare.  Instead, provide semantic
+      // versioning using .versionHistory.
+    }).toMap
     super.stepInfo
       .copy(
         className = "ExternalProcess",
-        dependencies = dep)
+        dependencies = dep
+      )
       .addParameters("cmd" -> cmd.mkString(" "))
-      // TODO: make an Extarg for string parameters and report with .addParameters
+    // TODO: make an Extarg for string parameters and report with .addParameters
   }
 }
 object RunExternalProcess {
@@ -283,7 +291,7 @@ object RunExternalProcess {
     val stdout = new ExtractOutputComponent("stdout", _.stdout, processCmd, requireStatusCode)
     val stderr = new ExtractOutputComponent("stderr", _.stderr, processCmd, requireStatusCode)
     val outputStreams =
-      for ((_,_,name) <- argsBound(inputs, commandTokens)) yield {
+      for ((_, _, name) <- argsBound(inputs, commandTokens)) yield {
         val outputProducer =
           new ExtractOutputComponent(s"outputs.$name", _.outputs(name), processCmd, requireStatusCode)
         (name, outputProducer)

@@ -6,4 +6,6 @@ trait PartitionedRddArtifact extends Artifact {
   def makePartitionArtifact: Int => FlatArtifact
   def getExistingPartitions: Iterable[Int]
   def saveWasSuccessful(): Unit
+
+  override def toString = s"PartitionedRddArtifact[$url]"
 }

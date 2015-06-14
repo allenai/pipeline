@@ -10,8 +10,6 @@ import scala.reflect.ClassTag
 
 import java.io.InputStream
 
-/** Created by rodneykinney on 5/24/15.
-  */
 case class ReadObjectRddFromS3[T: StringSerializable: ClassTag](
     s3Paths: Producer[Iterable[String]],
     s3Config: S3Config,

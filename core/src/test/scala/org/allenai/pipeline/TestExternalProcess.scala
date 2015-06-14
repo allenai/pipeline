@@ -2,7 +2,6 @@ package org.allenai.pipeline
 
 import org.allenai.common.Resource
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
-import org.allenai.pipeline.IoHelpers.Read
 
 import org.apache.commons.io.IOUtils
 
@@ -38,7 +37,8 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   def ppVersionHistTest(pipeline: Pipeline, vh1: Seq[String]): (PersistedProducer[() => InputStream, FlatArtifact]) =
     {
       val touchFile1 =
-        RunExternalProcess(ScriptToken("touch"), OutputFileToken("target"))(Seq(),
+        RunExternalProcess(ScriptToken("touch"), OutputFileToken("target"))(
+          Seq(),
           versionHistory = vh1
         ).outputs("target")
       pipeline.persist(touchFile1, StreamIo, s"${touchFile1.stepInfo.signature.id}")
@@ -82,7 +82,8 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
 
   def CatFileForTest(scratchDir: File, rfile: String, vh1: Seq[String]): Producer[() => InputStream] = {
     val fa = new FileArtifact(new File(scratchDir, rfile))
-    RunExternalProcess(ScriptToken("cat"), InputFileToken("target"))(Seq(fa),
+    RunExternalProcess(ScriptToken("cat"), InputFileToken("target"))(
+      Seq(fa),
       versionHistory = vh1
     ).stdout
   }
@@ -92,7 +93,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val proc2 = ExtprocForScriptTokenTest(scratchDir, "/home/ernie/src/pipelineFoo/supersort.pl")
     proc1.stepInfo.signature.id should equal(proc2.stepInfo.signature.id)
   }
-  
+
   def ExtprocForScriptTokenTest(scratchDir: File, afile: String) = {
     val f = new File(scratchDir, afile)
     RunExternalProcess(ScriptToken(f.getAbsolutePath()))(Seq()).stdout
@@ -120,7 +121,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   it should "capture stdout newlines" in {
     val s = "An old silent pond...\\nA frog jumps into the pond,\\nsplash! Silence again.\\n"
     val echo = new ExternalProcess("printf", s)
-    val cLines = IOUtils.readLines(echo.run(Map()).stdout()).asScala.count(_ => true)
+    val cLines = IOUtils.readLines(echo.run(Seq()).stdout()).asScala.count(_ => true)
     cLines should equal(3)
   }
 
@@ -156,7 +157,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     val copy = new ProducerWithPersistence(RunExternalProcess(ScriptToken("cp"), InputFileToken("input"), OutputFileToken("output"))(
       inputs = Seq(inputArtifact)
     )
-      .outputs("output"),StreamIo, outputArtifact)
+      .outputs("output"), StreamIo, outputArtifact)
     copy.get
     outputFile should exist
     Source.fromFile(outputFile).mkString should equal("Some data\n")
@@ -168,7 +169,7 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   it should "pipe stdin to stdout" in {
     val echo = new ExternalProcess("echo", "hello", "world")
     val wc = new ExternalProcess("wc", "-c")
-    val result = wc.run(Seq(),stdinput = echo.run(Seq()).stdout)
+    val result = wc.run(Seq(), stdinput = echo.run(Seq()).stdout)
     IOUtils.readLines(result.stdout()).asScala.head.trim().toInt should equal(11)
   }
 
@@ -180,22 +181,22 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
   }
 
   it should "coerce a Producer[() -> InputStream] to Extarg" in {
-    import ExternalProcess._
+    import org.allenai.pipeline.ExternalProcess._
     val echo = RunExternalProcess("echo", "hello", "world")(Seq())
-    val cat1 = consumeExtargForCoerceTest("", echo.stdout)  // should find convertProducerToInputData
+    val cat1 = consumeExtargForCoerceTest("", echo.stdout) // should find convertProducerToInputData
   }
 
   it should "coerce a PersistedProducer[() -> InputStream,_] to Extarg" in {
-    import ExternalProcess._
+    import org.allenai.pipeline.ExternalProcess._
     val pipeline = Pipeline(scratchDir)
     val echo = RunExternalProcess("echo", "hello", "world")(Seq())
     val echop = pipeline.persist(echo.stdout, StreamIo, "hint_out")
-    val cat1 = consumeExtargForCoerceTest("", echop)  // finds convertPersistedProducer1ToInputData
+    val cat1 = consumeExtargForCoerceTest("", echop) // finds convertPersistedProducer1ToInputData
     // TODO: why isn't convertPersistedProducer2ToInputData enough?
   }
 
   it should "coerce an artifact to Extarg" in {
-    import ExternalProcess._
+    import org.allenai.pipeline.ExternalProcess._
 
     val dir = new File(scratchDir, "testCoerce")
     dir.mkdirs()
@@ -205,6 +206,6 @@ class TestExternalProcess extends UnitSpec with ScratchDirectory {
     }
     val inputArtifact = new FileArtifact(inputFile)
 
-    val cat1 = consumeExtargForCoerceTest("", inputArtifact)  // should find convertArtifactToInputData
+    val cat1 = consumeExtargForCoerceTest("", inputArtifact) // should find convertArtifactToInputData
   }
 }
