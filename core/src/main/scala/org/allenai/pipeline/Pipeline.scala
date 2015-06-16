@@ -161,11 +161,27 @@ trait Pipeline extends Logging {
   def createOutputArtifact[A <: Artifact: ClassTag](path: String): A =
     artifactFactory.createArtifact[A](rootOutputUrl, path)
 
+  /** Use a local file as an input resource.
+    * A versioned copy of the
+    * file will be written to the root output location
+    */
+  def versionedInputFile(file: File): FlatArtifact = {
+    val (fileName, extension) =
+      file.getName.split('.') match {
+        case Array(s) => (s, "")
+        case a =>
+          (a.take(a.size - 1).mkString("."), a.last)
+      }
+    def createVersionedArtifact(id: String) =
+      createOutputArtifact[FlatArtifact](s"$fileName.$id.$extension")
+    new VersionedInputFile(new FileArtifact(file), createVersionedArtifact)
+  }
+
   def getStepsByName(targetNames: Iterable[String]) = {
     val targets = targetNames.flatMap(s => steps.get(s).map(p => (s, p)))
     if (targets.size != targetNames.size) {
-      val unresolveNames = targetNames.filterNot(steps.contains)
-      sys.error(s"Step names not found: ${unresolveNames.mkString("[", ",", "]")}")
+      val unresolvedNames = targetNames.filterNot(steps.contains)
+      sys.error(s"Step names not found: ${unresolvedNames.mkString("[", ",", "]")}")
     }
     targets
   }

@@ -1,8 +1,8 @@
 package org.allenai.pipeline
 
-import java.io.File
+import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 
-import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
+import java.io.File
 
 class TestPipeline extends UnitSpec with ScratchDirectory {
   case class AddOne(input: Producer[Int]) extends Producer[Int] with Ai2StepInfo {
@@ -16,7 +16,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     val outputDir = new File(scratchDir, "test1")
     val pipeline = Pipeline(outputDir)
 
-    import IoHelpers._
+    import org.allenai.pipeline.IoHelpers._
     val p1File = new File(pipeline.Persist.Singleton.asText(p1, "One").artifact.url)
     val p2File = new File(pipeline.Persist.Singleton.asText(p2, "Two").artifact.url)
     val p3File = new File(pipeline.Persist.Singleton.asText(p3, "Three").artifact.url)
@@ -51,6 +51,22 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     pipeline.Persist.Singleton.asText(p5)
     // p5 is persisted and its dependency exists.  All clear!
     pipeline.runOnly("test", "Five")
+  }
+
+  it should "create versioned copies of input files" in {
+    val baseDir = new File(scratchDir,"testVersioning")
+    val outputDir = new File(baseDir, "output")
+    val inputDir = new File("src/test/resources/pipeline")
+    val pipeline = Pipeline(outputDir)
+    val input = pipeline.versionedInputFile(new File(inputDir,"features.txt"))
+    import org.allenai.pipeline.ExternalProcess._
+    pipeline.persist(
+      RunExternalProcess("cp",
+        InputFileToken("input"),
+        OutputFileToken("output"))(inputs = Seq(input)).outputs("output"),
+    StreamIo,
+    "CopyFile")
+    pipeline.run("test")
   }
 
 }

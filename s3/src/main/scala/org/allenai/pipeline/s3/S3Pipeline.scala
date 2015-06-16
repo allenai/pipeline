@@ -15,30 +15,6 @@ trait S3Pipeline extends Pipeline {
   override def urlToArtifact = UrlToArtifact.chain(super.urlToArtifact, CreateCoreArtifacts.fromS3Urls(credentials))
 }
 
-/** A trait that gives a pipeline the capability to back up local filesystem artifacts to S3 */
-trait S3PipelineWithReplication extends S3Pipeline {
-  override def urlToArtifact = UrlToArtifact.chain(super.urlToArtifact, createReplicatedArtifacts(credentials))
-
-  private val baseUrlToArtifact = super.urlToArtifact
-
-  def createReplicatedArtifacts(credentials: => S3Credentials) = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
-      val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
-      val fn: PartialFunction[URI, A] = {
-        case url if c.isAssignableFrom(classOf[ReplicatedFlatArtifact])
-          && url.getScheme == "file" || url.getScheme == null =>
-          val primary = ArtifactFactory(baseUrlToArtifact).createArtifact[FlatArtifact](url)
-          def createBackupUrl(id: String) =
-            new URI(rootOutputUrl.getScheme,
-              rootOutputUrl.getHost,
-              rootOutputUrl.getPath + url.getPath.split('/').last + id)
-          new ReplicatedFlatArtifact(primary, createBackupUrl, artifactFactory).asInstanceOf[A]
-      }
-      fn
-    }
-  }
-}
-
 object S3Pipeline {
   def apply(
     rootUrl: URI,
