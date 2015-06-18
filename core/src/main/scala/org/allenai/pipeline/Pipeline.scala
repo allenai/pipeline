@@ -162,8 +162,9 @@ trait Pipeline extends Logging {
     artifactFactory.createArtifact[A](rootOutputUrl, path)
 
   /** Use a local file as an input resource.
-    * A versioned copy of the
-    * file will be written to the root output location
+    * A versioned copy of the file will be stored in the root output location.
+    * This allows the pipeline run to be reproducible even in the contents
+    * of the input file change subsequently.
     */
   def versionedInputFile(file: File): FlatArtifact = {
     val (fileName, extension) =
