@@ -173,7 +173,7 @@ trait Pipeline extends Logging {
           (a.take(a.size - 1).mkString("."), a.last)
       }
     def createVersionedArtifact(id: String) =
-      createOutputArtifact[FlatArtifact](s"$fileName.$id.$extension")
+      createOutputArtifact[FlatArtifact](s"data/$fileName.$id.$extension")
     new VersionedInputFile(new FileArtifact(file), createVersionedArtifact)
   }
 

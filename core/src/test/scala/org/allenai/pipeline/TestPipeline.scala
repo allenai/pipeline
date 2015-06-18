@@ -3,11 +3,15 @@ package org.allenai.pipeline
 import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
 
 import java.io.File
+import scala.collection.JavaConverters._
+import IoHelpers._
 
 class TestPipeline extends UnitSpec with ScratchDirectory {
+
   case class AddOne(input: Producer[Int]) extends Producer[Int] with Ai2StepInfo {
     override def create = input.get + 1
   }
+
   "Pipeline" should "run all persisted targets" in {
     val p1 = Producer.fromMemory(1)
     val p2 = Producer.fromMemory(2)
@@ -46,6 +50,7 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
 
     val p5 = new Producer[Int] with Ai2SimpleStepInfo {
       override def create = 5
+
       override def stepInfo = super.stepInfo.addParameters(("upstream", p4))
     }
     pipeline.Persist.Singleton.asText(p5)
@@ -54,19 +59,36 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
   }
 
   it should "create versioned copies of input files" in {
-    val baseDir = new File(scratchDir,"testVersioning")
+    val baseDir = new File(scratchDir, "testVersioning")
     val outputDir = new File(baseDir, "output")
-    val inputDir = new File("src/test/resources/pipeline")
-    val pipeline = Pipeline(outputDir)
-    val input = pipeline.versionedInputFile(new File(inputDir,"features.txt"))
-    import org.allenai.pipeline.ExternalProcess._
-    pipeline.persist(
-      RunExternalProcess("cp",
-        InputFileToken("input"),
-        OutputFileToken("output"))(inputs = Seq(input)).outputs("output"),
-    StreamIo,
-    "CopyFile")
-    pipeline.run("test")
+    val inputDir = new File(baseDir, "input")
+    val inputFile = new File(inputDir, "input.txt")
+    SingletonIo.text[String].write("some content", new FileArtifact(inputFile))
+    def buildPipeline = {
+      val pipeline = Pipeline(outputDir)
+      val input = pipeline.versionedInputFile(inputFile)
+      import org.allenai.pipeline.ExternalProcess._
+      pipeline.persist(
+        RunExternalProcess("cp",
+          InputFileToken("input"),
+          OutputFileToken("output"))(inputs = Seq(input)).outputs("output"),
+        StreamIo,
+        "CopyFile",
+        ".txt")
+      pipeline
+    }
+    buildPipeline.run("test")
+
+    def isOutputFile(prefix: String)(s: String) = s.startsWith(prefix) && s.endsWith(".txt")
+    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(1)
+    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(1)
+
+    // Put different contents into the same input file.
+    // Should create a new copy of input and have different output
+    SingletonIo.text[String].write("some other content", new FileArtifact(inputFile))
+    buildPipeline.run("test2")
+    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(2)
+    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(2)
   }
 
 }
