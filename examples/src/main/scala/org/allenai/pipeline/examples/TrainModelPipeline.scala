@@ -12,7 +12,7 @@ import java.io.File
   * No actual machine-learning code is included.)
   */
 object TrainModelPipeline extends App {
-  val inputDir = new File("src/test/resources/pipeline")
+  val inputDir = new File("../core/src/test/resources/pipeline")
   val pipeline = Pipeline(new File("pipeline-output"))
 
   // Create the training and test data
@@ -32,7 +32,9 @@ object TrainModelPipeline extends App {
     pipeline.Persist.Collection.asText(MeasureModel(model, testData))
   }
 
-  pipeline.run("Train Model")
+  val steps = pipeline.run("Train Model")
+  if(steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
+
 
   // Method that encapsulates a sub-pipeline that produces training and test data
   def produceTrainAndTestData(pipeline: Pipeline, inputDir: File) = {
