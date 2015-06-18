@@ -19,7 +19,7 @@ object S3Pipeline {
   def apply(
     rootUrl: URI,
     awsCredentials: S3Credentials = S3Config.environmentCredentials()
-    ) = new S3Pipeline {
+  ) = new S3Pipeline {
     def rootOutputUrl = rootUrl
 
     override def credentials = awsCredentials
@@ -28,7 +28,7 @@ object S3Pipeline {
   def configured(
     cfg: Config,
     awsCredentials: S3Credentials = S3Config.environmentCredentials()
-    ) = {
+  ) = {
     new ConfiguredPipeline with S3Pipeline {
       override val config = cfg
 

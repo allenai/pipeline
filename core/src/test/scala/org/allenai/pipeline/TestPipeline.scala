@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.{ScratchDirectory, UnitSpec}
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
 import java.io.File
 import scala.collection.JavaConverters._
@@ -69,26 +69,29 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
       val input = pipeline.versionedInputFile(inputFile)
       import org.allenai.pipeline.ExternalProcess._
       pipeline.persist(
-        RunExternalProcess("cp",
+        RunExternalProcess(
+          "cp",
           InputFileToken("input"),
-          OutputFileToken("output"))(inputs = Seq(input)).outputs("output"),
+          OutputFileToken("output")
+        )(inputs = Seq(input)).outputs("output"),
         StreamIo,
         "CopyFile",
-        ".txt")
+        ".txt"
+      )
       pipeline
     }
     buildPipeline.run("test")
 
     def isOutputFile(prefix: String)(s: String) = s.startsWith(prefix) && s.endsWith(".txt")
-    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(1)
-    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(1)
+    new File(outputDir, "data").list.toArray.filter(isOutputFile("input")).size should equal(1)
+    new File(outputDir, "data").list.toArray.filter(isOutputFile("input")).size should equal(1)
 
     // Put different contents into the same input file.
     // Should create a new copy of input and have different output
     SingletonIo.text[String].write("some other content", new FileArtifact(inputFile))
     buildPipeline.run("test2")
-    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(2)
-    new File(outputDir,"data").list.toArray.filter(isOutputFile("input")).size should equal(2)
+    new File(outputDir, "data").list.toArray.filter(isOutputFile("input")).size should equal(2)
+    new File(outputDir, "data").list.toArray.filter(isOutputFile("input")).size should equal(2)
   }
 
 }

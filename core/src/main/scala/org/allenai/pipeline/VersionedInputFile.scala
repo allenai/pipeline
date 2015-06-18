@@ -5,21 +5,20 @@ import org.allenai.common.Resource
 import java.io.InputStream
 import java.net.URI
 
-/**
- * Creates a versioned copy of an input file from an original location (assumed local)
- * to a backup location (assumed shared)
- * The intended usage is that a pipeline can use local filesystem resources
- * as inputs, and when a pipeline is run, the local contents are copied transparently
- * to a shared location, allowing other users to share the inputs of the pipeline run.
- * If the contents of the local resource change in between pipeline runs, the new versions will
- * be uploaded with different names.
- */
+/** Creates a versioned copy of an input file from an original location (assumed local)
+  * to a backup location (assumed shared)
+  * The intended usage is that a pipeline can use local filesystem resources
+  * as inputs, and when a pipeline is run, the local contents are copied transparently
+  * to a shared location, allowing other users to share the inputs of the pipeline run.
+  * If the contents of the local resource change in between pipeline runs, the new versions will
+  * be uploaded with different names.
+  */
 class VersionedInputFile(
-  original: FileArtifact,
-  createVersionedArtifact: String => FlatArtifact
-  ) extends FlatArtifact {
+    original: FileArtifact,
+    createVersionedArtifact: String => FlatArtifact
+) extends FlatArtifact {
   protected[this] lazy val versioned = {
-    require(original.exists,s"Read-only artifact $original must exist")
+    require(original.exists, s"Read-only artifact $original must exist")
     // Compute hash of contents
     val id = {
       var hash = 0L
