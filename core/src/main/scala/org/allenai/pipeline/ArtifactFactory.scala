@@ -72,11 +72,13 @@ object UrlToArtifact {
   // Chain together a series of UrlToArtifact instances
   // The result will be a UrlToArtifact that supports creation of the union of Artifact types and input URLs
   // that are supported by the individual inputs
+  // Later instances have higher priority and will override earlier instances
   def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) =
     new UrlToArtifact {
       override def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
-        var fn = first.urlToArtifact[A] orElse second.urlToArtifact[A]
-        for (o <- others) {
+        val all = (List(first, second) ++ others).reverse
+        var fn = PartialFunction.empty[URI, A]
+        for (o <- all) {
           fn = fn orElse o.urlToArtifact[A]
         }
         fn
