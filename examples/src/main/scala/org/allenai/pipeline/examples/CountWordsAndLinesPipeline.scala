@@ -13,7 +13,7 @@ object CountWordsAndLinesPipeline extends App {
   val pipeline = Pipeline(new File("pipeline-output"))
 
   // Define our input:  A collection of lines read from an inputFile
-  val textFile = new File("src/test/resources/pipeline/features.txt")
+  val textFile = new File("../core/src/test/resources/pipeline/features.txt")
   // Must import IoHelpers._ to enable this
   val lines = Read.Collection.fromText[String](textFile)
 
@@ -33,6 +33,7 @@ object CountWordsAndLinesPipeline extends App {
   }
 
   // Run the pipeline
-  pipeline.run("Count words and lines")
+  val steps = pipeline.run("Count words and lines")
+  if(steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
 }
 

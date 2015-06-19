@@ -10,7 +10,7 @@ import java.io.File
   */
 object TrainModelViaPythonPipeline extends App {
   import ExternalProcess._
-  val inputDir = new File("src/test/resources/pipeline")
+  val inputDir = new File("../core/src/test/resources/pipeline")
   val pipeline = Pipeline(new File("pipeline-output"))
 
   // Create the training and test data
@@ -58,6 +58,6 @@ object TrainModelViaPythonPipeline extends App {
   pipeline.persist(measureModel.outputs("prFile"), StreamIo, "PrecisionRecall")
 
   // Measure precision/recall of the model using the test data from above
-  pipeline.run("Train Model Python")
-
+  val steps = pipeline.run("Train Model Python")
+  if(steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
 }
