@@ -1,28 +1,15 @@
 package org.allenai.pipeline.examples
 
-import org.allenai.common.testkit.{UnitSpec, ScratchDirectory}
-import org.scalatest.FunSuite
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
-class TestTheExamples extends FunSuite {
-  test("CountWordsAndLinesPipeline should run") {
-    try {
-      org.allenai.pipeline.examples.CountWordsAndLinesPipeline.main(Array())
-    } catch {
-      case _:Throwable => assert(false)
-    }
+class TestTheExamples extends UnitSpec with ScratchDirectory {
+  "CountWordsAndLinesPipeline" should "run" in {
+    CountWordsAndLinesPipeline.main(Array())
   }
-  test("TrainModelPipeline should run") {
-    try {
-      org.allenai.pipeline.examples.TrainModelPipeline.main(Array())
-    } catch {
-      case _:Throwable => assert(false)
-    }
+  "TrainModelPipeline" should "run" in {
+    TrainModelPipeline.main(Array())
   }
-  test("TrainModelViaPythonPipeline should run") {
-    try {
-      org.allenai.pipeline.examples.TrainModelViaPythonPipeline.main(Array())
-    } catch {
-      case _:Throwable => assert(false)
-    }
+  "TrainModelViaPythonPipeline" should "run" in {
+    TrainModelViaPythonPipeline.main(Array())
   }
 }

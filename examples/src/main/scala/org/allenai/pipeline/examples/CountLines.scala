@@ -8,8 +8,7 @@ case class CountLines(lines: Producer[Iterable[String]], countBlanks: Boolean = 
   override protected def create: Int =
     if (countBlanks) {
       lines.get.size
-    }
-    else {
+    } else {
       lines.get.filter(_.trim.length > 0).size
     }
 

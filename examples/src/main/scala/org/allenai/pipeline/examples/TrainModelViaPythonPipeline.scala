@@ -59,5 +59,5 @@ object TrainModelViaPythonPipeline extends App {
 
   // Measure precision/recall of the model using the test data from above
   val steps = pipeline.run("Train Model Python")
-  if(steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
+  if (steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
 }

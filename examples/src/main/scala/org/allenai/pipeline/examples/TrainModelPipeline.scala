@@ -33,8 +33,7 @@ object TrainModelPipeline extends App {
   }
 
   val steps = pipeline.run("Train Model")
-  if(steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
-
+  if (steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
 
   // Method that encapsulates a sub-pipeline that produces training and test data
   def produceTrainAndTestData(pipeline: Pipeline, inputDir: File) = {

@@ -6,5 +6,6 @@ organization := "org.allenai"
 StylePlugin.enableLineLimit := false
 
 libraryDependencies ++= Seq(
+  allenAiTestkit % "test",
   awsJavaSdk
 )

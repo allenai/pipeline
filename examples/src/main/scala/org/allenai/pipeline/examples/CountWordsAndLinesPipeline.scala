@@ -34,6 +34,6 @@ object CountWordsAndLinesPipeline extends App {
 
   // Run the pipeline
   val steps = pipeline.run("Count words and lines")
-  if(steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
+  if (steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
 }
 
