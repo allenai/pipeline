@@ -167,7 +167,7 @@ the storage mechanism for an entire pipeline globally in one line of code by cha
 
 #Example Pipelines
 
-Use `sbt "test:run-main org.allenai.pipeline.examples.<pipeline>"` to run the examples.
+Use `sbt "examples/runMain org.allenai.pipeline.examples.<example_name>"` to run the examples.
 
 ###CountWordsAndLinesPipeline
 A basic pipeline using the simples components and basic JSON serialization.
