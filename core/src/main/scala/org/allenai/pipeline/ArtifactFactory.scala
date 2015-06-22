@@ -13,12 +13,12 @@ trait ArtifactFactory {
     * @tparam A The type of the Artifact to create.  May be an abstract or concrete type
     * @return The artifact
     */
-  def createArtifact[A <: Artifact : ClassTag](url: URI): A
+  def createArtifact[A <: Artifact: ClassTag](url: URI): A
 
   /** If path is an absolute URL, create an Artifact at that location.
     * If it is a relative path, create it relative to the given root URL
     */
-  def createArtifact[A <: Artifact : ClassTag](rootUrl: URI, path: String): A = {
+  def createArtifact[A <: Artifact: ClassTag](rootUrl: URI, path: String): A = {
     val parsed = new URI(path)
     val url = parsed.getScheme match {
       case null =>
@@ -45,7 +45,7 @@ object ArtifactFactory {
           UrlToArtifact.chain(urlHandler, fallbackUrlHandlers.head, fallbackUrlHandlers.tail: _*)
         }
 
-      def createArtifact[A <: Artifact : ClassTag](url: URI): A = {
+      def createArtifact[A <: Artifact: ClassTag](url: URI): A = {
         val fn = urlHandlerChain.urlToArtifact[A]
         val clazz = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
         require(fn.isDefinedAt(url), s"Cannot create $clazz from $url")
@@ -65,7 +65,7 @@ trait UrlToArtifact {
     * @return A PartialFunction where isDefined will return true if an Artifact of type A can
     *         be created from the given URL
     */
-  def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A]
+  def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A]
 }
 
 object UrlToArtifact {
@@ -75,7 +75,7 @@ object UrlToArtifact {
   // Later instances have higher priority and will override earlier instances
   def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) =
     new UrlToArtifact {
-      override def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
+      override def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
         val all = (List(first, second) ++ others).reverse
         var fn = PartialFunction.empty[URI, A]
         for (o <- all) {
@@ -86,7 +86,7 @@ object UrlToArtifact {
     }
 
   object Empty extends UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] =
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] =
       PartialFunction.empty[URI, A]
   }
 
@@ -95,7 +95,7 @@ object UrlToArtifact {
 object CreateCoreArtifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute file:// URL
   val fromFileUrls: UrlToArtifact = new UrlToArtifact {
-    def urlToArtifact[A <: Artifact : ClassTag]: PartialFunction[URI, A] = {
+    def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
       val fn: PartialFunction[URI, A] = {
         case url if c.isAssignableFrom(classOf[FileArtifact])
@@ -107,16 +107,16 @@ object CreateCoreArtifacts {
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
           && "file" == url.getScheme
           && {
-          val file = new File(url)
-          file.exists && file.isDirectory
-        } =>
+            val file = new File(url)
+            file.exists && file.isDirectory
+          } =>
           new DirectoryArtifact(new File(url)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
           && null == url.getScheme
           && {
-          val file = new File(url.getPath)
-          file.exists && file.isDirectory
-        } =>
+            val file = new File(url.getPath)
+            file.exists && file.isDirectory
+          } =>
           new DirectoryArtifact(new File(url.getPath)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[ZipFileArtifact])
           && "file" == url.getScheme =>
@@ -130,9 +130,9 @@ object CreateCoreArtifacts {
         case url if c.isAssignableFrom(classOf[MountedDirectoryArtifact])
           && "mnt" == url.getScheme
           && {
-          val file = MountedArtifact.toFile(url.getHost, url.getPath)
-          file.exists && file.isDirectory
-        } =>
+            val file = MountedArtifact.toFile(url.getHost, url.getPath)
+            file.exists && file.isDirectory
+          } =>
           new MountedDirectoryArtifact(url.getHost, url.getPath).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[MountedZipFileArtifact])
           && "mnt" == url.getScheme =>
