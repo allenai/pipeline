@@ -59,12 +59,14 @@ object SparkPipeline {
     awsCredentials match {
       case null =>
         new SparkPipeline {
-          override def rootOutputUrl = rootUrl
+          def rootOutputDataUrl = ArtifactFactory.appendPath(rootUrl, "data")
+          def rootOutputReportUrl = ArtifactFactory.appendPath(rootUrl, "reports")
           override def sparkContext: SparkContext = sc
         }
       case _ =>
         new SparkS3Pipeline {
-          override def rootOutputUrl = rootUrl
+          def rootOutputDataUrl = ArtifactFactory.appendPath(rootUrl, "data")
+          def rootOutputReportUrl = ArtifactFactory.appendPath(rootUrl, "reports")
           override def credentials = awsCredentials
 
           override def sparkContext: SparkContext = sc

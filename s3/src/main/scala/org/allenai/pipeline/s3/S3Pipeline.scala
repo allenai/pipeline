@@ -20,7 +20,8 @@ object S3Pipeline {
     rootUrl: URI,
     awsCredentials: S3Credentials = S3Config.environmentCredentials()
   ) = new S3Pipeline {
-    def rootOutputUrl = rootUrl
+    def rootOutputDataUrl = ArtifactFactory.appendPath(rootUrl, "data")
+    def rootOutputReportUrl = ArtifactFactory.appendPath(rootUrl, "reports")
 
     override def credentials = awsCredentials
   }
