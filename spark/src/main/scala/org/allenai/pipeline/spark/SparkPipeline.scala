@@ -23,7 +23,7 @@ trait SparkPipeline extends Pipeline {
   ) = {
     val io = new PartitionedRddIo[T](sparkContext)
     val stepName = Option(name).getOrElse(original.stepInfo.className)
-    val path = s"data/$stepName.${hashId(original, io)}$suffix"
+    val path = s"$stepName.${hashId(original, io)}$suffix"
     val artifact = createOutputArtifact[PartitionedRddArtifact](path)
     // Similar to Iterators, RDDs are lazy data structures.
     // Caching them in memory will generally force re-calculation of the results

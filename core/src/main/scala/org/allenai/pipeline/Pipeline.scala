@@ -104,7 +104,7 @@ trait Pipeline extends Logging {
     suffix: String = ""
   ): PersistedProducer[T, A] = {
     val stepName = Option(name).getOrElse(original.stepInfo.className)
-    val path = s"data/$stepName.${hashId(original, io)}$suffix"
+    val path = s"$stepName.${hashId(original, io)}$suffix"
     persistToArtifact(original, io, createOutputArtifact[A](path), name)
   }
 
@@ -136,7 +136,7 @@ trait Pipeline extends Logging {
     suffix: String = ""
   ): PersistedProducer[T, A] = {
     val stepName = Option(name).getOrElse(original.stepInfo.className)
-    val path = s"data/$stepName.${original.stepInfo.signature.id}$suffix"
+    val path = s"$stepName.${original.stepInfo.signature.id}$suffix"
     val artifact = createOutputArtifact[A](path)
     addTarget(stepName, makePersisted(original, artifact))
   }
@@ -175,7 +175,7 @@ trait Pipeline extends Logging {
           (a.take(a.size - 1).mkString("."), a.last)
       }
     def createVersionedArtifact(id: String) =
-      createOutputArtifact[FlatArtifact](s"data/$fileName.$id.$extension")
+      createOutputArtifact[FlatArtifact](s"$fileName.$id.$extension")
     new VersionedInputFile(new FileArtifact(file), createVersionedArtifact)
   }
 
