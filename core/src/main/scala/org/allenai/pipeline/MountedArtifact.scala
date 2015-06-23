@@ -14,17 +14,17 @@ import java.net.URI
   */
 class MountedFileArtifact(mountPointEnvVar: String, relativePath: String)
     extends FileArtifact(MountedArtifact.toFile(mountPointEnvVar, relativePath)) {
-  override def url = new URI("mnt", mountPointEnvVar, relativePath)
+  override def url = new URI("mnt", mountPointEnvVar, relativePath, null)
 }
 
 class MountedZipFileArtifact(mountPointEnvVar: String, relativePath: String)
     extends ZipFileArtifact(MountedArtifact.toFile(mountPointEnvVar, relativePath)) {
-  override def url = new URI("mnt", mountPointEnvVar, relativePath)
+  override def url = new URI("mnt", mountPointEnvVar, relativePath, null)
 }
 
 class MountedDirectoryArtifact(mountPointEnvVar: String, relativePath: String)
     extends DirectoryArtifact(MountedArtifact.toFile(mountPointEnvVar, relativePath)) {
-  override def url = new URI("mnt", mountPointEnvVar, relativePath)
+  override def url = new URI("mnt", mountPointEnvVar, relativePath, null)
 }
 
 object MountedArtifact {
