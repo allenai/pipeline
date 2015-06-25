@@ -1,19 +1,21 @@
 package org.allenai.pipeline
 
+import org.allenai.common.Config._
+import org.allenai.common.Logging
+import org.allenai.pipeline.IoHelpers._
+
+import com.typesafe.config.Config
+import spray.json.DefaultJsonProtocol._
+import spray.json.JsonFormat
+
+import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
+import scala.util.control.NonFatal
+
 import java.io.File
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
-
-import com.typesafe.config.Config
-import org.allenai.common.Config._
-import org.allenai.common.Logging
-import org.allenai.pipeline.IoHelpers._
-import spray.json.DefaultJsonProtocol._
-import spray.json.JsonFormat
-
-import scala.reflect.ClassTag
-import scala.util.control.NonFatal
 
 /** A top-level data flow pipeline.
   * Provides methods for persisting Producers in a consistent location,
@@ -178,10 +180,11 @@ trait Pipeline extends Logging {
   def runOnly(title: String, targetNames: Iterable[String]): Iterable[(String, Any)] = {
     val targets = getStepsByName(targetNames)
     val targetStepInfo = targets.map(_._2.stepInfo).toSet
-    val allDependencies = targets.flatMap { case (s, p) => Workflow.upstreamDependencies(p) }
+    val directDependencies = targets.flatMap { case (s, p) => p.stepInfo.dependencies.map(_._2) }
+
     val nonExistentDependencies =
       for {
-        p <- allDependencies if p.isInstanceOf[PersistedProducer[_, _]]
+        p <- directDependencies if p.isInstanceOf[PersistedProducer[_, _ <: Artifact]]
         pp = p.asInstanceOf[PersistedProducer[_, _ <: Artifact]]
         if !targetStepInfo(pp.stepInfo)
         if !pp.artifact.exists
@@ -298,12 +301,14 @@ trait ConfiguredPipeline extends Pipeline {
       .getOrElse(new File(System.getProperty("user.dir")).toURI)
 
   protected[this] def getStringList(key: String) =
-    config.get[String](key) match {
-      case Some(s) => List(s)
-      case None => config.get[Seq[String]](key) match {
-        case Some(sList) => sList
-        case None => List()
+    if (config.hasPath(key)) {
+      config.getValue(key).unwrapped() match {
+        case s: String => List(s)
+        case s: java.util.List[_] => s.asScala.map(_.toString).toList
+        case _ => List()
       }
+    } else {
+      List()
     }
 
   override def run(rawTitle: String) = {

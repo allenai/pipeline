@@ -34,6 +34,17 @@ class TestPipeline extends UnitSpec with ScratchDirectory {
     p1File should exist
     p2File should not(exist)
 
+    {
+      // runOnly should succeed if direct dependencies exist,
+      // even if other upstream dependencies don't
+      val first = pipeline.Persist.Singleton.asText(p1, "First")
+      val second = pipeline.Persist.Singleton.asText(AddOne(first), "Second")
+      second.get
+      new File(first.artifact.url).delete()
+      val third = pipeline.Persist.Singleton.asText(AddOne(second), "Third")
+      pipeline.runOnly("test", "Third")
+    }
+
     pipeline.run("test")
     p2File should exist
     p3File should exist
