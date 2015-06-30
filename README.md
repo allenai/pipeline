@@ -1,5 +1,3 @@
-#Allen-AI Pipeline Framework
-
 The Allen-AI Pipeline (AIP) framework is a library that facilitates collaborative experimentation
 by allowing users to define workflows that share data resources transparently while maintaining
 complete freedom over the environment in which those workflows execute.
