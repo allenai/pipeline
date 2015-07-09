@@ -142,14 +142,14 @@ trait S3Cache {
   def writeZip[T](artifact: S3Artifact, writer: Writer => T): T
 }
 
-object DefaultS3Cache extends CacheToTmp()
+object DefaultS3Cache extends LocalS3Cache()
 
 /** Caches S3 artifacts on the local filesystem
   * @param persistentCacheDir If specified, cached objects will be stored in a directory
   *                           that is persistent across JVM processes. There are no limits
   *                           on the size of the data stored in the persistent directory
   */
-case class CacheToTmp(
+case class LocalS3Cache(
     persistentCacheDir: Option[File] = Some(new File(System.getProperty("java.io.tmpdir"), "pipeline-cache"))
 ) extends S3Cache with Logging {
 

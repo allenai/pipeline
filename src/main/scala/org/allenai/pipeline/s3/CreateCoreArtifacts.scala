@@ -14,7 +14,7 @@ object CreateCoreArtifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute s3:// URL
   def fromS3Urls(credentials: => S3Credentials)(
     implicit
-    s3Cache: S3Cache = DefaultS3Cache
+    s3Cache: S3Cache
   ) = new UrlToArtifact {
     def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
       val c = implicitly[ClassTag[A]].runtimeClass.asInstanceOf[Class[A]]
@@ -37,7 +37,7 @@ object CreateCoreArtifacts {
   // Create a FlatArtifact or StructuredArtifact from an input file:// or s3:// URL
   def fromFileOrS3Urls(credentials: => S3Credentials = S3Config.environmentCredentials)(
     implicit
-    s3Cache: S3Cache = DefaultS3Cache
+    s3Cache: S3Cache
   ): UrlToArtifact =
     UrlToArtifact.chain(CreateCoreFileArtifacts.fromFileUrls, fromS3Urls(credentials))
 }
