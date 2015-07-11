@@ -22,7 +22,8 @@ import scala.util.control.NonFatal
   */
 trait Pipeline extends Logging {
 
-  def rootOutputUrl: URI
+  def rootOutputDataUrl: URI
+  def rootOutputReportUrl: URI
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
   def run(title: String) = {
@@ -103,7 +104,7 @@ trait Pipeline extends Logging {
     suffix: String = ""
   ): PersistedProducer[T, A] = {
     val stepName = Option(name).getOrElse(original.stepInfo.className)
-    val path = s"data/$stepName.${hashId(original, io)}$suffix"
+    val path = s"$stepName.${hashId(original, io)}$suffix"
     persistToArtifact(original, io, createOutputArtifact[A](path), name)
   }
 
@@ -135,7 +136,7 @@ trait Pipeline extends Logging {
     suffix: String = ""
   ): PersistedProducer[T, A] = {
     val stepName = Option(name).getOrElse(original.stepInfo.className)
-    val path = s"data/$stepName.${original.stepInfo.signature.id}$suffix"
+    val path = s"$stepName.${original.stepInfo.signature.id}$suffix"
     val artifact = createOutputArtifact[A](path)
     addTarget(stepName, makePersisted(original, artifact))
   }
@@ -159,7 +160,7 @@ trait Pipeline extends Logging {
     * (path may also be an absolute URL)
     */
   def createOutputArtifact[A <: Artifact: ClassTag](path: String): A =
-    artifactFactory.createArtifact[A](rootOutputUrl, path)
+    artifactFactory.createArtifact[A](rootOutputDataUrl, path)
 
   /** Use a local file as an input resource.
     * A versioned copy of the file will be stored in the root output location.
@@ -174,7 +175,7 @@ trait Pipeline extends Logging {
           (a.take(a.size - 1).mkString("."), a.last)
       }
     def createVersionedArtifact(id: String) =
-      createOutputArtifact[FlatArtifact](s"data/$fileName.$id.$extension")
+      createOutputArtifact[FlatArtifact](s"$fileName.$id.$extension")
     new VersionedInputFile(new FileArtifact(file), createVersionedArtifact)
   }
 
@@ -210,7 +211,10 @@ trait Pipeline extends Logging {
     runPipelineReturnResults(title, targets)
   }
 
-  protected[this] def runPipelineReturnResults(rawTitle: String, targets: Iterable[(String, Producer[_])]): Iterable[(String, Any)] = {
+  protected[this] def runPipelineReturnResults(
+    rawTitle: String,
+    targets: Iterable[(String, Producer[_])]
+  ): Iterable[(String, Any)] = {
     // Order the outputs so that the ones with the fewest dependencies are executed first
     val outputs = targets.toVector.map {
       case (name, p) => (Workflow.upstreamDependencies(p).size, name, p)
@@ -230,14 +234,14 @@ trait Pipeline extends Logging {
     val title = rawTitle.replaceAll("""\s+""", "-")
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
-    val workflowArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.workflow.json")
+    val workflowArtifact = artifactFactory.createArtifact[FlatArtifact](rootOutputReportUrl, s"$title-$today.workflow.json")
     val workflow = Workflow.forPipeline(targets.toMap)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
-    val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
+    val htmlArtifact = artifactFactory.createArtifact[FlatArtifact](rootOutputReportUrl, s"$title-$today.html")
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
-    val signatureArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.signatures.json")
+    val signatureArtifact = artifactFactory.createArtifact[FlatArtifact](rootOutputReportUrl, s"$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter
     val signatures = targets.map { case (s, p) => signatureFormat.write(p.stepInfo.signature) }.toList.toJson
     signatureArtifact.write { writer => writer.write(signatures.prettyPrint) }
@@ -297,7 +301,8 @@ object Pipeline {
   // Create a Pipeline that writes output to the given directory
   def apply(rootDir: File) =
     new Pipeline {
-      def rootOutputUrl = rootDir.toURI
+      def rootOutputDataUrl = ArtifactFactory.appendPath(rootDir.toURI, "data")
+      def rootOutputReportUrl = ArtifactFactory.appendPath(rootDir.toURI, "reports")
     }
 
   def configured(cfg: Config) =
@@ -309,8 +314,12 @@ object Pipeline {
 trait ConfiguredPipeline extends Pipeline {
   val config: Config
 
-  override def rootOutputUrl =
-    config.get[String]("output.dir").map(s => new URI(s))
+  override def rootOutputDataUrl =
+    config.get[String]("output.dataDir").map(s => new URI(s))
+      .getOrElse(new File(System.getProperty("user.dir")).toURI)
+
+  override def rootOutputReportUrl =
+    config.get[String]("output.reportsDir").map(s => new URI(s))
       .getOrElse(new File(System.getProperty("user.dir")).toURI)
 
   protected[this] def getStringList(key: String) =

@@ -22,13 +22,7 @@ trait ArtifactFactory {
     val parsed = new URI(path)
     val url = parsed.getScheme match {
       case null =>
-        val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
-        new URI(
-          rootUrl.getScheme,
-          rootUrl.getHost,
-          fullPath,
-          rootUrl.getFragment
-        )
+        ArtifactFactory.appendPath(rootUrl, path)
       case _ => parsed
     }
     createArtifact[A](url)
@@ -52,7 +46,15 @@ object ArtifactFactory {
         fn(url)
       }
     }
-
+  def appendPath(rootUrl: URI, path: String): URI = {
+    val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${path.dropWhile(_ == '/')}"
+    new URI(
+      rootUrl.getScheme,
+      rootUrl.getHost,
+      fullPath,
+      rootUrl.getFragment
+    )
+  }
 }
 
 /** Supports creation of a particular type of Artifact from a URL.
