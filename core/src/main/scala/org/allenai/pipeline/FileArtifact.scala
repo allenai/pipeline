@@ -8,7 +8,7 @@ import java.io._
 import java.net.URI
 import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
 
-/** Flat file.  */
+/** A flat file on the local filesystem  */
 class FileArtifact(val file: File) extends FlatArtifact {
   private val parentDir = {
     val f = file.getCanonicalFile.getParentFile

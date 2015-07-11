@@ -1,12 +1,11 @@
 package org.allenai.pipeline.spark.examples
 
-import org.allenai.pipeline.IoHelpers._
-import org.allenai.pipeline.{ CreateCoreArtifacts, ArtifactFactory, Pipeline }
-import org.allenai.pipeline.spark.{ SparkPipeline, CreateRddArtifacts, ReadObjectRddFromFiles }
-
-import org.apache.spark.{ SparkContext, SparkConf }
-
 import java.io.File
+
+import org.allenai.pipeline.IoHelpers._
+import org.allenai.pipeline.Pipeline
+import org.allenai.pipeline.spark.{ ReadObjectRddFromFiles, SparkPipeline }
+import org.apache.spark.{ SparkConf, SparkContext }
 
 /** Created by rodneykinney on 5/24/15.
   */
@@ -17,7 +16,8 @@ object CountWordsAndLinesPipeline extends App {
 
   val pipeline = {
     new Pipeline with SparkPipeline {
-      override def rootOutputUrl = new File(System.getProperty("user.dir")).toURI
+      override def rootOutputDataUrl = new File(new File(System.getProperty("user.dir")), "data").toURI
+      override def rootOutputReportUrl = new File(new File(System.getProperty("user.dir")), "reports").toURI
       val sparkContext = sc
     }
   }

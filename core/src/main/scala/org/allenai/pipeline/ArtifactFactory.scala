@@ -22,13 +22,7 @@ trait ArtifactFactory {
     val parsed = new URI(path)
     val url = parsed.getScheme match {
       case null =>
-        val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${parsed.getPath.dropWhile(_ == '/')}"
-        new URI(
-          rootUrl.getScheme,
-          rootUrl.getHost,
-          fullPath,
-          rootUrl.getFragment
-        )
+        ArtifactFactory.appendPath(rootUrl, path)
       case _ => parsed
     }
     createArtifact[A](url)
@@ -52,7 +46,15 @@ object ArtifactFactory {
         fn(url)
       }
     }
-
+  def appendPath(rootUrl: URI, path: String): URI = {
+    val fullPath = s"${rootUrl.getPath.reverse.dropWhile(_ == '/').reverse}/${path.dropWhile(_ == '/')}"
+    new URI(
+      rootUrl.getScheme,
+      rootUrl.getHost,
+      fullPath,
+      rootUrl.getFragment
+    )
+  }
 }
 
 /** Supports creation of a particular type of Artifact from a URL.
@@ -106,13 +108,17 @@ object CreateCoreArtifacts {
           new FileArtifact(new File(url.getPath)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
           && "file" == url.getScheme
-          && new File(url).exists
-          && new File(url).isDirectory =>
+          && {
+            val file = new File(url)
+            file.exists && file.isDirectory
+          } =>
           new DirectoryArtifact(new File(url)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
           && null == url.getScheme
-          && new File(url.getPath).exists
-          && new File(url.getPath).isDirectory =>
+          && {
+            val file = new File(url.getPath)
+            file.exists && file.isDirectory
+          } =>
           new DirectoryArtifact(new File(url.getPath)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[ZipFileArtifact])
           && "file" == url.getScheme =>
@@ -120,6 +126,19 @@ object CreateCoreArtifacts {
         case url if c.isAssignableFrom(classOf[ZipFileArtifact])
           && null == url.getScheme =>
           new ZipFileArtifact(new File(url.getPath)).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[MountedFileArtifact])
+          && "mnt" == url.getScheme =>
+          new MountedFileArtifact(url.getHost, url.getPath).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[MountedDirectoryArtifact])
+          && "mnt" == url.getScheme
+          && {
+            val file = MountedArtifact.toFile(url.getHost, url.getPath)
+            file.exists && file.isDirectory
+          } =>
+          new MountedDirectoryArtifact(url.getHost, url.getPath).asInstanceOf[A]
+        case url if c.isAssignableFrom(classOf[MountedZipFileArtifact])
+          && "mnt" == url.getScheme =>
+          new MountedZipFileArtifact(url.getHost, url.getPath).asInstanceOf[A]
       }
       fn
     }
