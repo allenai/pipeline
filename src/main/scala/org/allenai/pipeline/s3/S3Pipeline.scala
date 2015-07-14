@@ -11,6 +11,7 @@ import java.net.URI
 
 trait S3Pipeline extends Pipeline {
   def credentials: S3Credentials = S3Config.environmentCredentials()
+  implicit val s3Cache: S3Cache = DefaultS3Cache
   override def urlToArtifact = UrlToArtifact.chain(super.urlToArtifact, CreateCoreArtifacts.fromS3Urls(credentials))
 }
 
