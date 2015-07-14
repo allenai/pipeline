@@ -34,7 +34,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
       (id, info) <- nodes.toList.sortBy(_._2.stepName)
-      path <- info.outputLocation
+      path <- info.outputLocation.map(link)
     } yield {
       s"""<a href="$path">${info.stepName}</a>"""
     }
