@@ -45,6 +45,13 @@ class TestProducer extends UnitSpec with ScratchDirectory {
     cached.get should equal(cached.get)
   }
 
+  "Producer" should "should support map" in {
+    val producer = Producer.fromMemory(Seq(1,2,3,4))
+    val sumProducer = producer.map("SumNums",(xs: Seq[Int]) => xs.sum)
+    sumProducer.get shouldBe 10
+    sumProducer.stepInfo.className shouldBe "SumNums"
+  }
+
   "PersistedProducer" should "read from file if exists" in {
     val pStep = pipeline.Persist.Collection.asText(randomNumbers)
 

@@ -47,6 +47,36 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     returnValue
   }
 
+  /**
+   * Lift a function to producers. This gives you ability to fully customize the step info
+   */
+  def map[R](stepInfo: PipelineStepInfo, f: T => R): Producer[R] = {
+    this.copy(
+      create = () => f(this.get),
+      stepInfo = () => stepInfo
+    )
+  }
+
+  /**
+   * Copy parent step info and change name to passed in stepName and return lifted producer
+   */
+  def map[R](stepName: String, f: T => R): Producer[R] = {
+    map(this.stepInfo.copy(className = stepName), f)
+  }
+
+  /**
+   * Attempt stepInfo name from function itself (should work for `def` functions)
+   */
+  def map[R](f: T => R): Producer[R] = {
+    // getSimpleName can throw so backout to full class name
+    val simpleName = try {
+      f.getClass.getSimpleName
+    } catch {
+      case t: Throwable => f.getClass.getName
+    }
+    map(this.stepInfo.copy(className = simpleName), f)
+  }
+
   private var initialized = false
   protected[this] var timing: Option[Duration] = None
   protected[this] var executionMode: Duration => ExecutionInfo = Executed
