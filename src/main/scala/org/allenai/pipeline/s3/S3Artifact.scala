@@ -119,14 +119,15 @@ trait S3Artifact extends Artifact with Logging {
 
   def download(file: File, bufferSize: Int = 1048576): Unit = {
     logger.debug(s"Downloading $bucket/$path to $file")
-    file.deleteOnExit()
-    val os = new FileOutputStream(file)
+    val tmpFile = new File(file.getCanonicalFile.getParent, file.getName + ".tmp")
+    val os = new FileOutputStream(tmpFile)
     val is = readContents()
     val buffer = new Array[Byte](bufferSize)
     Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
       os.write(buffer, 0, n))
     is.close()
     os.close()
+    require(tmpFile.renameTo(file), s"Unable to create $file")
   }
 }
 
@@ -164,7 +165,7 @@ case class LocalS3Cache(
   def usePersistentCache = persistentCacheDir.isDefined
 
   override def writeFlat[T](artifact: S3Artifact, writer: ArtifactStreamWriter => T): T = {
-    val local = createLocalCopy(artifact)
+    val local = localFile(artifact)
     val result = new FileArtifact(local).write(writer)
     artifact.upload(local)
     result
@@ -175,7 +176,7 @@ case class LocalS3Cache(
   }
 
   override def writeZip[T](artifact: S3Artifact, writer: Writer => T) = {
-    val local = createLocalCopy(artifact)
+    val local = localFile(artifact)
     val result = new ZipFileArtifact(local).write(writer)
     artifact.upload(local)
     result
@@ -199,15 +200,11 @@ case class LocalS3Cache(
 
   protected[this] val bufferSize = 1048576 // 1 MB buffer
 
-  protected[this] def createLocalCopy(artifact: S3Artifact): File = {
+  protected[this] def localFile(artifact: S3Artifact): File = {
+    val fileName = artifact.path.replaceAll("""/""", """\$""")
     persistentCacheDir match {
-      case Some(cacheDir) => new File(cacheDir, artifact.path.replaceAll("""/""", """\$"""))
+      case Some(cacheDir) => new File(cacheDir, fileName)
       case None =>
-        val fileName = artifact.path.split('/').last match {
-          // File.createTempFile fails if prefix is < 3 characters
-          case s if s.length < 3 => s"xyz$s"
-          case s => s
-        }
         val f = File.createTempFile(fileName, "tmp")
         f.deleteOnExit()
         f
@@ -215,7 +212,7 @@ case class LocalS3Cache(
   }
 
   protected[this] def downloadLocalCopy(artifact: S3Artifact): File = {
-    val file = createLocalCopy(artifact)
+    val file = localFile(artifact)
     if (!(usePersistentCache && file.exists)) {
       artifact.download(file, bufferSize)
     }
