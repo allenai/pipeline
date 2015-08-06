@@ -34,9 +34,16 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
       (id, info) <- nodes.toList.sortBy(_._2.stepName)
-      path <- info.outputLocation.map(link)
+      link <- info.outputLocation.map(displayLinks)
     } yield {
-      s"""<a href="$path">${info.stepName}</a>"""
+      link match {
+        case Right(path) => s"""<a href="$path">${info.stepName}</a>"""
+        case Left(paths) =>
+          val links = paths.map {
+            case (name, path) => s"""<a href="$path">$name</a>"""
+          }
+          s"""${info.stepName} (${links.mkString(" ")})"""
+      }
     }
     val addNodes =
       for ((id, info) <- nodes) yield {
@@ -48,9 +55,17 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
         // A link is like a param but it hyperlinks somewhere.
         val links =
           // An optional link to the source data.
-          info.srcUrl.map(uri => s"""new Link(${link(uri).toJson},${(if (info.classVersion.nonEmpty) info.classVersion else "src").toJson})""") ++ // scalastyle:ignore
+          info.srcUrl.map(uri => s"""new Link(${toHttp(uri).toString.toJson},${(if (info.classVersion.nonEmpty) info.classVersion else "src").toJson})""") ++ // scalastyle:ignore
             // An optional link to the output data.
-            info.outputLocation.map(uri => s"""new Link(${link(uri).toJson},"output")""")
+            info.outputLocation.toList.flatMap { loc =>
+              displayLinks(loc) match {
+                case Right(url) => List(s"""new Link(${url.toString.toJson},"data")""")
+                case Left(urls) =>
+                  urls.map {
+                    case (name, url) => s"""new Link(${url.toString.toJson},"data ($name)")"""
+                  }
+              }
+            }
         val linksJson = links.mkString("[", ",", "]")
         val clazz = sources match {
           case _ if errors contains id => "errorNode"
@@ -185,12 +200,24 @@ object Workflow {
     jsonFormat(Workflow.apply, "nodes", "links")
   }
 
-  private def link(uri: URI) = uri.getScheme match {
+  private def toHttp(uri: URI) = uri.getScheme match {
     case "s3" | "s3n" =>
-      new java.net.URI("http", s"${uri.getHost}.s3.amazonaws.com", uri.getPath, null).toString
+      new java.net.URI("http", s"${uri.getHost}.s3.amazonaws.com", uri.getPath, null)
     case "file" =>
-      new java.net.URI(null, null, uri.getPath, null).toString
-    case _ => uri.toString
+      new java.net.URI(null, null, uri.getPath, null)
+    case _ => uri
+  }
+
+  private def displayLinks(url: URI) = {
+    url.getScheme match {
+      case "s3" | "s3n" =>
+        Left(List(
+          ("s3:", url),
+          ("http:", toHttp(url))
+        ))
+      case _ =>
+        Right(url)
+    }
   }
 
   private val DEFAULT_MAX_SIZE = 40
