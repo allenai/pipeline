@@ -78,18 +78,26 @@ object IoHelpers extends ColumnFormats {
   import scala.language.implicitConversions
 
   implicit def convertToProcessArg(s: String): StringArg = StringArg(s)
-  implicit def convertToInputFile(input: (File, String)) = {
-    val (file, name) = input
-    InputFileArg(name, ReadFromArtifact(UploadFile, new FileArtifact(file)))
+  implicit def convertToInputFile(input: (String, File)) = {
+    val (name, file) = input
+    val readFile = {
+      val p = ReadFromArtifact(UploadFile, new FileArtifact(file))
+      p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+    }
+    InputFileArg(name, readFile)
   }
-  implicit def convertArtifactToInputFile(input: (FlatArtifact, String)) = {
-    val (artifact, name) = input
-    new InputFileArg(name, ReadFromArtifact(UploadFile, artifact))
+  implicit def convertArtifactToInputFile(input: (String, FlatArtifact)) = {
+    val (name, artifact) = input
+    val readFile = {
+      val p = ReadFromArtifact(UploadFile, artifact)
+      p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+    }
+    new InputFileArg(name, readFile)
   }
   implicit def convertPersistedProducerToInputFile[T, A <: FlatArtifact](
-    input: (PersistedProducer[T, A], String)
+    input: (String, PersistedProducer[T, A])
   ) = {
-    val (p, name) = input
+    val (name, p) = input
     InputFileArg(name, p.copy(create = () => {
       p.get
       new ReadFromArtifact(UploadFile, p.artifact).get

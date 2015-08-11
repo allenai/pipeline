@@ -83,7 +83,7 @@ class TestRunProcess extends UnitSpec with ScratchDirectory {
     val copy = new ProducerWithPersistence(
       RunProcess(
         "cp",
-        inputFile -> "sourceFile",
+        "sourceFile" -> inputFile,
         OutputFileArg("targetFile")
       )
         .outputFiles("targetFile"), UploadFile, outputArtifact
@@ -106,13 +106,13 @@ class TestRunProcess extends UnitSpec with ScratchDirectory {
   it should "accept implicit conversions" in {
     val pipeline = newPipeline("TestImplicits")
     val echoOutput = pipeline.persist(RunProcess("echo", "hello", "world").stdout, SaveStream, "EchoCommandStdout")
-    val wc = RunProcess("wc", "-c", echoOutput -> "inputFile")
+    val wc = RunProcess("wc", "-c", "inputFile" -> echoOutput)
     val wc2 = RunProcess("wc", "-c").withStdin(echoOutput)
     pipeline.persist(wc.stdout, SaveStream, "CharacterCountFile")
     pipeline.persist(wc2.stdout, SaveStream, "CharacterCountStdin")
     pipeline.run("TestImplicits")
 
-    RunProcess("wc", "-c", echoOutput.artifact -> "inputFile")
+    RunProcess("wc", "-c", "inputFile" -> echoOutput.artifact)
   }
 
   def newPipeline(name: String) = Pipeline(new File(scratchDir, name))

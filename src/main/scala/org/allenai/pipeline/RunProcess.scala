@@ -1,13 +1,12 @@
 package org.allenai.pipeline
 
-import org.allenai.common.Resource
+import java.io._
+import java.nio.file.Files
 
+import org.allenai.common.Resource
 import org.apache.commons.io.FileUtils
 
 import scala.io.Source
-
-import java.io._
-import java.nio.file.Files
 
 /** Executes an arbitrary system process
   * @param args   The set of tokens that comprise the command to be executed.
@@ -99,14 +98,14 @@ class RunProcess(
     this.copy(
       create = () => outer.get.stdout,
       stepInfo = () => PipelineStepInfo("stdout")
-      .addParameters("cmd" -> outer)
+      .addParameters("stdout" -> outer)
     ).withCachingDisabled // Can't cache an InputStreama
 
   def stderr: Producer[InputStream] =
     this.copy(
       create = () => outer.get.stderr,
       stepInfo = () => PipelineStepInfo("stderr")
-      .addParameters("cmd" -> outer)
+      .addParameters("stderr" -> outer)
     ).withCachingDisabled // Can't cache an InputStream
 
   def outputFiles: Map[String, Producer[File]] =
@@ -117,7 +116,7 @@ class RunProcess(
           this.copy(
             create = () => outer.get.outputFiles(name),
             stepInfo = () => PipelineStepInfo(name)
-            .addParameters("cmd" -> outer)
+            .addParameters(name -> outer)
             .copy(outputLocation = Some(outer.get.outputFiles(name).toURI))
           )
         )
@@ -140,7 +139,7 @@ class RunProcess(
       case StringArg(name) => name
     }
     super.stepInfo
-      .copy(classVersion = versionId)
+      .copy(classVersion = versionId, description = Some(cmd.mkString("\n")))
       .addParameters("cmd" -> cmd.mkString(" "))
       .addParameters(inputFiles: _*)
       .addParameters(stdInput: _*)

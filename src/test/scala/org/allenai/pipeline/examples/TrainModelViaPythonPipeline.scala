@@ -1,6 +1,6 @@
 package org.allenai.pipeline.examples
 
-import org.allenai.pipeline.ExternalProcess._
+import org.allenai.pipeline.IoHelpers._
 import org.allenai.pipeline._
 
 import java.io.File
@@ -17,34 +17,29 @@ object TrainModelViaPythonPipeline extends App {
 
   // Invoke an external Python process to train a model
   val trainModel =
-    RunExternalProcess(
+    RunProcess(
       "python",
-      InputFileToken("script"),
-      OutputFileToken("modelFile"),
+      "script" -> new File(inputDir, "trainModel.py"),
+      OutputFileArg("modelFile"),
       "-data",
-      InputFileToken("trainingData")
-    )(inputs =
-        Map("trainingData" -> trainData, "script" -> new FileArtifact(new File(inputDir, "trainModel.py"))))
+      "trainingData" -> trainData
+    )
 
   // Capture the output of the process and persist it
-  val modelFile = pipeline.persist(trainModel.outputs("modelFile"), StreamIo, "TrainedModel")
+  val modelFile = pipeline.persist(trainModel.outputFiles("modelFile"), UploadFile)
 
   val measureModel =
-    RunExternalProcess(
+    RunProcess(
       "python",
-      InputFileToken("script"),
-      OutputFileToken("prFile"),
+      "script" -> new File(inputDir, "scoreModel.py"),
+      OutputFileArg("prFile"),
       "-model",
-      InputFileToken("modelFile"),
+      "modelFile" -> modelFile,
       "-data",
-      InputFileToken("testDataFile")
-    )(inputs = Map(
-        "script" -> new FileArtifact(new File(inputDir, "scoreModel.py")),
-        "modelFile" -> modelFile,
-        "testDataFile" -> testData
-      ))
+      "testDataFile" -> testData
+    )
 
-  pipeline.persist(measureModel.outputs("prFile"), StreamIo, "PrecisionRecall")
+  pipeline.persist(measureModel.outputFiles("prFile"), UploadFile, "PrecisionRecall")
 
   // Measure precision/recall of the model using the test data from above
   pipeline.run("Train Model Python")

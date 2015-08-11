@@ -50,7 +50,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
         // Params show up as line items in the pipeline diagram node.
         val params = info.parameters.toList.map {
           case (key, value) =>
-            s"$key=${limitLength(value)}"
+            s"$key=${unescape(limitLength(value))}"
         }
         // A link is like a param but it hyperlinks somewhere.
         val links =
@@ -74,7 +74,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
           case _ => ""
         }
         val name = info.stepName
-        val desc = info.description.getOrElse(if (name == info.className) "" else info.className)
+        val desc = unescape(info.description.getOrElse(if (name == info.className) "" else info.className)).split("\n").mkString("<ul><li>", "</li><li>", "</li></ul>")
         s"""        g.setNode("$id", {
                                     |       class: "$clazz",
                                                             |       labelType: "html",
@@ -231,7 +231,7 @@ object Workflow {
       val rightSize = maxLength - leftSize
       s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
     }
-    trimmed.replaceAll(">", "&gt;").replaceAll("<", "&lt;")
+    trimmed
   }
-
+  private def unescape(s: String) = s.replaceAll(">", "&gt;").replaceAll("<", "&lt;")
 }
