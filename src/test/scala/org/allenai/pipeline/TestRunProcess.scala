@@ -53,7 +53,7 @@ class TestRunProcess extends UnitSpec with ScratchDirectory {
     val stderr = Source.fromInputStream(noSuchParameter.stderr.get).mkString
     stderr.size should be > 0
 
-    val persistedStderr = newPipeline("testStderr").persist(noSuchParameter.stderr, SaveStream).withCachingDisabled
+    val persistedStderr = newPipeline("testStderr").persist(noSuchParameter.stderr, SaveStream)
     Source.fromInputStream(persistedStderr.get).mkString.size should be > 0
   }
 

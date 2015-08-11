@@ -47,9 +47,8 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     returnValue
   }
 
-  /**
-   * Lift a function to producers. This gives you ability to fully customize the step info
-   */
+  /** Lift a function to producers. This gives you ability to fully customize the step info
+    */
   def map[R](stepInfo: PipelineStepInfo, f: T => R): Producer[R] = {
     this.copy(
       create = () => f(this.get),
@@ -57,16 +56,14 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     )
   }
 
-  /**
-   * Copy parent step info and change name to passed in stepName and return lifted producer
-   */
+  /** Copy parent step info and change name to passed in stepName and return lifted producer
+    */
   def map[R](stepName: String, f: T => R): Producer[R] = {
     map(this.stepInfo.copy(className = stepName), f)
   }
 
-  /**
-   * Attempt stepInfo name from function itself (should work for `def` functions)
-   */
+  /** Attempt stepInfo name from function itself (should work for `def` functions)
+    */
   def map[R](f: T => R): Producer[R] = {
     // getSimpleName can throw so backout to full class name
     val simpleName = try {
@@ -201,6 +198,10 @@ class ProducerWithPersistence[T, A <: Artifact](
         executionMode = ExecuteAndBufferStream
         logger.debug(s"$className reading type Iterator from $artifact using $io")
         io.read(artifact)
+      } else if (!cachingEnabled) {
+        executionMode = ExecuteAndBufferStream
+        logger.debug(s"$className reading non-cacheable data from $artifact using $io")
+        io.read(artifact)
       } else {
         result
       }
@@ -212,6 +213,8 @@ class ProducerWithPersistence[T, A <: Artifact](
   }
 
   override def stepInfo = original.stepInfo.copy(outputLocation = Some(artifact.url))
+
+  override def cachingEnabled = original.cachingEnabled
 
   override def withCachingDisabled = {
     if (cachingEnabled) {
