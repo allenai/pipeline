@@ -77,6 +77,25 @@ object IoHelpers extends ColumnFormats {
   }
   import scala.language.implicitConversions
 
+  implicit def convertToProcessArg(s: String): StringArg = StringArg(s)
+  implicit def convertToInputFile(input: (File, String)) = {
+    val (file, name) = input
+    InputFileArg(name, ReadFromArtifact(UploadFile, new FileArtifact(file)))
+  }
+  implicit def convertArtifactToInputFile(input: (FlatArtifact, String)) = {
+    val (artifact, name) = input
+    new InputFileArg(name, ReadFromArtifact(UploadFile, artifact))
+  }
+  implicit def convertPersistedProducerToInputFile[T, A <: FlatArtifact](
+    input: (PersistedProducer[T, A], String)
+  ) = {
+    val (p, name) = input
+    InputFileArg(name, p.copy(create = () => {
+      p.get
+      new ReadFromArtifact(UploadFile, p.artifact).get
+    }))
+  }
+
   implicit def asFileArtifact(f: File) = new FileArtifact(f)
   implicit def asStructuredArtifact(f: File): StructuredArtifact = f match {
     case f if f.exists && f.isDirectory => new DirectoryArtifact(f)
