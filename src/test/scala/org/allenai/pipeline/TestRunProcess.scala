@@ -115,5 +115,29 @@ class TestRunProcess extends UnitSpec with ScratchDirectory {
     RunProcess("wc", "-c", "inputFile" -> echoOutput.artifact)
   }
 
+  it should "accept input/output directories" in {
+    val pipeline = newPipeline("TestDirectories")
+    val inputDir = new File(scratchDir,"testInputDir")
+    inputDir.mkdir()
+    val allFiles = List("file1.txt", "file2.txt")
+    for (file <- allFiles) {
+      Resource.using(new PrintWriter(new FileWriter(new File(inputDir, file)))) {
+        _.println(s"Contents of $file")
+      }
+    }
+    val makeOutputDir = RunProcess(
+    "cp",
+    "-R",
+    "inputDir" -> inputDir,
+    OutputDirArg("outputDir")
+    ).outputDirs("outputDir")
+
+    val outputDir = makeOutputDir.get
+    allFiles.foreach(f => new File(outputDir,f) should exist)
+
+    val permanentOutputDir = pipeline.persist(makeOutputDir, UploadDirectory, null, ".zip").get
+    allFiles.foreach(f => new File(permanentOutputDir,f) should exist)
+  }
+
   def newPipeline(name: String) = Pipeline(new File(scratchDir, name))
 }

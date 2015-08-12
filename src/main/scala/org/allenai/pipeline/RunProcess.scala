@@ -26,7 +26,10 @@ class RunProcess(
 )
     extends Producer[ProcessOutput] with Ai2SimpleStepInfo {
   {
-    val outputFileNames = args.collect { case arg: OutputFileArg => arg }.map(_.name)
+    val outputFileNames = args.collect {
+      case arg: OutputFileArg => arg
+      case arg: OutputDirArg => arg
+    }.map(_.name)
     require(outputFileNames.distinct.size == outputFileNames.size, {
       val duplicates = outputFileNames.groupBy(x => x).filter(_._2.size > 1).map(_._1)
       s"Duplicate output names: ${duplicates.mkString("[", ",", "]")}"
@@ -64,6 +67,15 @@ class RunProcess(
       case OutputFileArg(name) =>
         val file = new File(scratchDir, name)
         require(file.exists, s"Argument $name was declared as an output file, but was not created by process")
+        require(!file.isDirectory, s"Argument $name was declared as an output file, but is a directory")
+        (name, file)
+    }.toMap
+
+    val outDirs = args.collect {
+      case OutputDirArg(name) =>
+        val file = new File(scratchDir, name)
+        require(file.exists, s"Argument $name was declared as an output directory, but was not created by process")
+        require(file.isDirectory, s"Argument $name was declared as an output directory, but is a file")
         (name, file)
     }.toMap
 
@@ -75,6 +87,8 @@ class RunProcess(
       def stderr = new FileInputStream(captureStderrFile)
 
       def outputFiles = outFiles
+
+      def outputDirs = outDirs
     }
   }
 
@@ -122,10 +136,25 @@ class RunProcess(
         )
     }.toMap
 
+  def outputDirs: Map[String, Producer[File]] =
+    args.collect {
+      case OutputDirArg(name) =>
+        (
+          name,
+          this.copy(
+            create = () => outer.get.outputDirs(name),
+            stepInfo = () => PipelineStepInfo(name)
+              .addParameters(name -> outer)
+              .copy(outputLocation = Some(outer.get.outputDirs(name).toURI))
+          )
+          )
+    }.toMap
+
   def cmd(scratchDir: File): Seq[String] = {
     args.collect {
       case InputFileArg(_, p) => p.get.getCanonicalPath
       case OutputFileArg(name) => new File(scratchDir, name).getCanonicalPath
+      case OutputDirArg(name) => new File(scratchDir, name).getCanonicalPath
       case StringArg(arg) => arg
     }
   }
@@ -157,7 +186,11 @@ trait ProcessArg {
 
 case class InputFileArg(name: String, inputFile: Producer[File]) extends ProcessArg
 
+case class InputDirArg(name: String, inputDir: Producer[File]) extends ProcessArg
+
 case class OutputFileArg(name: String) extends ProcessArg
+
+case class OutputDirArg(name: String) extends ProcessArg
 
 case class StringArg(name: String) extends ProcessArg
 
@@ -169,6 +202,8 @@ trait ProcessOutput {
   def stderr: InputStream
 
   def outputFiles: Map[String, File]
+
+  def outputDirs: Map[String, File]
 }
 
 object CopyFlatArtifact extends ArtifactIo[FlatArtifact, FlatArtifact] with Ai2SimpleStepInfo {
@@ -190,6 +225,25 @@ object UploadFile extends ArtifactIo[File, FlatArtifact] with Ai2SimpleStepInfo 
         sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
         val tmp = new File(scratchDir, "tmp")
         a.copyTo(new FileArtifact(tmp))
+        tmp
+    }
+  }
+}
+
+object UploadDirectory extends ArtifactIo[File, StructuredArtifact] with Ai2SimpleStepInfo {
+  override def write(data: File, artifact: StructuredArtifact): Unit = {
+    new DirectoryArtifact(data).copyTo(artifact)
+  }
+
+  override def read(artifact: StructuredArtifact): File = {
+    artifact match {
+      case dir: DirectoryArtifact => dir.dir
+      case a =>
+        val scratchDir = Files.createTempDirectory(null).toFile
+        sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
+        val tmp = new File(scratchDir,"tmp")
+        tmp.mkdir()
+        a.copyTo(new DirectoryArtifact(tmp))
         tmp
     }
   }
