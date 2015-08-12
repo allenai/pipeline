@@ -1,11 +1,11 @@
 package org.allenai.pipeline
 
-import java.io.File
-import java.net.URI
-
 import spray.json._
 
 import scala.reflect.ClassTag
+
+import java.io.File
+import java.net.URI
 
 /** Utility methods for Artifact reading/writing.  */
 object IoHelpers extends ColumnFormats {
@@ -74,18 +74,30 @@ object IoHelpers extends ColumnFormats {
         fromArtifact(io, artifact)
       }
     }
+
   }
+
   import scala.language.implicitConversions
 
   implicit def convertToProcessArg(s: String): StringArg = StringArg(s)
+
   implicit def convertToInputFile(input: (String, File)) = {
     val (name, file) = input
-    val readFile = {
-      val p = ReadFromArtifact(UploadFile, new FileArtifact(file))
-      p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+    if (file.exists && file.isDirectory) {
+      val readDir = {
+        val p = ReadFromArtifact(UploadDirectory, new DirectoryArtifact(file))
+        p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+      }
+      InputDirArg(name, readDir)
+    } else {
+      val readFile = {
+        val p = ReadFromArtifact(UploadFile, new FileArtifact(file))
+        p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+      }
+      InputFileArg(name, readFile)
     }
-    InputFileArg(name, readFile)
   }
+
   implicit def convertArtifactToInputFile(input: (String, FlatArtifact)) = {
     val (name, artifact) = input
     val readFile = {
@@ -94,6 +106,7 @@ object IoHelpers extends ColumnFormats {
     }
     new InputFileArg(name, readFile)
   }
+
   implicit def convertPersistedProducerToInputFile[T, A <: FlatArtifact](
     input: (String, PersistedProducer[T, A])
   ) = {
@@ -105,12 +118,15 @@ object IoHelpers extends ColumnFormats {
   }
 
   implicit def asFileArtifact(f: File) = new FileArtifact(f)
+
   implicit def asStructuredArtifact(f: File): StructuredArtifact = f match {
     case f if f.exists && f.isDirectory => new DirectoryArtifact(f)
     case _ => new ZipFileArtifact(f)
   }
+
   implicit def asFlatArtifact(url: URI) =
     CreateCoreArtifacts.fromFileUrls.urlToArtifact[FlatArtifact].apply(url)
+
   implicit def asStructuredArtifact(url: URI) =
     CreateCoreArtifacts.fromFileUrls.urlToArtifact[StructuredArtifact].apply(url)
 

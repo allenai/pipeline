@@ -34,6 +34,14 @@ class RunProcess(
       val duplicates = outputFileNames.groupBy(x => x).filter(_._2.size > 1).map(_._1)
       s"Duplicate output names: ${duplicates.mkString("[", ",", "]")}"
     })
+    val inputFileNames = args.collect {
+      case arg: InputFileArg => arg
+      case arg: InputDirArg => arg
+    }.map(_.name)
+    require(inputFileNames.distinct.size == inputFileNames.size, {
+      val duplicates = inputFileNames.groupBy(x => x).filter(_._2.size > 1).map(_._1)
+      s"Duplicate input names: ${duplicates.mkString("[", ",", "]")}"
+    })
   }
 
   override def create = {
@@ -144,15 +152,16 @@ class RunProcess(
           this.copy(
             create = () => outer.get.outputDirs(name),
             stepInfo = () => PipelineStepInfo(name)
-              .addParameters(name -> outer)
-              .copy(outputLocation = Some(outer.get.outputDirs(name).toURI))
+            .addParameters(name -> outer)
+            .copy(outputLocation = Some(outer.get.outputDirs(name).toURI))
           )
-          )
+        )
     }.toMap
 
   def cmd(scratchDir: File): Seq[String] = {
     args.collect {
       case InputFileArg(_, p) => p.get.getCanonicalPath
+      case InputDirArg(_, p) => p.get.getCanonicalPath
       case OutputFileArg(name) => new File(scratchDir, name).getCanonicalPath
       case OutputDirArg(name) => new File(scratchDir, name).getCanonicalPath
       case StringArg(arg) => arg
@@ -161,16 +170,20 @@ class RunProcess(
 
   override def stepInfo = {
     val inputFiles = for (InputFileArg(name, p) <- args) yield (name, p)
+    val inputDirs = for (InputDirArg(name, p) <- args) yield (name, p)
     val stdInput = Option(stdinput).map(p => ("stdin", p)).toList
     val cmd = args.collect {
       case InputFileArg(name, _) => s"<$name>"
+      case InputDirArg(name, _) => s"<$name>"
       case OutputFileArg(name) => s"<$name>"
+      case OutputDirArg(name) => s"<$name>"
       case StringArg(name) => name
     }
     super.stepInfo
       .copy(classVersion = versionId, description = Some(cmd.mkString("\n")))
       .addParameters("cmd" -> cmd.mkString(" "))
       .addParameters(inputFiles: _*)
+      .addParameters(inputDirs: _*)
       .addParameters(stdInput: _*)
   }
 
@@ -241,7 +254,7 @@ object UploadDirectory extends ArtifactIo[File, StructuredArtifact] with Ai2Simp
       case a =>
         val scratchDir = Files.createTempDirectory(null).toFile
         sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
-        val tmp = new File(scratchDir,"tmp")
+        val tmp = new File(scratchDir, "tmp")
         tmp.mkdir()
         a.copyTo(new DirectoryArtifact(tmp))
         tmp
