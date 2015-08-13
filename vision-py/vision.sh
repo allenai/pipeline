@@ -1,4 +1,4 @@
-scripts=./vision-py
+scripts=./vision-py/scripts
 pngDir=/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized
 outputDir=./vision-out
 
