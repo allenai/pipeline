@@ -88,16 +88,16 @@ class RunProcess(
   private val outFiles = args.collect {
     case OutputFileArg(name) =>
       val file = new File(scratchDir, name)
-      require(file.exists, s"Argument $name was declared as an output file, but was not created by process")
-      require(!file.isDirectory, s"Argument $name was declared as an output file, but is a directory")
+      //      require(file.exists, s"Argument $name was declared as an output file, but was not created by process")
+      //      require(!file.isDirectory, s"Argument $name was declared as an output file, but is a directory")
       (name, file)
   }.toMap
 
   private val outDirs = args.collect {
     case OutputDirArg(name) =>
       val file = new File(scratchDir, name)
-      require(file.exists, s"Argument $name was declared as an output directory, but was not created by process")
-      require(file.isDirectory, s"Argument $name was declared as an output directory, but is a file")
+      //      require(file.exists, s"Argument $name was declared as an output directory, but was not created by process")
+      //      require(file.isDirectory, s"Argument $name was declared as an output directory, but is a file")
       (name, file)
   }.toMap
 
