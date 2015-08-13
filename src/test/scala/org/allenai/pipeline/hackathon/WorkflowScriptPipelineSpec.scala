@@ -48,11 +48,11 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
           Seq(
             StringToken("python"),
             PackagedInput("scripts", "ExtractRelations.py"),
-            StringToken("--arrows"),
+            StringToken("-a"),
             ReferenceOutput("arrowDir"),
-            StringToken("--blobs"),
+            StringToken("-b"),
             ReferenceOutput("blobsDir"),
-            StringToken("--text"),
+            StringToken("-t"),
             ReferenceOutput("textDir"),
             StringToken("-o"),
             OutputDir("relationsDir")
@@ -63,6 +63,7 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
     )
 
     val pipeline = new WorkflowScriptPipeline(script).buildPipeline
+    //pipeline.run("WOOOT!")
     // pipeline.dryRun(
     //   outputDir = new File("/Users/markschaake/tmp"),
     //   rawTitle = "Woohoo!"

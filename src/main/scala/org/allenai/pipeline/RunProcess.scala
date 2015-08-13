@@ -67,7 +67,11 @@ class RunProcess(
 
     require(
       requireStatusCode.contains(status),
-      s"Command $command failed with status $status: ${Source.fromFile(captureStderrFile).getLines.take(100).mkString("\n")}"
+      {
+        val out = Source.fromFile(captureStdoutFile).getLines.take(100).mkString("\n")
+        val err = Source.fromFile(captureStderrFile).getLines.take(100).mkString("\n")
+        s"Command $command failed with status $status: ${err}\n${out}"
+      }
     )
 
     new ProcessOutput {
