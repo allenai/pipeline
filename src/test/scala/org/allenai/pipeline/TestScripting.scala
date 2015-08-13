@@ -1,6 +1,6 @@
 package org.allenai.pipeline
 
-import org.allenai.common.testkit.{UnitSpec}
+import org.allenai.common.testkit.{ UnitSpec }
 
 import scala.io.Source
 
@@ -11,9 +11,6 @@ class TestScripting extends UnitSpec {
     val program = """python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}"""
     val parser = new Scripting.Parser
     val parsed = parser.parseAll(parser.stepStatement, program)
-    parsed match {
-      case e: parser.NoSuccess => Console.err.println(e)
-    }
     assert(parser.parseAll(parser.stepStatement, program).successful)
   }
 
@@ -27,10 +24,9 @@ class TestScripting extends UnitSpec {
     val parser = new Scripting.Parser
     val parsed = parser.parse(simpleProgram)
     assert(parsed === Seq(
-      PackageStatement(List(Arg("source","./scripts"), Arg("id","scripts"))),
+      PackageStatement(List(Arg("source", "./scripts"), Arg("id", "scripts"))),
       CommentStatement("# Woohoo"),
-      StepStatement(List(ArgToken(Seq(Arg("in","$scripts/asdf"))), StringToken("eek "), ArgToken
-          (Seq(Arg("out","$scripts/asdf")))))
+      StepStatement(List(ArgToken(Seq(Arg("in", "$scripts/asdf"))), StringToken("eek "), ArgToken(Seq(Arg("out", "$scripts/asdf")))))
     ))
   }
 
@@ -44,8 +40,6 @@ class TestScripting extends UnitSpec {
 
     val parser = new Scripting.Parser
     val parsed = parser.parseLines(visionWorkflow)
-
-    parsed foreach println
 
     assert(parsed.size > 0)
   }

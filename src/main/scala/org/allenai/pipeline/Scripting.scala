@@ -19,8 +19,9 @@ object Scripting {
 
     def comment = """#.*""".r ^^ { string => CommentStatement(string) }
 
-    def packageStatement = "package {" ~ args ~ "}" ^^ { case _ ~ args ~ _ =>
-      PackageStatement(args)
+    def packageStatement = "package {" ~ args ~ "}" ^^ {
+      case _ ~ args ~ _ =>
+        PackageStatement(args)
     }
 
     def stepStatement = rep(token) ^^ { case tokens => StepStatement(tokens) }
@@ -56,7 +57,7 @@ object Scripting {
             throw new IllegalArgumentException(s"improper pattern syntax on '${line}': " + fail.msg)
           case error: Error =>
             throw new IllegalArgumentException(s"error on pattern syntax '${line}': " +
-                error.toString)
+              error.toString)
         }
       }
     }

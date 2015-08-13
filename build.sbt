@@ -42,6 +42,5 @@ libraryDependencies ++= Seq(
   allenAiTestkit % "test",
   scalaReflection,
   awsJavaSdk,
-  parboiled2,
   parserCombinators
 )
