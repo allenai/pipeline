@@ -26,8 +26,12 @@ output.dir = "${script.outputDir}"
     def cacheArg(id: String)(arg: => ProcessArg): ProcessArg = {
       val result = arg
       result match {
-        case input: InputArg => cachedInputArgs(id) = input
-        case output: OutputArg => cachedOutputArgs(id) = output
+        case input: InputArg =>
+          require(cachedInputArgs.get(id).isEmpty, s"$id already cached!")
+          cachedInputArgs(id) = input
+        case output: OutputArg =>
+          require(cachedInputArgs.get(id).isEmpty, s"$id already cached!")
+          cachedOutputArgs(id) = output
         case a => throw new RuntimeException(s"You CAN'T cache a $a!")
       }
       result
