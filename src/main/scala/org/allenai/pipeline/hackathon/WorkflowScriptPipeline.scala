@@ -18,15 +18,32 @@ output.dir = "${script.outputDir}"
 
     val producers = mutable.Map[String, Producer[File]]()
 
-    val referenceArgs = mutable.Map[String, ProcessArg]()
+    val cachedOutputArgs = mutable.Map[String, OutputArg]()
+
+    val cachedInputArgs = mutable.Map[String, InputArg]()
 
     def cacheArg(id: String)(arg: => ProcessArg): ProcessArg = {
       val result = arg
-      referenceArgs(id) = arg
+      result match {
+        case input: InputArg => cachedInputArgs(id) = input
+        case output: OutputArg => cachedOutputArgs(id) = output
+        case a => throw new RuntimeException(s"You CAN'T cache a $a!")
+      }
       result
     }
 
-    script.stepCommands map { stepCommand =>
+    // 1. Create the Package steps
+    script.packages foreach {
+      case Package(id, source) =>
+        val producer = ReadFromArtifact(
+          UploadDirectory,
+          pipeline.artifactFactory.createArtifact[DirectoryArtifact](source)
+        )
+        producers(id) = producer
+    }
+
+    // 2. Create the RunProcess steps
+    script.stepCommands foreach { stepCommand =>
       val args: Seq[ProcessArg] = stepCommand.tokens map {
         case CommandToken.Input(source, Some(id)) => cacheArg(id) {
           producers.get(id) match {
@@ -41,6 +58,9 @@ output.dir = "${script.outputDir}"
           }
         }
 
+        case CommandToken.PackagedInput(packageId, path) =>
+          InputFileArg(packageId, FileInDirectory(producers(packageId), path))
+
         case CommandToken.Input(source, None) =>
           val producer = ReadFromArtifact(
             UploadFile,
@@ -48,7 +68,12 @@ output.dir = "${script.outputDir}"
           )
           InputFileArg(source.toString, producer)
 
-        case CommandToken.ReferenceInput(id) => referenceArgs(id)
+        case CommandToken.ReferenceInput(id) => cachedInputArgs(id)
+
+        case CommandToken.ReferenceOutput(id) => cachedOutputArgs(id) match {
+          case f: OutputFileArg => InputFileArg(id, producers(id))
+          case d: OutputDirArg => InputDirArg(id, producers(id))
+        }
 
         case CommandToken.OutputFile(id, _) => cacheArg(id)(OutputFileArg(id))
         case CommandToken.OutputDir(id) => cacheArg(id)(OutputDirArg(id))
@@ -69,63 +94,4 @@ output.dir = "${script.outputDir}"
     }
     pipeline
   }
-}
-
-object WorkflowScriptPipelineTester extends App {
-  import java.net.URI
-  import CommandToken._
-  val script = WorkflowScript(
-    packages = Seq(
-      Package(id = "scripts", source = new URI("./vision-py/scripts"))
-    ),
-    stepCommands = Seq(
-      StepCommand(
-        Seq(
-          StringToken("python"),
-          Input(source = new URI("./vision-py/scripts/ExtractArrows.py")),
-          StringToken("-i"),
-          Input(source = new URI("./vision-py/png"), id = Some("pngDir")),
-          StringToken("-o"),
-          OutputDir("arrowDir")
-        )
-      ),
-      StepCommand(
-        Seq(
-          StringToken("python"),
-          Input(source = new URI("./vision-py/scripts/ExtractBlobs.py")),
-          StringToken("-i"),
-          ReferenceInput("pngDir"),
-          StringToken("-o"),
-          OutputDir("blobsDir")
-        )
-      ),
-      StepCommand(
-        Seq(
-          StringToken("python"),
-          Input(source = new URI("./vision-py/scripts/ExtractText.py")),
-          StringToken("-i"),
-          ReferenceInput("pngDir"),
-          StringToken("-o"),
-          OutputDir("textDir")
-        )
-      ),
-      StepCommand(
-        Seq(
-          StringToken("python"),
-          Input(source = new URI("./vision-py/scripts/ExtractRelations.py")),
-          StringToken("--arrows"),
-          ReferenceInput("arrowDir"),
-          StringToken("--blobs"),
-          ReferenceInput("blobsDir"),
-          StringToken("--text"),
-          ReferenceInput("textDir"),
-          StringToken("-o"),
-          OutputDir("relationsDir")
-        )
-      )
-    ),
-    outputDir = new URI("s3://ai2-s2-dev/pipeline-hackathon/")
-  )
-
-  val pipeline = new WorkflowScriptPipeline(script).buildPipeline
 }
