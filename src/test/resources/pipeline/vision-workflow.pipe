@@ -1,0 +1,11 @@
+# A script that generates a pipeline workflow that can ...
+
+# packages up an entire dir. This is to support transitive
+# dependencies in scripts (scripts calling other scripts)
+package {source:"./scripts", id:"scripts"}
+
+# a step that uses the declared variable and generates output identified as "model"
+python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}
+python {in:"$scripts/ExtractBlobs.py"} -i {in:"pngDir"} -o {out:"blobsDir", type:"dir"}
+python {in:"$scripts/ExtractText.py"} -i {in:"pngDir"} -o {out:"textDir", type:"dir"}
+python {in:"$scripts/ExtractRelations.py"} --arrows {in:"arrowDir"} --blobs {in:"blobsDir"} --text {in:"textDir"} -o {out:"relationsDir", type:"dir"}
