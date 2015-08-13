@@ -27,6 +27,7 @@ object TrainModelViaPythonPipeline extends App {
 
   // Capture the output of the process and persist it
   val modelFile = pipeline.persist(trainModel.outputFiles("modelFile"), UploadFile)
+  pipeline.persist(trainModel.stdout, SaveStream, "TrainingLogs")
 
   val measureModel =
     RunProcess(
@@ -40,6 +41,7 @@ object TrainModelViaPythonPipeline extends App {
     )
 
   pipeline.persist(measureModel.outputFiles("prFile"), UploadFile, "PrecisionRecall")
+  pipeline.persist(measureModel.stdout, SaveStream, "MeasurementLogs")
 
   // Measure precision/recall of the model using the test data from above
   pipeline.run("Train Model Python")
