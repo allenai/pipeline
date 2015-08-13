@@ -10,16 +10,25 @@ import org.allenai.pipeline.s3.S3Pipeline
 /** Created by rodneykinney on 8/13/15.
   */
 object VisionPipeline extends App {
+  val replicate = true
+
   val pipeline =
-    //    Pipeline(new File("pipeline-output"))
-    S3Pipeline(new URI("s3://ai2-misc/hackathon-2015/pipeline"))
+    if (replicate)
+      S3Pipeline(new URI("s3://ai2-misc/hackathon-2015/pipeline"))
+    else
+      Pipeline(new File("pipeline-output"))
 
   val scriptDir: Producer[File] =
-    ReplicateDirectory(new File("vision-py/scripts"), None, pipeline.rootOutputUrl, pipeline.artifactFactory)
-  //  ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("vision-py/scripts")))
+    if (replicate)
+      ReplicateDirectory(new File("vision-py/scripts"), None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+    else
+      ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("vision-py/scripts")))
+
   val pngDir: Producer[File] =
-    ReplicateDirectory(new File("/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized"), None, pipeline.rootOutputUrl, pipeline.artifactFactory)
-  //  ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized")))
+    if (replicate)
+      ReplicateDirectory(new File("/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized"), None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+    else
+      ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized")))
 
   val arrows = RunProcess(
     "python",
