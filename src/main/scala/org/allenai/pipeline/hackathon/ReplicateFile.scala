@@ -117,7 +117,7 @@ case class ReplicateDirectory(
     val idx = file.getName.lastIndexOf('.')
     val name =
       if (idx < 0) {
-        s"${file.getName}.$checksum"
+        s"${file.getName}.$checksum.zip"
       } else {
         val prefix = file.getName.take(idx - 1)
         val suffix = file.getName.drop(idx)

@@ -120,8 +120,7 @@ class RunProcess(
   def stdout: Producer[InputStream] =
     this.copy(
       create = () => outer.get.stdout,
-      stepInfo = () => PipelineStepInfo("stdout")
-      .addParameters("stdout" -> outer)
+      stepInfo = () => PipelineStepInfo("stdout").addParameters("stdout" -> outer)
     ).withCachingDisabled // Can't cache an InputStreama
 
   def stderr: Producer[InputStream] =
@@ -174,10 +173,10 @@ class RunProcess(
     val inputDirs = for (InputDirArg(name, p) <- args) yield (name, p)
     val stdInput = Option(stdinput).map(p => ("stdin", p)).toList
     val cmd = args.collect {
-      case InputFileArg(name, _) => s"<$name>"
-      case InputDirArg(name, _) => s"<$name>"
-      case OutputFileArg(name) => s"<$name>"
-      case OutputDirArg(name) => s"<$name>"
+      case InputFileArg(name, p) => p.stepInfo.className
+      case InputDirArg(name, p) => p.stepInfo.className
+      case OutputFileArg(name) => name
+      case OutputDirArg(name) => name
       case StringArg(name) => name
     }
     super.stepInfo

@@ -1,17 +1,25 @@
 package org.allenai.pipeline.hackathon
 
 import java.io.File
+import java.net.URI
 
 import org.allenai.pipeline.IoHelpers._
 import org.allenai.pipeline._
+import org.allenai.pipeline.s3.S3Pipeline
 
 /** Created by rodneykinney on 8/13/15.
   */
 object VisionPipeline extends App {
-  val pipeline = Pipeline(new File("pipeline-output"))
+  val pipeline =
+    //    Pipeline(new File("pipeline-output"))
+    S3Pipeline(new URI("s3://ai2-misc/hackathon-2015/pipeline"))
 
-  val scriptDir = ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("vision-py/scripts")))
-  val pngDir = ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized")))
+  val scriptDir: Producer[File] =
+    ReplicateDirectory(new File("vision-py/scripts"), None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+  //  ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("vision-py/scripts")))
+  val pngDir: Producer[File] =
+    ReplicateDirectory(new File("/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized"), None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+  //  ReadFromArtifact(UploadDirectory, new DirectoryArtifact(new File("/Users/rodneykinney/Downloads/RegentsRun/regentsImagesResized")))
 
   val arrows = RunProcess(
     "python",
@@ -60,6 +68,9 @@ object VisionPipeline extends App {
   pipeline.run("ExtractRelations")
 }
 
-case class FileInDirectory(dir: Producer[File], fileName: String) extends Producer[File] with Ai2StepInfo {
+case class FileInDirectory(dir: Producer[File], fileName: String) extends Producer[File] {
   override def create = new File(dir.get, fileName)
+  override def stepInfo =
+    PipelineStepInfo(fileName)
+      .addParameters("dir" -> dir)
 }
