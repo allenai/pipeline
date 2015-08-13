@@ -58,12 +58,12 @@ output.dir = "${script.outputDir}"
       runProcess.outputFiles foreach {
         case (id, producer) =>
           producers(id) = producer
-          pipeline.persist(producer, UploadFile, suffix = stepCommand.outputFiles(id).suffix)
+          pipeline.persist(producer, UploadFile, name = id, suffix = stepCommand.outputFiles(id).suffix)
       }
       runProcess.outputDirs foreach {
         case (id, producer) =>
           producers(id) = producer
-          pipeline.persist(producer, UploadDirectory)
+          pipeline.persist(producer, UploadDirectory, name = id)
       }
       runProcess
     }
@@ -75,57 +75,57 @@ object WorkflowScriptPipelineTester extends App {
   import java.net.URI
   import CommandToken._
   val script = WorkflowScript(
-      packages = Seq(
-        Package(id = "scripts", source = new URI("./vision-py/scripts"))
-      ),
-      stepCommands = Seq(
-        StepCommand(
-          Seq(
-            StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractArrows.py")),
-            StringToken("-i"),
-            Input(source = new URI("./vision-py/png"), id = Some("pngDir")),
-            StringToken("-o"),
-            OutputDir("arrowDir")
-          )
-        ),
-        StepCommand(
-          Seq(
-            StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractBlobs.py")),
-            StringToken("-i"),
-            ReferenceInput("pngDir"),
-            StringToken("-o"),
-            OutputDir("blobsDir")
-          )
-        ),
-        StepCommand(
-          Seq(
-            StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractText.py")),
-            StringToken("-i"),
-            ReferenceInput("pngDir"),
-            StringToken("-o"),
-            OutputDir("textDir")
-          )
-        ),
-        StepCommand(
-          Seq(
-            StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractRelations.py")),
-            StringToken("--arrows"),
-            ReferenceInput("arrowDir"),
-            StringToken("--blobs"),
-            ReferenceInput("blobsDir"),
-            StringToken("--text"),
-            ReferenceInput("textDir"),
-            StringToken("-o"),
-            OutputDir("relationsDir")
-          )
+    packages = Seq(
+      Package(id = "scripts", source = new URI("./vision-py/scripts"))
+    ),
+    stepCommands = Seq(
+      StepCommand(
+        Seq(
+          StringToken("python"),
+          Input(source = new URI("./vision-py/scripts/ExtractArrows.py")),
+          StringToken("-i"),
+          Input(source = new URI("./vision-py/png"), id = Some("pngDir")),
+          StringToken("-o"),
+          OutputDir("arrowDir")
         )
       ),
-      outputDir = new URI("s3://ai2-s2-dev/pipeline-hackathon/")
-    )
+      StepCommand(
+        Seq(
+          StringToken("python"),
+          Input(source = new URI("./vision-py/scripts/ExtractBlobs.py")),
+          StringToken("-i"),
+          ReferenceInput("pngDir"),
+          StringToken("-o"),
+          OutputDir("blobsDir")
+        )
+      ),
+      StepCommand(
+        Seq(
+          StringToken("python"),
+          Input(source = new URI("./vision-py/scripts/ExtractText.py")),
+          StringToken("-i"),
+          ReferenceInput("pngDir"),
+          StringToken("-o"),
+          OutputDir("textDir")
+        )
+      ),
+      StepCommand(
+        Seq(
+          StringToken("python"),
+          Input(source = new URI("./vision-py/scripts/ExtractRelations.py")),
+          StringToken("--arrows"),
+          ReferenceInput("arrowDir"),
+          StringToken("--blobs"),
+          ReferenceInput("blobsDir"),
+          StringToken("--text"),
+          ReferenceInput("textDir"),
+          StringToken("-o"),
+          OutputDir("relationsDir")
+        )
+      )
+    ),
+    outputDir = new URI("s3://ai2-s2-dev/pipeline-hackathon/")
+  )
 
-    val pipeline = new WorkflowScriptPipeline(script).buildPipeline
+  val pipeline = new WorkflowScriptPipeline(script).buildPipeline
 }

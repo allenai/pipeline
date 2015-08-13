@@ -45,7 +45,6 @@ class RunProcess(
   }
 
   override def create = {
-    val scratchDir = Files.createTempDirectory(null).toFile
     sys.addShutdownHook(FileUtils.deleteDirectory(scratchDir))
 
     import scala.sys.process._
@@ -71,22 +70,6 @@ class RunProcess(
       s"Command $command failed with status $status: ${Source.fromFile(captureStderrFile).getLines.take(100).mkString("\n")}"
     )
 
-    val outFiles = args.collect {
-      case OutputFileArg(name) =>
-        val file = new File(scratchDir, name)
-        require(file.exists, s"Argument $name was declared as an output file, but was not created by process")
-        require(!file.isDirectory, s"Argument $name was declared as an output file, but is a directory")
-        (name, file)
-    }.toMap
-
-    val outDirs = args.collect {
-      case OutputDirArg(name) =>
-        val file = new File(scratchDir, name)
-        require(file.exists, s"Argument $name was declared as an output directory, but was not created by process")
-        require(file.isDirectory, s"Argument $name was declared as an output directory, but is a file")
-        (name, file)
-    }.toMap
-
     new ProcessOutput {
       def exitStatus = status
 
@@ -99,6 +82,24 @@ class RunProcess(
       def outputDirs = outDirs
     }
   }
+
+  private lazy val scratchDir = Files.createTempDirectory(null).toFile
+
+  private val outFiles = args.collect {
+    case OutputFileArg(name) =>
+      val file = new File(scratchDir, name)
+      require(file.exists, s"Argument $name was declared as an output file, but was not created by process")
+      require(!file.isDirectory, s"Argument $name was declared as an output file, but is a directory")
+      (name, file)
+  }.toMap
+
+  private val outDirs = args.collect {
+    case OutputDirArg(name) =>
+      val file = new File(scratchDir, name)
+      require(file.exists, s"Argument $name was declared as an output directory, but was not created by process")
+      require(file.isDirectory, s"Argument $name was declared as an output directory, but is a file")
+      (name, file)
+  }.toMap
 
   // Specify an input stream that will be fed as stdin to the process
   def withStdin(stdinput: Producer[InputStream]) =
@@ -139,7 +140,7 @@ class RunProcess(
             create = () => outer.get.outputFiles(name),
             stepInfo = () => PipelineStepInfo(name)
             .addParameters(name -> outer)
-            .copy(outputLocation = Some(outer.get.outputFiles(name).toURI))
+            .copy(outputLocation = Some(outer.outFiles(name).toURI))
           )
         )
     }.toMap
@@ -153,7 +154,7 @@ class RunProcess(
             create = () => outer.get.outputDirs(name),
             stepInfo = () => PipelineStepInfo(name)
             .addParameters(name -> outer)
-            .copy(outputLocation = Some(outer.get.outputDirs(name).toURI))
+            .copy(outputLocation = Some(outer.outDirs(name).toURI))
           )
         )
     }.toMap
