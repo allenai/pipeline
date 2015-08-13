@@ -225,16 +225,16 @@ trait Pipeline extends Logging {
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
-    {
-      import sys.process._
-      import scala.language.postfixOps
-      val link = toHttpUrl(htmlArtifact.url)
-      Try {
-        java.awt.Desktop.getDesktop.browse(link)
-      }
-        .orElse(Try(s"open $link" !!))
-        .orElse(Try(s"xdg-open $link" !!))
-    }
+    //    {
+    //      import sys.process._
+    //      import scala.language.postfixOps
+    //      val link = toHttpUrl(htmlArtifact.url)
+    //      Try {
+    //        java.awt.Desktop.getDesktop.browse(link)
+    //      }
+    //        .orElse(Try(s"open $link" !!))
+    //        .orElse(Try(s"xdg-open $link" !!))
+    //    }
 
     val signatureArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter
@@ -278,16 +278,16 @@ trait Pipeline extends Logging {
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
-    {
-      import sys.process._
-      import scala.language.postfixOps
-      val link = toHttpUrl(htmlArtifact.url)
-      Try {
-        java.awt.Desktop.getDesktop.browse(link)
-      }
-        .orElse(Try(s"open $link" !!))
-        .orElse(Try(s"xdg-open $link" !!))
-    }
+    //    {
+    //      import sys.process._
+    //      import scala.language.postfixOps
+    //      val link = toHttpUrl(htmlArtifact.url)
+    //      Try {
+    //        java.awt.Desktop.getDesktop.browse(link)
+    //      }
+    //        .orElse(Try(s"open $link" !!))
+    //        .orElse(Try(s"xdg-open $link" !!))
+    //    }
 
     val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
     val signatureFormat = Signature.jsonWriter
