@@ -8,7 +8,8 @@ import java.net.URI
 /** Model that a workflow script is parsed into */
 case class WorkflowScript(
   packages: Seq[Package],
-  commands: Seq[StepCommand]
+  stepCommands: Seq[StepCommand],
+  outputDir: URI // this is an s3 URI
 )
 
 /** A file or directory to package up and persist in S3.
