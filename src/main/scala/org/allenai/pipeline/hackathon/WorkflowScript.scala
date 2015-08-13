@@ -15,7 +15,7 @@ case class WorkflowScript(
 /** A file or directory to package up and persist in S3.
   * Primary use case is to upload a directory of scripts
   */
-case class Package(id: String, location: File)
+case class Package(id: String, source: URI)
 
 /** A single line in a WorkflowScript that maps to a pipeline step
   *
@@ -33,7 +33,8 @@ case class StepCommand(tokens: Seq[CommandToken]) {
 
 sealed trait CommandToken
 object CommandToken {
-  case class Input(source: URI, id: Option[String]) extends CommandToken
+  case class Input(source: URI, id: Option[String] = None) extends CommandToken
+  case class ReferenceInput(id: String) extends CommandToken
   case class OutputFile(id: String, suffix: String) extends CommandToken
   case class OutputDir(id: String) extends CommandToken
   case class StringToken(value: String) extends CommandToken

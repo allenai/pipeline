@@ -5,14 +5,64 @@ import org.allenai.common.testkit.UnitSpec
 
 class WorkflowScriptPipelineSpec extends UnitSpec {
 
+  import CommandToken._
+
   "WorkflowScriptPipeline" should "work" in {
     val script = WorkflowScript(
-      packages = Nil,
-      stepCommands = Nil,
+      packages = Seq(
+        Package(id = "scripts", source = new URI("./vision-py/scripts"))
+      ),
+      stepCommands = Seq(
+        StepCommand(
+          Seq(
+            StringToken("python"),
+            Input(source = new URI("./vision-py/scripts/ExtractArrows.py")),
+            StringToken("-i"),
+            Input(source = new URI("./vision-py/png"), id = Some("pngDir")),
+            StringToken("-o"),
+            OutputDir("arrowDir")
+          )
+        ),
+        StepCommand(
+          Seq(
+            StringToken("python"),
+            Input(source = new URI("./vision-py/scripts/ExtractBlobs.py")),
+            StringToken("-i"),
+            ReferenceInput("pngDir"),
+            StringToken("-o"),
+            OutputDir("blobsDir")
+          )
+        ),
+        StepCommand(
+          Seq(
+            StringToken("python"),
+            Input(source = new URI("./vision-py/scripts/ExtractText.py")),
+            StringToken("-i"),
+            ReferenceInput("pngDir"),
+            StringToken("-o"),
+            OutputDir("textDir")
+          )
+        ),
+        StepCommand(
+          Seq(
+            StringToken("python"),
+            Input(source = new URI("./vision-py/scripts/ExtractRelations.py")),
+            StringToken("--arrows"),
+            ReferenceInput("arrowDir"),
+            StringToken("--blobs"),
+            ReferenceInput("blobsDir"),
+            StringToken("--text"),
+            ReferenceInput("textDir"),
+            StringToken("-o"),
+            OutputDir("relationsDir")
+          )
+        )
+      ),
       outputDir = new URI("s3://ai2-s2-dev/pipeline-hackathon/")
     )
 
     val pipeline = new WorkflowScriptPipeline(script).buildPipeline
+    //pipeline.dryRun()
 
   }
 }
