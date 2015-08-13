@@ -29,9 +29,9 @@ def parseArgs(usage):
 def writeDirectory(inputDir, outputDir, content):
     for inFile in os.listdir(inputDir):
         outFile = os.path.join(outputDir, inFile)
-    w = open(outFile,'w')
-    w.write(content())
-    w.close()
+        w = open(outFile,'w')
+        w.write(content())
+        w.close()
 
 
 
