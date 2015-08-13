@@ -86,13 +86,13 @@ output.dir = "${script.outputDir}"
       val runProcess = RunProcess(args: _*)
       runProcess.outputFiles foreach {
         case (id, producer) =>
-          producers(id) = producer
-          pipeline.persist(producer, UploadFile, name = id, suffix = stepCommand.outputFiles(id).suffix)
+          producers(id) =
+            pipeline.persist(producer, UploadFile, name = id, suffix = stepCommand.outputFiles(id).suffix)
       }
       runProcess.outputDirs foreach {
         case (id, producer) =>
-          producers(id) = producer
-          pipeline.persist(producer, UploadDirectory, name = id)
+          producers(id) =
+            pipeline.persist(producer, UploadDirectory, name = id)
       }
       runProcess
     }
