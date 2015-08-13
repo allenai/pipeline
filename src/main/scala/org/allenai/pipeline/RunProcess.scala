@@ -194,17 +194,20 @@ object RunProcess {
   def apply(args: ProcessArg*) = new RunProcess(args)
 }
 
-trait ProcessArg {
+sealed trait ProcessArg {
   def name: String
 }
 
-case class InputFileArg(name: String, inputFile: Producer[File]) extends ProcessArg
+sealed trait InputArg extends ProcessArg
+sealed trait OutputArg extends ProcessArg
 
-case class InputDirArg(name: String, inputDir: Producer[File]) extends ProcessArg
+case class InputFileArg(name: String, inputFile: Producer[File]) extends InputArg
 
-case class OutputFileArg(name: String) extends ProcessArg
+case class InputDirArg(name: String, inputDir: Producer[File]) extends InputArg
 
-case class OutputDirArg(name: String) extends ProcessArg
+case class OutputFileArg(name: String) extends OutputArg
+
+case class OutputDirArg(name: String) extends OutputArg
 
 case class StringArg(name: String) extends ProcessArg
 

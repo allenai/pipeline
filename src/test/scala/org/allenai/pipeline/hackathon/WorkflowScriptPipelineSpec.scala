@@ -1,5 +1,6 @@
 package org.allenai.pipeline.hackathon
 
+import java.io.File
 import java.net.URI
 import org.allenai.common.testkit.UnitSpec
 
@@ -16,7 +17,7 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
         StepCommand(
           Seq(
             StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractArrows.py")),
+            PackagedInput("scripts", "ExtractArrows.py"),
             StringToken("-i"),
             Input(source = new URI("./vision-py/png"), id = Some("pngDir")),
             StringToken("-o"),
@@ -26,7 +27,7 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
         StepCommand(
           Seq(
             StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractBlobs.py")),
+            PackagedInput("scripts", "ExtractBlobs.py"),
             StringToken("-i"),
             ReferenceInput("pngDir"),
             StringToken("-o"),
@@ -36,7 +37,7 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
         StepCommand(
           Seq(
             StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractText.py")),
+            PackagedInput("scripts", "ExtractText.py"),
             StringToken("-i"),
             ReferenceInput("pngDir"),
             StringToken("-o"),
@@ -46,13 +47,13 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
         StepCommand(
           Seq(
             StringToken("python"),
-            Input(source = new URI("./vision-py/scripts/ExtractRelations.py")),
+            PackagedInput("scripts", "ExtractRelations.py"),
             StringToken("--arrows"),
-            ReferenceInput("arrowDir"),
+            ReferenceOutput("arrowDir"),
             StringToken("--blobs"),
-            ReferenceInput("blobsDir"),
+            ReferenceOutput("blobsDir"),
             StringToken("--text"),
-            ReferenceInput("textDir"),
+            ReferenceOutput("textDir"),
             StringToken("-o"),
             OutputDir("relationsDir")
           )
@@ -62,7 +63,9 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
     )
 
     val pipeline = new WorkflowScriptPipeline(script).buildPipeline
-    //pipeline.dryRun()
-
+    // pipeline.dryRun(
+    //   outputDir = new File("/Users/markschaake/tmp"),
+    //   rawTitle = "Woohoo!"
+    // )
   }
 }
