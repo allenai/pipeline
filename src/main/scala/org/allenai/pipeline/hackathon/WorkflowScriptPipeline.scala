@@ -1,5 +1,6 @@
 package org.allenai.pipeline.hackathon
 
+import java.net.URI
 import org.allenai.pipeline._
 import org.allenai.pipeline.s3.S3Pipeline
 
@@ -32,41 +33,40 @@ output.dir = "${script.outputDir}"
       result
     }
 
+    def replicatedDirProducer(source: URI): Producer[File] = {
+      val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
+      ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+    }
+
+    def replicatedFileProducer(source: URI): Producer[File] = {
+      val file = pipeline.artifactFactory.createArtifact[FileArtifact](source).file
+      ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+    }
+
     // 1. Create the Package steps
     script.packages foreach {
       case Package(id, source) =>
-        val producer = ReadFromArtifact(
-          UploadDirectory,
-          pipeline.artifactFactory.createArtifact[DirectoryArtifact](source)
-        )
+        val producer = replicatedDirProducer(source)
         producers(id) = producer
     }
 
     // 2. Create the RunProcess steps
     script.stepCommands foreach { stepCommand =>
       val args: Seq[ProcessArg] = stepCommand.tokens map {
-        case CommandToken.Input(source, Some(id)) => cacheArg(id) {
-          producers.get(id) match {
-            case Some(producer) => InputFileArg(id, producer)
-            case None =>
-              val producer = ReadFromArtifact(
-                UploadFile,
-                pipeline.artifactFactory.createArtifact[FlatArtifact](source)
-              )
-              producers(id) = producer
-              InputFileArg(id, producer)
-          }
-        }
 
         case CommandToken.PackagedInput(packageId, path) =>
           InputFileArg(packageId, FileInDirectory(producers(packageId), path))
 
-        case CommandToken.Input(source, None) =>
-          val producer = ReadFromArtifact(
-            UploadFile,
-            pipeline.artifactFactory.createArtifact[FlatArtifact](source)
-          )
-          InputFileArg(source.toString, producer)
+        case CommandToken.InputDir(source, maybeId) =>
+          val producer = replicatedDirProducer(source)
+          val id = maybeId.getOrElse(source.toString)
+          producers(id) = producer
+          cacheArg(id)(InputFileArg(id, producer))
+
+        case CommandToken.InputFile(source, maybeId) =>
+          val producer = replicatedFileProducer(source)
+          val id = maybeId.getOrElse(source.toString)
+          cacheArg(id)(InputFileArg(id, producer))
 
         case CommandToken.ReferenceInput(id) => cachedInputArgs(id)
 

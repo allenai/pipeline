@@ -33,7 +33,8 @@ case class StepCommand(tokens: Seq[CommandToken]) {
 
 sealed trait CommandToken
 object CommandToken {
-  case class Input(source: URI, id: Option[String] = None) extends CommandToken
+  case class InputDir(source: URI, id: Option[String] = None) extends CommandToken
+  case class InputFile(source: URI, id: Option[String] = None) extends CommandToken
   case class PackagedInput(id: String, path: String) extends CommandToken
   case class ReferenceInput(id: String) extends CommandToken
   case class OutputFile(id: String, suffix: String) extends CommandToken

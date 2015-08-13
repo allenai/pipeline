@@ -19,7 +19,7 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
             StringToken("python"),
             PackagedInput("scripts", "ExtractArrows.py"),
             StringToken("-i"),
-            Input(source = new URI("./vision-py/png"), id = Some("pngDir")),
+            InputDir(source = new URI("./vision-py/png"), id = Some("pngDir")),
             StringToken("-o"),
             OutputDir("arrowDir")
           )
