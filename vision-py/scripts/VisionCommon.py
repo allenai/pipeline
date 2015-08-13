@@ -1,6 +1,7 @@
 __author__ = 'rodneykinney'
 
 import sys, getopt, os
+from random import *
 
 def parseArgs(usage):
     if (len(sys.argv) == 1):
@@ -20,18 +21,25 @@ def parseArgs(usage):
             outputDir = arg
 
     try:
-        os.mkdir(outputDir)
+        os.makedirs(outputDir)
     except:
-        ''
+        raise
 
     return inputDir, outputDir
 
 def writeDirectory(inputDir, outputDir, content):
     for inFile in os.listdir(inputDir):
-        outFile = os.path.join(outputDir, inFile)
+        outFile = os.path.join(outputDir, inFile+".json")
         w = open(outFile,'w')
         w.write(content())
         w.close()
+
+def joinRelations():
+    pos = (uniform(0,100), uniform(0,100))
+    size = (uniform(0,10), uniform(0,10))
+    return {'headtopleft': {'X':pos[0], 'Y':pos[1]},
+            'headbottomright': {'X':pos[0]+size[0], 'Y':pos[1]+size[1]}}
+
 
 
 
