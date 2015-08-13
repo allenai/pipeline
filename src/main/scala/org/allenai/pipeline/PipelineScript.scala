@@ -1,8 +1,39 @@
 package org.allenai.pipeline
 
+import org.allenai.pipeline.hackathon.WorkflowScript
+
 import scala.util.parsing.combinator._
 
-object Scripting {
+import java.net.URI
+
+class PipelineScriptParser() {
+  protected[this] val parser = new PipelineScript.Parser
+
+  def parse(outputDir: URI)(lines: TraversableOnce[String]): WorkflowScript = {
+    val parsed = parser.parseLines(lines)
+
+    var packages = Vector.empty[hackathon.Package]
+    var stepCommands = Vector.empty[hackathon.StepCommand]
+
+    parsed.foreach {
+      case PipelineScript.CommentStatement(_) =>
+      case PipelineScript.PackageStatement(args) =>
+        val source = args.find(_.name == "source").getOrElse {
+          throw new IllegalArgumentException("No argument 'source' in package: " + args)
+        }
+        val id = args.find(_.name == "id").getOrElse {
+          throw new IllegalArgumentException("No argument 'id' in package: " + args)
+        }
+        val sourceUri = new URI(source.value)
+        packages :+= hackathon.Package(id.value, sourceUri)
+      case PipelineScript.StepStatement(tokens) => None
+    }
+
+    WorkflowScript(packages, stepCommands, outputDir)
+  }
+}
+
+object PipelineScript {
   case class Arg(name: String, value: String)
 
   sealed abstract class Statement
@@ -46,7 +77,7 @@ object Scripting {
       parseAll(line, s)
     }
 
-    def parseLines(lines: Seq[String]) = {
+    def parseLines(lines: TraversableOnce[String]) = {
       for {
         line <- lines
         if !line.trim.isEmpty

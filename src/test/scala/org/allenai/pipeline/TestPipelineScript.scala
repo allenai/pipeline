@@ -4,12 +4,12 @@ import org.allenai.common.testkit.{ UnitSpec }
 
 import scala.io.Source
 
-import org.allenai.pipeline.Scripting._
+import org.allenai.pipeline.PipelineScript._
 
-class TestScripting extends UnitSpec {
+class TestPipelineScript extends UnitSpec {
   "pipeline scripting" should "successfully parse a step command" in {
     val program = """python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}"""
-    val parser = new Scripting.Parser
+    val parser = new PipelineScript.Parser
     val parsed = parser.parseAll(parser.stepStatement, program)
     assert(parser.parseAll(parser.stepStatement, program).successful)
   }
@@ -21,8 +21,8 @@ class TestScripting extends UnitSpec {
          |# Woohoo
          |{in:"$scripts/asdf"} eek {out:"$scripts/asdf"}""".stripMargin
 
-    val parser = new Scripting.Parser
-    val parsed = parser.parse(simpleProgram)
+    val parser = new PipelineScript.Parser
+    val parsed = parser.parse(simpleProgram).toSeq
     assert(parsed === Seq(
       PackageStatement(List(Arg("source", "./scripts"), Arg("id", "scripts"))),
       CommentStatement("# Woohoo"),
@@ -38,8 +38,8 @@ class TestScripting extends UnitSpec {
     }
     val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
 
-    val parser = new Scripting.Parser
-    val parsed = parser.parseLines(visionWorkflow)
+    val parser = new PipelineScript.Parser
+    val parsed = parser.parseLines(visionWorkflow).toSeq
 
     assert(parsed.size > 0)
   }
