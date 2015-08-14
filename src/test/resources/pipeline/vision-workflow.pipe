@@ -1,7 +1,5 @@
 # A vision-like pipeline workflow
 
-# Packages up an entire dir. This is to support transitive
-# dependencies in scripts (scripts calling other scripts)
 package {id:"scripts", source:"vision-py/scripts"}
 
 set { pngDir: "/Users/rodneykinney/data/hackathon/png" }
