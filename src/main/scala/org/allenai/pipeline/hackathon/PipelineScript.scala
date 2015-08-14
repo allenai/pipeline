@@ -42,8 +42,11 @@ class PipelineScriptParser() {
       case t @ PipelineScript.ArgToken(args) if t.find("upload").nonEmpty =>
         val url = new URI(t.find("upload").get)
         val isDir = t.find("type").exists(_ == "dir")
+        val isUrl = t.find("type").exists(_ == "url")
         if (isDir) {
           CommandToken.InputDir(url)
+        } else if (isUrl) {
+          CommandToken.InputUrl(url)
         } else {
           CommandToken.InputFile(url)
         }

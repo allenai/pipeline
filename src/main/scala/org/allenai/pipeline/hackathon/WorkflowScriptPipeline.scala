@@ -63,6 +63,10 @@ object WorkflowScriptPipeline {
         ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
     }
 
+    def replicatedUrlProducer(source: URI): Producer[File] = {
+      ReadFromURL(source)
+    }
+
     // 1. Create the Package steps
     script.packages foreach {
       case Package(id, source) =>
@@ -85,6 +89,11 @@ object WorkflowScriptPipeline {
 
         case CommandToken.InputFile(source) =>
           val producer = replicatedFileProducer(source)
+          val id = source.toString
+          cacheArg(id)(InputFileArg(id, producer))
+
+        case CommandToken.InputUrl(source) =>
+          val producer = replicatedUrlProducer(source)
           val id = source.toString
           cacheArg(id)(InputFileArg(id, producer))
 

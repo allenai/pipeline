@@ -49,6 +49,13 @@ object CommandToken {
     override def toString: String = s"""{upload:"$source"}"""
   }
 
+  /** A URL input
+    * @param source
+    */
+  case class InputUrl(source: URI) extends CommandToken {
+    override def toString: String = s"""{upload:"$source"}"""
+  }
+
   /** A file that exists in a Package
     * @param id the package's ID
     * @param path relative path from the package
