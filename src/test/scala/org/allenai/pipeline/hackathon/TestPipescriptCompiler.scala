@@ -72,6 +72,6 @@ class TestPipescriptCompiler extends UnitSpec {
     val pipeline = WorkflowScriptPipeline.buildPipeline(dir, visionScriptLines)
     val scriptlink = new ReplicateFile(new java.io.File(resourceUrl.toURI), None, dir, pipeline.artifactFactory)
     scriptlink.get
-    pipeline.run("RunFromScript", Some(pipeline.toHttpUrl(scriptlink.artifact.url)))
+    pipeline.run("RunFromScript", None)
   }
 }
