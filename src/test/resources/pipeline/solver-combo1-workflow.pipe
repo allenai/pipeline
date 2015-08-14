@@ -1,0 +1,13 @@
+# A Solver Combination Ablation pipeline workflow
+
+# Loads one train and one test URL directly into study script
+
+# Packages up an entire dir. This is to support transitive
+# dependencies in scripts (scripts calling other scripts)
+package {id:"aristoScripts", source:"solver-combo/aristo-scripts"}
+package {id:"mathematicaScripts", source:"solver-combo/mathematica-scripts"}
+
+# Generate ablation data
+{file:"SolverAblationStudy.sh", package:"aristoScripts"} --train1 http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/Regents%20Training%20and%20Regents%20Test%20and%20Monarch%20Training%20and%20Monarch%20Test/evaluation/b6d38f34-d08b-478c-af60-99c04b1b4d2d --test1 http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/Regents%20Training%20and%20Regents%20Test%20and%20Monarch%20Training%20and%20Monarch%20Test/evaluation/cdece2c1-32f4-4613-84d6-a92e4e73a1b9 -s Arizona,Inference,Salience -o {out:"outputDir", type:"dir"}
+# Analyze ablation data
+{file:"AblationStudyReport.m", package:"mathematicaScripts"} -i {ref:"outputDir"} -html {out:"htmlFile"} -csv {out:"csvFile"}
