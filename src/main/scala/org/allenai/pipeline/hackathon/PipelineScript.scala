@@ -35,7 +35,6 @@ class PipelineScriptParser() {
       scriptToken match {
         case PipelineScript.StringToken(s) => CommandToken.StringToken(s)
         case t@PipelineScript.ArgToken(block) =>
-          println(block)
           val resolved = block.resolve(environment)
           def find(key: String) = {
             if (resolved.hasPath(key)) {

@@ -75,8 +75,6 @@ class TestPipelineScript extends UnitSpec {
 
     val parser = new PipelineScriptParser
     val parsed = parser.parseLines(null)(visionWorkflow)
-
-    println(parsed)
   }
 
   it should "build a pipeline from a script" in {
@@ -89,7 +87,6 @@ class TestPipelineScript extends UnitSpec {
 
     val parser = new PipelineScriptParser()
     val script = parser.parseLines(null)(visionWorkflow)
-    println(script)
   }
 
   it should "run a pipeline from a script" in {
