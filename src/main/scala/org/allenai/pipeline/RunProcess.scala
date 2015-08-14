@@ -186,7 +186,7 @@ class RunProcess(
     super.stepInfo
       .copy(
         classVersion = versionId,
-        description = Some(cmd.map(Workflow.limitLength(_)).mkString("\n"))
+        description = Some(cmd.mkString("\n"))
       )
       .addParameters("cmd" -> cmd.mkString(" "))
       .addParameters(inputFiles: _*)

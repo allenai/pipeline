@@ -74,7 +74,8 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], titleLink: 
           case _ => ""
         }
         val name = info.stepName
-        val desc = unescape(info.description.getOrElse(if (name == info.className) "" else info.className)).split("\n").mkString("<ul><li>", "</li><li>", "</li></ul>")
+        val desc = unescape(info.description.getOrElse(if (name == info.className) "" else info.className))
+          .split("\n").map(linkUrlsInString(_)).mkString("<ul><li>", "</li><li>", "</li></ul>")
         s"""        g.setNode("$id", {
                                     |       class: "$clazz",
                                                             |       labelType: "html",
@@ -219,6 +220,11 @@ object Workflow {
       case _ =>
         Right(url)
     }
+  }
+
+  private val urlRegex = """https?://[^\s]+""".r
+  private[pipeline] def linkUrlsInString(string: String) = {
+    urlRegex.replaceAllIn(string, m => s"<a href='${m.group(0)}'>${limitLength(m.group(0))}</a>")
   }
 
   private val DEFAULT_MAX_SIZE = 40
