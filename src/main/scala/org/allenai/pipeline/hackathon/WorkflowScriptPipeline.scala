@@ -1,12 +1,11 @@
 package org.allenai.pipeline.hackathon
 
+import java.io.File
+import java.net.URI
+
 import org.allenai.pipeline._
 import org.allenai.pipeline.s3._
 
-import com.typesafe.config.ConfigFactory
-
-import java.io.File
-import java.net.URI
 import scala.collection.mutable
 
 object WorkflowScriptPipeline {
@@ -79,8 +78,9 @@ object WorkflowScriptPipeline {
       val args: Seq[ProcessArg] = stepCommand.tokens map {
 
         case CommandToken.PackagedInput(packageId, path) =>
-          val fileProducer = producers(packageId)
-          InputFileArg(fileProducer.stepInfo.className, FileInDirectory(fileProducer, path))
+          val dirProducer = producers(packageId)
+          val fileProducer = FileInDirectory(dirProducer, path)
+          InputFileArg(fileProducer.stepInfo.className, fileProducer)
 
         case CommandToken.InputDir(source) =>
           val producer = replicatedDirProducer(source)
