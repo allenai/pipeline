@@ -2,7 +2,7 @@ package org.allenai.pipeline.hackathon
 
 import java.io.File
 
-import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
+import org.allenai.common.testkit.UnitSpec
 import org.allenai.pipeline.hackathon.PipelineScript._
 
 import scala.io.Source
@@ -15,19 +15,19 @@ class TestPipelineScript extends UnitSpec {
     assert(parser.parseAll(parser.stepStatement, program).successful)
   }
 
-  ignore should "successfully parse a small sample program" in {
+  it should "successfully parse a small sample program" in {
     val simpleProgram =
       """|package {source: "./scripts", id: "scripts"}
-         |
-         |# Woohoo
-         |{in:"$scripts/asdf"} eek {out:"$scripts/asdf"}""".stripMargin
+        |
+        |# Woohoo
+        |{in:"$scripts/asdf"} eek {out:"$scripts/asdf"}""".stripMargin
 
     val parser = new PipelineScript.Parser
     val parsed = parser.parseText(simpleProgram).toSeq
-    assert(parsed === Seq(
+    assert(parsed.toList === List(
       PackageStatement(List(Arg("source", "./scripts"), Arg("id", "scripts"))),
       CommentStatement("# Woohoo"),
-      StepStatement(List(ArgToken(Seq(Arg("in", "$scripts/asdf"))), StringToken("eek "), ArgToken(Seq(Arg("out", "$scripts/asdf")))))
+      StepStatement(List(ArgToken(Seq(Arg("in", "$scripts/asdf"))), StringToken("eek"), ArgToken(Seq(Arg("out", "$scripts/asdf")))))
     ))
   }
 
@@ -45,7 +45,7 @@ class TestPipelineScript extends UnitSpec {
     assert(parsed.size > 0)
   }
 
-  ignore should "build a pipeline from a script" in {
+  it should "build a pipeline from a script" in {
     val resourceUrl = {
       val url = this.getClass.getResource("/pipeline/vision-workflow.pipe")
       require(url != null, "Could not find resource.")
@@ -67,7 +67,10 @@ class TestPipelineScript extends UnitSpec {
     val visionScriptLines = Source.fromURL(resourceUrl).getLines.toList
 
     val dir = new File(new File("pipeline-output"), "RunScript").toURI
+    //    val dir = new java.net.URI("s3://ai2-misc/hackathon-2015/pipeline/")
     val pipeline = WorkflowScriptPipeline.buildPipeline(dir, visionScriptLines)
-    pipeline.run("RunFromScript")
+    val scriptlink = new ReplicateFile(new java.io.File(resourceUrl.toURI), None, dir, pipeline.artifactFactory)
+    scriptlink.get
+    pipeline.run("RunFromScript", Some(pipeline.toHttpUrl(scriptlink.artifact.url)))
   }
 }

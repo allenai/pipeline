@@ -10,7 +10,7 @@ import scala.io.Source
 
 /** DAG representation of the execution of a set of Producers.
   */
-case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
+case class Workflow(nodes: Map[String, Node], links: Iterable[Link], titleLink: Option[(String, String)] = None) {
   def sourceNodes() = nodes.filter {
     case (nodeId, node) =>
       !links.exists(link => link.toId == nodeId)
@@ -97,7 +97,8 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
       source.mkString
     }
     val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
-    template.format(outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
+    val title = this.titleLink.map { case (s, l) => s"""<h1><a href="$l">$s</a></h1>""" }.getOrElse("")
+    template.format(title, outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
   }
 }
 
@@ -146,7 +147,7 @@ object Node {
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String]): Workflow = {
+  def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String], titleLink: Option[(String, String)] = None): Workflow = {
     val idToName = steps.map { case (k, v) => (v.stepInfo.signature.id, k) }.toMap
     val nameToStep = steps.toMap
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
@@ -176,7 +177,7 @@ object Workflow {
       step = nameToStep(stepName)
       (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
-    Workflow(nodes, links)
+    Workflow(nodes, links, titleLink)
   }
 
   def upstreamDependencies(step: PipelineStep): Set[PipelineStep] = {
@@ -197,7 +198,7 @@ object Workflow {
       }
       jsonFormat10(Node.apply)
     }
-    jsonFormat(Workflow.apply, "nodes", "links")
+    jsonFormat(Workflow.apply, "nodes", "links", "title")
   }
 
   private def toHttp(uri: URI) = uri.getScheme match {

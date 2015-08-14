@@ -1,11 +1,14 @@
-# A script that generates a pipeline workflow that can ...
+# A vision-like pipeline workflow
 
-# packages up an entire dir. This is to support transitive
+# Packages up an entire dir. This is to support transitive
 # dependencies in scripts (scripts calling other scripts)
 package {id:"scripts", source:"vision-py/scripts"}
 
-# a step that uses the declared variable and generates output identified as "model"
+# Extract arrow head/tail
 python {file:"ExtractArrows.py", package:"scripts"} -i {upload:"vision-py/png", type:"dir"} -o {out:"arrowDir", type:"dir"}
+
 python {file:"ExtractBlobs.py", package:"scripts"} -i {upload:"vision-py/png", type:"dir"} -o {out:"blobsDir", type:"dir"}
+
 python {file:"ExtractText.py", package:"scripts"} -i {upload:"vision-py/png", type:"dir"} -o {out:"textDir", type:"dir"}
+
 python {file:"ExtractRelations.py", package:"scripts"} -a {ref:"arrowDir"} -b {ref:"blobsDir"} -t {ref:"textDir"} -o {out:"relationsDir", type:"dir"}
