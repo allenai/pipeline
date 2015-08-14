@@ -101,11 +101,11 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: Stri
     val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
     val pipescriptsHtml = (pipescripts map {
       case PipescriptSources(original, stable) =>
-        s"""<h2>PipeScripts</h2>
+        s"""<div class="typescripts">
 <ul>
 <li><a href="$original" type="text/plain">Original</a></li>
 <li><a href="$stable" type="text/plain">Portable</a></li>
-</ul>
+</ul></div>
 """
     }).getOrElse("")
 
