@@ -7,7 +7,7 @@ package {id:"scripts", source:"vision-py/scripts"}
 set inputDir = "/Users/rodneykinney/data/hackathon/png"
 
 # Extract arrow head/tail
-python {file:"ExtractArrows.py", package:"scripts"} {file: "ExtractArrows.py", package:"scripts"} -i {upload:"/Users/rodneykinney/data/hackathon/png", type:"dir"} -o {out:"arrowDir", type:"dir"}
+python {file:"ExtractArrows.py", package:"scripts"} -i {upload:"/Users/rodneykinney/data/hackathon/png", type:"dir"} -o {out:"arrowDir", type:"dir"}
 
 python {file:"ExtractBlobs.py", package:"scripts"} -i {upload:"/Users/rodneykinney/data/hackathon/png", type:"dir"} -o {out:"blobsDir", type:"dir"}
 

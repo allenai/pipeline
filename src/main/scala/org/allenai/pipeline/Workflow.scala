@@ -97,7 +97,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], titleLink: 
       source.mkString
     }
     val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
-    val title = this.titleLink.map { case (s, l) => s"""<h1><a href="$l">$s</a></h1>""" }.getOrElse("")
+    val title = this.titleLink.map { case (s, l) => s"""<h1><a href="$l" type="text/html">$s</a></h1>""" }.getOrElse("")
     template.format(title, outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
   }
 }
