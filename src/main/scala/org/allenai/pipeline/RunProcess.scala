@@ -10,13 +10,13 @@ import scala.io.Source
 
 /** Executes an arbitrary system process
   * @param args   The set of tokens that comprise the command to be executed.
-  *               Each token is either:
-  *               a String
-  *               a Placeholder representing an input data file
-  *               a Placeholder representing an output data file
-  *               Examples:
-  *               StringArg("cp") InputFileArg("data.tsv") OutputFileArg("data-copy.tsv")
-  *               StringArg("python") InputFileArg("run.py") StringArg("-o") OutputFileArg("output.txt")
+  * Each token is either:
+  * a String
+  * a Placeholder representing an input data file
+  * a Placeholder representing an output data file
+  * Examples:
+  * StringArg("cp") InputFileArg("data.tsv") OutputFileArg("data-copy.tsv")
+  * StringArg("python") InputFileArg("run.py") StringArg("-o") OutputFileArg("output.txt")
   */
 
 class RunProcess(
@@ -184,7 +184,10 @@ class RunProcess(
       case StringArg(name) => name
     }
     super.stepInfo
-      .copy(classVersion = versionId, description = Some(cmd.mkString("\n")))
+      .copy(
+        classVersion = versionId,
+        description = Some(cmd.map(Workflow.limitLength(_)).mkString("\n"))
+      )
       .addParameters("cmd" -> cmd.mkString(" "))
       .addParameters(inputFiles: _*)
       .addParameters(inputDirs: _*)
@@ -195,6 +198,7 @@ class RunProcess(
 
 object RunProcess {
   def apply(args: ProcessArg*) = new RunProcess(args)
+
 }
 
 sealed trait ProcessArg {

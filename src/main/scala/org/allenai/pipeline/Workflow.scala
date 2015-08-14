@@ -224,7 +224,7 @@ object Workflow {
   private val DEFAULT_MAX_SIZE = 40
   private val LHS_MAX_SIZE = 15
 
-  private def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) = {
+  private[pipeline] def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) = {
     val trimmed = if (s.size < maxLength) {
       s
     } else {
