@@ -7,7 +7,6 @@ import java.net.URI
 import org.allenai.common.Resource
 import org.allenai.pipeline._
 
-
 object WorkflowScriptWriter {
   def write(script: WorkflowScript, pipeline: Pipeline, dest: File): Unit = {
     def getStepInfos(step: PipelineStep): Seq[PipelineStepInfo] = {

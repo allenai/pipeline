@@ -29,8 +29,9 @@ object WorkflowScriptPipeline {
       val result = arg
       result match {
         case input: InputArg =>
-          if (!cachedInputArgs.contains(id))
+          if (!cachedInputArgs.contains(id)) {
             cachedInputArgs(id) = input
+          }
         case output: OutputArg =>
           require(cachedInputArgs.get(id).isEmpty, s"$id already cached!")
           cachedOutputArgs(id) = output
