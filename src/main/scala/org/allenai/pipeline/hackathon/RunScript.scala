@@ -37,7 +37,7 @@ object RunScript extends App {
       originalScriptUrl
     } else {
       val tmpDir = Files.createTempDirectory("pipescript")
-      val stableTempFile = Files.createTempFile(tmpDir, "stable", ".pipe").toFile
+      val stableTempFile = Files.createTempFile(tmpDir, "stable", "pipe").toFile
       stableTempFile.deleteOnExit()
       tmpDir.toFile.deleteOnExit()
       PipescriptWriter.write(script, pipeline, stableTempFile)
