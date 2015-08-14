@@ -1,12 +1,12 @@
 package org.allenai.pipeline.hackathon
 
-import java.net.URI
 import org.allenai.pipeline._
-import org.allenai.pipeline.s3.S3Pipeline
+import org.allenai.pipeline.s3._
 
 import com.typesafe.config.ConfigFactory
 
 import java.io.File
+import java.net.URI
 import scala.collection.mutable
 
 object WorkflowScriptPipeline {
@@ -39,14 +39,27 @@ object WorkflowScriptPipeline {
       result
     }
 
-    def replicatedDirProducer(source: URI): Producer[File] = {
-      val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
-      ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+    def replicatedDirProducer(source: URI): Producer[File] = Option(source.getScheme) match {
+      case Some("s3") =>
+        // TODO: create a producer that reads a directory from S3
+        // val artifact = new S3ZipArtifact(source.toString, S3Config(source.getAuthority))
+        // val foo = pipeline.s3Cache.readZip(artifact)
+        // IoHelpers.Read.fromArtifact()
+        val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
+        ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+      case None =>
+        val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
+        ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
     }
 
-    def replicatedFileProducer(source: URI): Producer[File] = {
-      val file = pipeline.artifactFactory.createArtifact[FileArtifact](source).file
-      ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+    def replicatedFileProducer(source: URI): Producer[File] = Option(source.getScheme) match {
+      case Some("s3") =>
+        // TODO: create a producer that reads a file from S3
+        val file = pipeline.artifactFactory.createArtifact[FileArtifact](source).file
+        ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+      case None =>
+        val file = pipeline.artifactFactory.createArtifact[FileArtifact](source).file
+        ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
     }
 
     // 1. Create the Package steps
@@ -63,18 +76,16 @@ object WorkflowScriptPipeline {
         case CommandToken.PackagedInput(packageId, path) =>
           InputFileArg(packageId, FileInDirectory(producers(packageId), path))
 
-        case CommandToken.InputDir(source, maybeId) =>
+        case CommandToken.InputDir(source) =>
           val producer = replicatedDirProducer(source)
-          val id = maybeId.getOrElse(source.toString)
+          val id = source.toString
           producers(id) = producer
           cacheArg(id)(InputFileArg(id, producer))
 
-        case CommandToken.InputFile(source, maybeId) =>
+        case CommandToken.InputFile(source) =>
           val producer = replicatedFileProducer(source)
-          val id = maybeId.getOrElse(source.toString)
+          val id = source.toString
           cacheArg(id)(InputFileArg(id, producer))
-
-        case CommandToken.ReferenceInput(id) => cachedInputArgs(id)
 
         case CommandToken.ReferenceOutput(id) => cachedOutputArgs(id) match {
           case f: OutputFileArg => InputFileArg(id, producers(id))

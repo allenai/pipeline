@@ -108,7 +108,7 @@ case class ReplicateDirectory(
 
   override def stepInfo =
     super.stepInfo.copy(
-      className = file.getName,
+      className = file.toString,
       outputLocation = Some(artifact.url)
     )
       .addParameters("src" -> artifact.url)
