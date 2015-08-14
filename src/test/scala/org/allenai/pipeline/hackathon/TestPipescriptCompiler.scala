@@ -9,7 +9,7 @@ import java.io.File
 class TestPipescriptCompiler extends UnitSpec {
   "pipescript compiler" should "successfully parse and resolve a variable command" in {
     val program =
-      """set {x: "http://www.foo.com"}"
+      """set {x: "http://www.foo.com"}
         |package {id: "pkg1", source: s"${x}"}
         |package {id: "pkg2", source: s"$x"}
       """.stripMargin
