@@ -79,7 +79,8 @@ object WorkflowScriptPipeline {
       val args: Seq[ProcessArg] = stepCommand.tokens map {
 
         case CommandToken.PackagedInput(packageId, path) =>
-          InputFileArg(packageId, FileInDirectory(producers(packageId), path))
+          val fileProducer = producers(packageId)
+          InputFileArg(fileProducer.stepInfo.className, FileInDirectory(fileProducer, path))
 
         case CommandToken.InputDir(source) =>
           val producer = replicatedDirProducer(source)
