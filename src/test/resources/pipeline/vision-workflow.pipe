@@ -4,13 +4,13 @@
 # dependencies in scripts (scripts calling other scripts)
 package {id:"scripts", source:"vision-py/scripts"}
 
-set pngDir = "/Users/rodneykinney/data/hackathon/png"
+set { pngDir: "/Users/rodneykinney/data/hackathon/png" }
 
 # Extract arrow head/tail
-python {file:"ExtractArrows.py", package:"scripts"} {file: "ExtractArrows.py", package:"scripts"} -i {input:$pngDir, type:"dir"} -o {output:"arrowDir", type:"dir"}
+python {file:"ExtractArrows.py", package:"scripts"} -i {input:$pngDir, type:"dir"} -o {output:"arrowDir", type:"dir"}
 
 python {file:"ExtractBlobs.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -o {output:"blobsDir", type:"dir"}
 
 python {file:"ExtractText.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -o {output:"textDir", type:"dir"}
 
-python {file:"ExtractRelations.py", package:"scripts"} -a {ref:"arrowDir"} -b {ref:"blobsDir"} -t {ref:"textDir"} -o {output:"relationsDir", type:"dir"}
+python {file:"ExtractRelations.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -a {ref:"arrowDir"} -b {ref:"blobsDir"} -t {ref:"textDir"} -o {output:"relationsDir", type:"dir"}

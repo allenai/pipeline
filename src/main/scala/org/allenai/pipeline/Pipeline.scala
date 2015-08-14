@@ -3,6 +3,7 @@ package org.allenai.pipeline
 import org.allenai.common.Config._
 import org.allenai.common.Logging
 import org.allenai.pipeline.IoHelpers._
+import org.allenai.pipeline.hackathon.PipescriptSources
 
 import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
@@ -28,8 +29,8 @@ trait Pipeline extends Logging {
   def rootOutputUrl: URI
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
-  def run(title: String, titleLink: Option[URI] = None) = {
-    runPipelineReturnResults(title, persistedSteps.keys, titleLink)
+  def run(title: String, pipescripts: Option[PipescriptSources] = None) = {
+    runPipelineReturnResults(title, persistedSteps.keys, pipescripts)
   }
 
   def persistedSteps = steps.toMap
@@ -194,10 +195,10 @@ trait Pipeline extends Logging {
       val dependencyNames = nonExistentDependencies.map(_.className).mkString(",")
       s"Cannot run steps [${targetNames.mkString(",")}]. Upstream dependencies [$dependencyNames] have not been computed"
     })
-    runPipelineReturnResults(title, targetNames)
+    runPipelineReturnResults(title, targetNames, None)
   }
 
-  protected[this] def runPipelineReturnResults(rawTitle: String, targetNames: Iterable[String], titleLink: Option[URI] = None): Iterable[(String, Any)] = {
+  protected[this] def runPipelineReturnResults(rawTitle: String, targetNames: Iterable[String], pipescripts: Option[PipescriptSources]): Iterable[(String, Any)] = {
     // Order the outputs so that the ones with the fewest dependencies are executed first
     val targets = getStepsByName(targetNames)
     val outputs = targets.toVector.map {
@@ -219,7 +220,7 @@ trait Pipeline extends Logging {
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
     val workflowArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.workflow.json")
-    val workflow = Workflow.forPipeline(persistedSteps, targetNames, titleLink.map(l => (title, l.toString)))
+    val workflow = Workflow.forPipeline(persistedSteps, targetNames, title, pipescripts)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
@@ -273,7 +274,7 @@ trait Pipeline extends Logging {
       rawTitle.replaceAll("""\s+""", "-")
     }-dryRun"
     val workflowArtifact = new FileArtifact(new File(outputDir, s"$title.workflow.json"))
-    val workflow = Workflow.forPipeline(persistedSteps, targets)
+    val workflow = Workflow.forPipeline(persistedSteps, targets, title, None)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
@@ -336,7 +337,7 @@ trait ConfiguredPipeline extends Pipeline {
       List()
     }
 
-  override def run(rawTitle: String, titleLink: Option[URI] = None) = {
+  override def run(rawTitle: String, pipescripts: Option[PipescriptSources] = None) = {
     val (targets, isRunOnly) =
       getStringList("runOnly") match {
         case seq if seq.nonEmpty =>
@@ -360,7 +361,7 @@ trait ConfiguredPipeline extends Pipeline {
         if (isRunOnly) {
           runOnly(rawTitle, targets)
         } else {
-          runPipelineReturnResults(rawTitle, targets, titleLink)
+          runPipelineReturnResults(rawTitle, targets, pipescripts)
         }
     }
   }

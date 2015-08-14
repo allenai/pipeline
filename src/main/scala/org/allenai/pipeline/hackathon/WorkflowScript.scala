@@ -5,6 +5,12 @@ import org.allenai.pipeline._
 import java.io.File
 import java.net.URI
 
+
+case class PipescriptSources(
+  original: URI,
+  stable: URI
+)
+
 /** Model that a workflow script is parsed into */
 case class WorkflowScript(
   packages: Seq[Package],
