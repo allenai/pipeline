@@ -15,7 +15,7 @@ class TestPipelineScript extends UnitSpec {
     assert(parser.parseAll(parser.stepStatement, program).successful)
   }
 
-  ignore should "successfully parse a small sample program" in {
+  it should "successfully parse a small sample program" in {
     val simpleProgram =
       """|package {source: "./scripts", id: "scripts"}
          |
@@ -45,7 +45,7 @@ class TestPipelineScript extends UnitSpec {
     assert(parsed.size > 0)
   }
 
-  ignore should "build a pipeline from a script" in {
+  it should "build a pipeline from a script" in {
     val resourceUrl = {
       val url = this.getClass.getResource("/pipeline/vision-workflow.pipe")
       require(url != null, "Could not find resource.")
@@ -67,7 +67,8 @@ class TestPipelineScript extends UnitSpec {
     val visionScriptLines = Source.fromURL(resourceUrl).getLines.toList
 
     val dir = new File(new File("pipeline-output"), "RunScript").toURI
-    val pipeline = WorkflowScriptPipeline.buildPipeline(dir, visionScriptLines)
+    //    val dir = new java.net.URI("s3://ai2-misc/hackathon-2015/pipeline/")
+    //    val pipeline = WorkflowScriptPipeline.buildPipeline(dir, visionScriptLines)
     pipeline.run("RunFromScript")
   }
 }
