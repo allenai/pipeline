@@ -24,7 +24,7 @@ class PipelineScriptParser() {
         }
         val sourceUri = new URI(source.value)
         packages :+= hackathon.Package(id.value, sourceUri)
-      case PipelineScript.StepStatement(tokens) => None
+      case PipelineScript.StepStatement(tokens) =>
     }
 
     WorkflowScript(packages, stepCommands, outputDir)
