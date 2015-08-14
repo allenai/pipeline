@@ -5,7 +5,6 @@ import org.allenai.pipeline._
 import java.io.File
 import java.net.URI
 
-
 case class PipescriptSources(
   original: URI,
   stable: URI
