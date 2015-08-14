@@ -67,8 +67,10 @@ class TestPipelineScript extends UnitSpec {
     val visionScriptLines = Source.fromURL(resourceUrl).getLines.toList
 
     val dir = new File(new File("pipeline-output"), "RunScript").toURI
-    //        val dir = new java.net.URI("s3://ai2-misc/hackathon-2015/pipeline/")
+    //    val dir = new java.net.URI("s3://ai2-misc/hackathon-2015/pipeline/")
     val pipeline = WorkflowScriptPipeline.buildPipeline(dir, visionScriptLines)
-    pipeline.run("RunFromScript", Some(resourceUrl.toURI))
+    val scriptlink = new ReplicateFile(new java.io.File(resourceUrl.toURI), None, dir, pipeline.artifactFactory)
+    scriptlink.get
+    pipeline.run("RunFromScript", Some(pipeline.toHttpUrl(scriptlink.artifact.url)))
   }
 }

@@ -44,7 +44,7 @@ case class ReplicateFile(
     }
   }
 
-  private lazy val artifact = artifactForChecksum(resolvedChecksum)
+  lazy val artifact = artifactForChecksum(resolvedChecksum)
 
   override def stepInfo =
     super.stepInfo.copy(
