@@ -33,12 +33,45 @@ case class StepCommand(tokens: Seq[CommandToken]) {
 
 sealed trait CommandToken
 object CommandToken {
+  /** A directory input
+    * @param source
+    * @param id if set will be referencable by subsequent steps
+    */
   case class InputDir(source: URI, id: Option[String] = None) extends CommandToken
+
+  /** A file input
+    * @param source
+    * @param id if set will be referencable by subsequent steps
+    */
   case class InputFile(source: URI, id: Option[String] = None) extends CommandToken
+
+  /** A file that exists in a Package
+    * @param id the package's ID
+    * @param path relative path from the package
+    */
   case class PackagedInput(id: String, path: String) extends CommandToken
+
+  /** An input that is a reference to an input declared in an upstream step
+    * @param id the id given to the upstream input
+    */
   case class ReferenceInput(id: String) extends CommandToken
-  case class OutputFile(id: String, suffix: String) extends CommandToken
-  case class OutputDir(id: String) extends CommandToken
+
+  /** An input that is a reference to an output declared in an upstream step
+    * @param id the id given to the upstream output
+    */
   case class ReferenceOutput(id: String) extends CommandToken
+
+  /** A file to output
+    * @param id id to use as a reference in downstream steps
+    * @param suffix will determine the content type
+    */
+  case class OutputFile(id: String, suffix: String) extends CommandToken
+
+  /** A directory to output
+    * @param id id to use as a reference in downstream steps
+    */
+  case class OutputDir(id: String) extends CommandToken
+
+  /** An arbitrary string */
   case class StringToken(value: String) extends CommandToken
 }
