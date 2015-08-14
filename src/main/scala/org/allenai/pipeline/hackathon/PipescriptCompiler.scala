@@ -12,7 +12,7 @@ import scala.util.parsing.combinator._
 class PipescriptCompiler() {
   protected[this] val parser = new PipescriptParser.Parser
 
-  def parseStatements(outputDir: URI)(parsedStatements: TraversableOnce[PipescriptParser.Statement]): WorkflowScript = {
+  def parseStatements(outputDir: URI)(parsedStatements: TraversableOnce[PipescriptParser.Statement]): Pipescript = {
     var packages = Vector.empty[hackathon.Package]
     var stepCommands = Vector.empty[hackathon.StepCommand]
 
@@ -68,14 +68,14 @@ class PipescriptCompiler() {
       }
     }
 
-    WorkflowScript(packages, stepCommands, outputDir)
+    Pipescript(packages, stepCommands, outputDir)
   }
 
-  def parseLines(outputDir: URI)(lines: TraversableOnce[String]): WorkflowScript = {
+  def parseLines(outputDir: URI)(lines: TraversableOnce[String]): Pipescript = {
     this.parseStatements(outputDir)(parser.parseLines(lines))
   }
 
-  def parseText(outputDir: URI)(text: String): WorkflowScript = {
+  def parseText(outputDir: URI)(text: String): Pipescript = {
     this.parseStatements(outputDir)(parser.parseText(text))
   }
 }

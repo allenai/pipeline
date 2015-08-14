@@ -11,7 +11,7 @@ case class PipescriptSources(
 )
 
 /** Model that a workflow script is parsed into */
-case class WorkflowScript(
+case class Pipescript(
   packages: Seq[Package],
   stepCommands: Seq[StepCommand],
   outputDir: URI // this is an s3 URI
