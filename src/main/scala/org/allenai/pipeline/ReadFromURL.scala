@@ -5,12 +5,13 @@ import java.net.URI
 
 import sys.process._
 
-case class ReadFromURL(url: URI) extends Producer[File] with Ai2StepInfo {
+case class ReadFromURL(url: URI, name: String = "ReadFromURL",
+    dataUrl: Option[URI] = None) extends Producer[File] with Ai2StepInfo {
   override def create: File = {
-    val outputFile = File.createTempFile(url.getPath().replace("/", "$"), "")
-    (url.toURL #> outputFile).!!
+    val outputFile = File.createTempFile(url.getPath().replace("/", "$") + "url", "")
+    (dataUrl.getOrElse(url).toURL #> outputFile).!!
     outputFile
   }
 
-  override def stepInfo = super.stepInfo.copy(outputLocation = Some(url))
+  override def stepInfo = super.stepInfo.copy(outputLocation = Some(url), className = name)
 }
