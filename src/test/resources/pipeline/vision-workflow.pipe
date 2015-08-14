@@ -13,4 +13,4 @@ python {file:"ExtractBlobs.py", package:"scripts"} -i {input: $pngDir, type:"dir
 
 python {file:"ExtractText.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -o {output:"textDir", type:"dir"}
 
-python {file:"ExtractRelations.py", package:"scripts"} -a {ref:"arrowDir"} -b {ref:"blobsDir"} -t {ref:"textDir"} -o {output:"relationsDir", type:"dir"}
+python {file:"ExtractRelations.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -a {ref:"arrowDir"} -b {ref:"blobsDir"} -t {ref:"textDir"} -o {output:"relationsDir", type:"dir"}
