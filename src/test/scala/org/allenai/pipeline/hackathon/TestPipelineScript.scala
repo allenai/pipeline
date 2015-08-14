@@ -21,7 +21,7 @@ class TestPipelineScript extends UnitSpec {
          |{in:"$scripts/asdf"} eek {out:"$scripts/asdf"}""".stripMargin
 
     val parser = new PipelineScript.Parser
-    val parsed = parser.parse(simpleProgram).toSeq
+    val parsed = parser.parseText(simpleProgram).toSeq
     assert(parsed === Seq(
       PackageStatement(List(Arg("source", "./scripts"), Arg("id", "scripts"))),
       CommentStatement("# Woohoo"),
@@ -41,5 +41,17 @@ class TestPipelineScript extends UnitSpec {
     val parsed = parser.parseLines(visionWorkflow).toSeq
 
     assert(parsed.size > 0)
+  }
+
+  it should "build a pipeline from a script" in {
+    val resourceUrl = {
+      val url = this.getClass.getResource("/pipeline/vision-workflow.pipe")
+      require(url != null, "Could not find resource.")
+      url
+    }
+    val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
+
+    val parser = new PipelineScriptParser()
+    parser.parseLines(null)(visionWorkflow)
   }
 }
