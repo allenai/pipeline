@@ -1,7 +1,6 @@
 package org.allenai.pipeline.hackathon
 
 import org.allenai.common.testkit.UnitSpec
-import org.allenai.pipeline.hackathon.PipescriptParser._
 
 import scala.io.Source
 
