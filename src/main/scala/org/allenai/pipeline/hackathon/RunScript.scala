@@ -13,7 +13,9 @@ object RunScript extends App {
   }
   val scriptFile = new File(args(0))
 
-  val visionScriptLines = Source.fromFile(scriptFile).getLines.toList
+  val scriptLines = Source.fromFile(scriptFile).getLines.toList
+
+  val isStable = scriptLines.head == WorkflowScriptWriter.StableComment
 
   val outputUrl =
     if (args.length == 1)
@@ -21,7 +23,7 @@ object RunScript extends App {
     else
       new URI(args(1))
 
-  val script = new PipescriptCompiler().parseLines(outputUrl)(visionScriptLines)
+  val script = new PipescriptCompiler().parseLines(outputUrl)(scriptLines)
   val pipeline = WorkflowScriptPipeline.buildPipeline(script)
   val originalScriptUrl = {
     val upload = new ReplicateFile(scriptFile, None, outputUrl, pipeline.artifactFactory)
@@ -30,14 +32,18 @@ object RunScript extends App {
   }
 
   val stableScriptUrl = {
-    val tmpDir = Files.createTempDirectory("pipescript")
-    val stableTempFile = Files.createTempFile(tmpDir, "stable", ".pipe").toFile
-    stableTempFile.deleteOnExit()
-    tmpDir.toFile.deleteOnExit()
-    WorkflowScriptWriter.write(script, pipeline, stableTempFile)
-    val upload = new ReplicateFile(stableTempFile, None, outputUrl, pipeline.artifactFactory)
-    upload.get
-    pipeline.toHttpUrl(upload.artifact.url)
+    if (isStable) {
+      originalScriptUrl
+    } else {
+      val tmpDir = Files.createTempDirectory("pipescript")
+      val stableTempFile = Files.createTempFile(tmpDir, "stable", ".pipe").toFile
+      stableTempFile.deleteOnExit()
+      tmpDir.toFile.deleteOnExit()
+      WorkflowScriptWriter.write(script, pipeline, stableTempFile)
+      val upload = new ReplicateFile(stableTempFile, None, outputUrl, pipeline.artifactFactory)
+      upload.get
+      pipeline.toHttpUrl(upload.artifact.url)
+    }
   }
 
   val scripts = PipescriptSources(
