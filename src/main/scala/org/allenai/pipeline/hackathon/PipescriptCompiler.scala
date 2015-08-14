@@ -19,8 +19,10 @@ class PipescriptCompiler() {
     var environment = Map.empty[String, String]
     parsedStatements.foreach {
       case PipescriptParser.CommentStatement(_) =>
-      case PipescriptParser.VariableStatement(name, value) =>
-        environment += (name -> value.resolve(environment))
+      case PipescriptParser.SetStatement(block) =>
+        for (arg <- block.args) {
+          environment += (arg.name -> arg.value.resolve(environment))
+        }
       case PipescriptParser.PackageStatement(block) =>
         val source = block.findGet("source").resolve(environment)
         val id = block.findGet("id").resolve(environment)

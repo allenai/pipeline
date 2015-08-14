@@ -22,12 +22,9 @@ object PipescriptParser {
     */
   case class CommentStatement(comment: String) extends Statement
 
-  /** A variable statement sets a variable to a value.
-    *
-    * @param name the name of the varialbe being set.
-    * @param value the value the variable is being set to.
+  /** A variable statement sets one or more variables to the associated values.
     */
-  case class VariableStatement(name: String, value: Value) extends Statement
+  case class SetStatement(block: Block) extends Statement
 
   /** A package statement specifies the scripts to store so the experiment is repeatable.
     *
@@ -136,14 +133,14 @@ object PipescriptParser {
     }
   }
 
+  /** The parser combinator.  This is a subclass because parser combinators are not threadsafe. */
   class Parser extends JavaTokenParsers {
     def line = comment | packageStatement | variableStatement | stepStatement
 
     def comment = """#.*""".r ^^ { string => CommentStatement(string) }
 
-    def packageStatement = "package" ~ block ^^ {
-      case _ ~ b =>
-        PackageStatement(b)
+    def packageStatement = "package" ~! block ^^ { case _ ~ b =>
+      PackageStatement(b)
     }
 
     def stepStatement = rep(token) ^^ { case tokens => StepStatement(tokens) }
@@ -156,9 +153,8 @@ object PipescriptParser {
       StringToken(s)
     }
 
-    def variableStatement = "set" ~> term ~ "=" ~ value ^^ {
-      case name ~ _ ~ value =>
-        VariableStatement(name, value)
+    def variableStatement = "set" ~! block ^^ { case _ ~ block =>
+      SetStatement(block)
     }
 
     def value = substitutionString | simpleString | variableReference
@@ -181,7 +177,6 @@ object PipescriptParser {
     /** An argument, which is a key, value pair. */
     def arg: Parser[Arg] = term ~ ":" ~ value ^^ { case term ~ ":" ~ value => Arg(term, value) }
 
-    // TODO(schmmd): actually escape strings properly.
     /** Whitespace */
     def WS = """[ \t]*""".r
 
@@ -210,5 +205,4 @@ object PipescriptParser {
       parseLines(s.split("\n").toList)
     }
   }
-
 }
