@@ -28,8 +28,8 @@ trait Pipeline extends Logging {
   def rootOutputUrl: URI
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
-  def run(title: String) = {
-    runPipelineReturnResults(title, persistedSteps.keys)
+  def run(title: String, titleLink: Option[URI] = None) = {
+    runPipelineReturnResults(title, persistedSteps.keys, titleLink)
   }
 
   def persistedSteps = steps.toMap
@@ -197,7 +197,7 @@ trait Pipeline extends Logging {
     runPipelineReturnResults(title, targetNames)
   }
 
-  protected[this] def runPipelineReturnResults(rawTitle: String, targetNames: Iterable[String]): Iterable[(String, Any)] = {
+  protected[this] def runPipelineReturnResults(rawTitle: String, targetNames: Iterable[String], titleLink: Option[URI] = None): Iterable[(String, Any)] = {
     // Order the outputs so that the ones with the fewest dependencies are executed first
     val targets = getStepsByName(targetNames)
     val outputs = targets.toVector.map {
@@ -219,13 +219,13 @@ trait Pipeline extends Logging {
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
     val workflowArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.workflow.json")
-    val workflow = Workflow.forPipeline(persistedSteps, targetNames)
+    val workflow = Workflow.forPipeline(persistedSteps, targetNames, titleLink.map(l => (title, l.toString)))
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
-    {
+    if (System.getProperty("user.name") == "rodneykinney") {
       import sys.process._
       import scala.language.postfixOps
       val link = toHttpUrl(htmlArtifact.url)
@@ -278,16 +278,16 @@ trait Pipeline extends Logging {
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
-    //    {
-    //      import sys.process._
-    //      import scala.language.postfixOps
-    //      val link = toHttpUrl(htmlArtifact.url)
-    //      Try {
-    //        java.awt.Desktop.getDesktop.browse(link)
-    //      }
-    //        .orElse(Try(s"open $link" !!))
-    //        .orElse(Try(s"xdg-open $link" !!))
-    //    }
+    if (System.getProperty("user.name") == "rodneykinney") {
+      import sys.process._
+      import scala.language.postfixOps
+      val link = toHttpUrl(htmlArtifact.url)
+      Try {
+        java.awt.Desktop.getDesktop.browse(link)
+      }
+        .orElse(Try(s"open $link" !!))
+        .orElse(Try(s"xdg-open $link" !!))
+    }
 
     val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
     val signatureFormat = Signature.jsonWriter
@@ -334,7 +334,7 @@ trait ConfiguredPipeline extends Pipeline {
       List()
     }
 
-  override def run(rawTitle: String) = {
+  override def run(rawTitle: String, titleLink: Option[URI] = None) = {
     val (targets, isRunOnly) =
       getStringList("runOnly") match {
         case seq if seq.nonEmpty =>
@@ -358,7 +358,7 @@ trait ConfiguredPipeline extends Pipeline {
         if (isRunOnly) {
           runOnly(rawTitle, targets)
         } else {
-          runPipelineReturnResults(rawTitle, targets)
+          runPipelineReturnResults(rawTitle, targets, titleLink)
         }
     }
   }
