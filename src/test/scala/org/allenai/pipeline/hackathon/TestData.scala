@@ -4,7 +4,7 @@ object TestData {
   import CommandToken._
   import java.net.URI
 
-  val script = WorkflowScript(
+  val script = Pipescript(
     packages = Seq(
       Package(id = "scripts", source = new URI("./vision-py/scripts"))
     ),

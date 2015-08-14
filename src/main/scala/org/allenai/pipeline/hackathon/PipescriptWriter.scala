@@ -7,10 +7,10 @@ import java.io.File
 import java.io.PrintWriter
 import java.net.URI
 
-object WorkflowScriptWriter {
+object PipescriptWriter {
   val StableComment = "## stable ##"
 
-  def write(script: WorkflowScript, pipeline: Pipeline, dest: File): Unit = {
+  def write(script: Pipescript, pipeline: Pipeline, dest: File): Unit = {
 
     Resource.using(new PrintWriter(dest)) { writer =>
       writer.println(StableComment)

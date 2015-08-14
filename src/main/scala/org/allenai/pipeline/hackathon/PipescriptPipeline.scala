@@ -8,14 +8,14 @@ import org.allenai.pipeline.s3._
 
 import scala.collection.mutable
 
-object WorkflowScriptPipeline {
+object PipescriptPipeline {
 
   def buildPipeline(rootOutputUrl: URI, lines: Iterable[String]): Pipeline = {
     val script = new PipescriptCompiler().parseLines(rootOutputUrl)(lines)
     buildPipeline(script)
   }
 
-  def buildPipeline(script: WorkflowScript) = {
+  def buildPipeline(script: Pipescript) = {
     val pipeline = S3Pipeline(script.outputDir)
 
     val producers = mutable.Map[String, Producer[File]]()

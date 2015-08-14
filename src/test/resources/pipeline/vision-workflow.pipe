@@ -2,7 +2,7 @@
 
 package {id:"scripts", source:"vision-py/scripts"}
 
-set { pngDir: "/Users/rodneykinney/data/hackathon/png" }
+set { pngDir: "vision-py/png" }
 
 # Extract arrow head/tail
 run python {file:"ExtractArrows.py", package:"scripts"} -i {input:$pngDir, type:"dir"} -o {output:"arrowDir", type:"dir"}
