@@ -9,13 +9,11 @@ import java.net.URI
 class PipelineScriptParser() {
   protected[this] val parser = new PipelineScript.Parser
 
-  def parse(outputDir: URI)(lines: TraversableOnce[String]): WorkflowScript = {
-    val parsed = parser.parseLines(lines)
-
+  def parseStatements(outputDir: URI)(parsedStatements: TraversableOnce[PipelineScript.Statement]): WorkflowScript = {
     var packages = Vector.empty[hackathon.Package]
     var stepCommands = Vector.empty[hackathon.StepCommand]
 
-    parsed.foreach {
+    parsedStatements.foreach {
       case PipelineScript.CommentStatement(_) =>
       case PipelineScript.PackageStatement(args) =>
         val source = args.find(_.name == "source").getOrElse {
@@ -30,6 +28,14 @@ class PipelineScriptParser() {
     }
 
     WorkflowScript(packages, stepCommands, outputDir)
+  }
+
+  def parseLines(outputDir: URI)(lines: TraversableOnce[String]): WorkflowScript = {
+    this.parseStatements(outputDir)(parser.parseLines(lines))
+  }
+
+  def parseText(outputDir: URI)(text: String): WorkflowScript = {
+    this.parseStatements(outputDir)(parser.parseText(text))
   }
 }
 
@@ -77,7 +83,7 @@ object PipelineScript {
       parseAll(line, s)
     }
 
-    def parseLines(lines: TraversableOnce[String]) = {
+    def parseLines(lines: TraversableOnce[String]): TraversableOnce[PipelineScript.Statement] = {
       for {
         line <- lines
         if !line.trim.isEmpty
@@ -93,7 +99,7 @@ object PipelineScript {
       }
     }
 
-    def parse(s: String) = {
+    def parseText(s: String) = {
       parseLines(s.split("\n").toList)
     }
   }
