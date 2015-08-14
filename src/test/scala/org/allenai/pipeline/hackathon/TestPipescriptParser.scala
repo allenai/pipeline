@@ -4,6 +4,18 @@ import org.allenai.common.testkit.UnitSpec
 import org.allenai.pipeline.hackathon.PipescriptParser._
 
 class TestPipescriptParser extends UnitSpec {
+  "variable resolution" should "work with curly braces" in {
+    val environment = Map("x" -> "foo")
+    val s = SubstitutionString("y = ${x}")
+    assert(s.resolve(environment) === "y = foo")
+  }
+
+  it should "work without curly braces" in {
+    val environment = Map("x" -> "foo")
+    val s = new SubstitutionString("y = $x")
+    assert(s.resolve(environment) === "y = foo")
+  }
+
   "pipeline scripting" should "successfully parse a step command" in {
     val program = """python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}"""
     val parser = new PipescriptParser.Parser
@@ -12,7 +24,7 @@ class TestPipescriptParser extends UnitSpec {
   }
 
   it should "successfully parse a variable command" in {
-    val program = """set x = foo"""
+    val program = """set x = "foo""""
     val parser = new PipescriptParser.Parser
     val parsed = parser.parseAll(parser.variableStatement, program)
     assert(parsed.successful)
@@ -44,16 +56,16 @@ class TestPipescriptParser extends UnitSpec {
     val parsed = parser.parseText(simpleProgram).toList
 
     assert(parsed(0) === PackageStatement(Block(Seq(
-      Arg("source", "./scripts"),
-      Arg("id", "scripts")
+      Arg("source", SimpleString("./scripts")),
+      Arg("id", SimpleString("scripts"))
     ))))
 
     assert(parsed(1).isInstanceOf[CommentStatement])
 
     assert(parsed(2) === StepStatement(List(
-      ArgToken(Block(List(Arg("in","asdf")))),
+      ArgToken(Block(List(Arg("in", SimpleString("asdf"))))),
       StringToken("eek"),
-      ArgToken(Block(List(Arg("out","fdsa")))))
-    ))
+      ArgToken(Block(List(Arg("out", SimpleString("fdsa")))))
+    )))
   }
 }

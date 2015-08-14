@@ -4,7 +4,6 @@ import org.allenai.common.Resource
 import org.allenai.pipeline._
 
 import java.io.File
-import java.io.FileWriter
 import java.io.PrintWriter
 import java.net.URI
 
@@ -20,8 +19,8 @@ object WorkflowScriptWriter {
       }
       script.packages foreach { pkg =>
         val replicated = ReplicateDirectory(
-          new File(pkg.source), None, pipeline.rootOutputUrl, pipeline.artifactFactory
-        ).get.toURI
+          new File(pkg.source.getPath), None, pipeline.rootOutputUrl, pipeline.artifactFactory
+        ).artifact.url
         writer.println(pkg.copy(source = replicated))
       }
 
@@ -29,25 +28,30 @@ object WorkflowScriptWriter {
         writer.println("")
       }
 
+      def isLocalUri(uri: URI): Boolean = Option(uri.getScheme) match {
+        case Some("file") | None => true
+        case _ => false
+      }
+
       writer.println("# Pipeline steps:")
-      // script.stepCommands foreach { step =>
-      //   val stringifiedTokens = step.tokens map {
-      //     case dir: CommandToken.InputDir =>
-      //       allSteps(dir.source.toString).outputLocation match {
-      //         case Some(s3Uri) => dir.copy(source = s3Uri).toString
-      //         case None => dir
-      //       }
+      script.stepCommands foreach { step =>
+        val stringifiedTokens = step.tokens map {
+          case dir @ CommandToken.InputDir(source) if isLocalUri(source) =>
+            val replicated = ReplicateDirectory(
+              new File(source.getPath), None, pipeline.rootOutputUrl, pipeline.artifactFactory
+            ).artifact.url
+            dir.copy(source = replicated).toString
 
-      //     case file: CommandToken.InputFile =>
-      //       allSteps(file.source.toString).outputLocation match {
-      //         case Some(s3Uri) => file.copy(source = s3Uri).toString
-      //         case None => file
-      //       }
+          case file @ CommandToken.InputFile(source) if isLocalUri(source) =>
+            val replicated = ReplicateFile(
+              new File(source.getPath), None, pipeline.rootOutputUrl, pipeline.artifactFactory
+            ).artifact.url
+            file.copy(source = replicated).toString
 
-      //     case other => other.toString
-      //   }
-      //   writer.println(stringifiedTokens.mkString(" "))
-      //}
+          case other => other.toString
+        }
+        writer.println(stringifiedTokens.mkString(" "))
+      }
     }
   }
 }

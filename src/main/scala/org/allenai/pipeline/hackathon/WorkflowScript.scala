@@ -39,21 +39,21 @@ object CommandToken {
     * @param source
     */
   case class InputDir(source: URI) extends CommandToken {
-    override def toString: String = s"""{upload:"$source"}"""
+    override def toString: String = s"""{input:"$source", type:"dir"}"""
   }
 
   /** A file input
     * @param source
     */
   case class InputFile(source: URI) extends CommandToken {
-    override def toString: String = s"""{upload:"$source"}"""
+    override def toString: String = s"""{input:"$source", type:"file"}"""
   }
 
   /** A URL input
     * @param source
     */
   case class InputUrl(source: URI) extends CommandToken {
-    override def toString: String = s"""{upload:"$source"}"""
+    override def toString: String = s"""{input:"$source", type:"url"}"""
   }
 
   /** A file that exists in a Package
@@ -76,14 +76,14 @@ object CommandToken {
     * @param suffix will determine the content type
     */
   case class OutputFile(id: String, suffix: String) extends CommandToken {
-    override def toString: String = s"""{out:"$id", type:"file", suffix:"$suffix"}"""
+    override def toString: String = s"""{output:"$id", type:"file", suffix:"$suffix"}"""
   }
 
   /** A directory to output
     * @param id id to use as a reference in downstream steps
     */
   case class OutputDir(id: String) extends CommandToken {
-    override def toString: String = s"""{out:"$id", type:"dir"}"""
+    override def toString: String = s"""{output:"$id", type:"dir"}"""
   }
 
   /** An arbitrary string */

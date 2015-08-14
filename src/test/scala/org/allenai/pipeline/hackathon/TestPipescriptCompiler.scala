@@ -1,23 +1,21 @@
 package org.allenai.pipeline.hackathon
 
 import org.allenai.common.testkit.UnitSpec
-import org.allenai.pipeline.hackathon.PipescriptParser._
 
 import scala.io.Source
 
 import java.io.File
 
 class TestPipescriptCompiler extends UnitSpec {
-  /*
-  it should "successfully parse and resolve a variable command" in {
+  "pipescript compiler" should "successfully parse and resolve a variable command" in {
     val program =
-      """set x = foo
-        |package {id: "pkg", source: ${x}}
+      """set x = "http://www.foo.com"
+        |package {id: "pkg1", source: s"${x}"}
+        |package {id: "pkg2", source: s"$x"}
       """.stripMargin
     val parser = new PipescriptCompiler
     val parsed = parser.parseText(null)(program)
   }
-  */
 
   /*
   it should "successfully parse and use a variable command" in {
@@ -47,6 +45,8 @@ class TestPipescriptCompiler extends UnitSpec {
 
     assert(workflow.packages.size === 1)
     assert(workflow.stepCommands.size === 4)
+
+    workflow.stepCommands foreach println
   }
 
   it should "build a pipeline from a script" in {
