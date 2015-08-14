@@ -102,8 +102,8 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: Stri
       case PipescriptSources(original, stable) =>
         s"""<h2>PipeScripts</h2>
 <ul>
-<li><a href="$original">Original</a></li>
-<li><a href="$stable">Stable</a></li>
+<li><a href="$original" type="text/plain">Original</a></li>
+<li><a href="$stable" type="text/plain">Portable</a></li>
 </ul>
 """
     }).getOrElse("")

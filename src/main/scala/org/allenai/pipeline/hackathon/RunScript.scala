@@ -30,7 +30,10 @@ object RunScript extends App {
   }
 
   val stableScriptUrl = {
-    val stableTempFile = Files.createTempFile("stable", args(0)).toFile
+    val tmpDir = Files.createTempDirectory("pipescript")
+    val stableTempFile = Files.createTempFile(tmpDir, "stable", ".pipe").toFile
+    stableTempFile.deleteOnExit()
+    tmpDir.toFile.deleteOnExit()
     WorkflowScriptWriter.write(script, pipeline, stableTempFile)
     val upload = new ReplicateFile(stableTempFile, None, outputUrl, pipeline.artifactFactory)
     upload.get

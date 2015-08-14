@@ -7,7 +7,7 @@ package {id:"scripts", source:"vision-py/scripts"}
 set pngDir = "/Users/rodneykinney/data/hackathon/png"
 
 # Extract arrow head/tail
-python {file:"ExtractArrows.py", package:"scripts"} {file: "ExtractArrows.py", package:"scripts"} -i {input:$pngDir, type:"dir"} -o {output:"arrowDir", type:"dir"}
+python {file:"ExtractArrows.py", package:"scripts"} -i {input:$pngDir, type:"dir"} -o {output:"arrowDir", type:"dir"}
 
 python {file:"ExtractBlobs.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -o {output:"blobsDir", type:"dir"}
 
