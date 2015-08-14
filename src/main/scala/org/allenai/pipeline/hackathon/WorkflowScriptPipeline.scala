@@ -63,6 +63,8 @@ object WorkflowScriptPipeline {
       case None =>
         val file = pipeline.artifactFactory.createArtifact[FileArtifact](source).file
         ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+      case Some(unknownSchema) =>
+        throw new IllegalArgumentException("Unknown schema: " + unknownSchema)
     }
 
     def replicatedUrlProducer(source: URI): Producer[File] = {
