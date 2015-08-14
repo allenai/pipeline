@@ -38,30 +38,26 @@ class PipescriptCompiler() {
             block.find("package").map {
               pkgName => PackagedInput(pkgName, block.findGet("file"))
             }.getOrElse(sys.error(s"'file' without 'package' in $t"))
-          } else if (block.hasKey("upload")) {
-            val url = new URI(block.findGet("upload"))
+          } else if (block.hasKey("input")) {
+            val url = new URI(block.findGet("input"))
             val isDir = block.find("type").exists(_ == "dir")
             val isUrl = block.find("type").exists(_ == "url")
             if (isDir) {
               CommandToken.InputDir(url)
             } else if (isUrl) {
               CommandToken.InputUrl(url)
-            }
-            else {
+            } else {
               CommandToken.InputFile(url)
             }
-          }
-          else if (block.hasKey("out")) {
+          } else if (block.hasKey("output")) {
             if (block.find("type").exists(_ == "dir")) {
-              OutputDir(block.findGet("out"))
+              OutputDir(block.findGet("output"))
             } else {
-              OutputFile(block.findGet("out"), block.find("suffix").getOrElse(""))
+              OutputFile(block.findGet("output"), block.find("suffix").getOrElse(""))
             }
-          }
-          else if (block.find("ref").nonEmpty) {
+          } else if (block.find("ref").nonEmpty) {
             ReferenceOutput(block.find("ref").get)
-          }
-          else {
+          } else {
             throw new IllegalArgumentException("This should not happen!")
           }
       }
