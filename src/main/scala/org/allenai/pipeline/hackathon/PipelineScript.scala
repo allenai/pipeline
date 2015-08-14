@@ -1,10 +1,11 @@
 package org.allenai.pipeline.hackathon
 
+import java.net.URI
+
 import org.allenai.pipeline.hackathon
+import org.allenai.pipeline.hackathon.CommandToken._
 
 import scala.util.parsing.combinator._
-
-import java.net.URI
 
 class PipelineScriptParser() {
   protected[this] val parser = new PipelineScript.Parser
@@ -25,9 +26,43 @@ class PipelineScriptParser() {
         val sourceUri = new URI(source.value)
         packages :+= hackathon.Package(id.value, sourceUri)
       case PipelineScript.StepStatement(tokens) =>
+        stepCommands :+= StepCommand(tokens.map(transformToken))
     }
 
     WorkflowScript(packages, stepCommands, outputDir)
+  }
+
+  def transformToken(scriptToken: PipelineScript.Token): CommandToken = {
+    scriptToken match {
+      case PipelineScript.StringToken(s) => CommandToken.StringToken(s)
+      case t @ PipelineScript.ArgToken(args) if t.find("file").nonEmpty =>
+        t.find("package").map {
+          pkgName => PackagedInput(pkgName, t.find("file").get)
+        }.getOrElse(sys.error(s"'file' without 'package' in $t"))
+      case t @ PipelineScript.ArgToken(args) if t.find("upload").nonEmpty =>
+        val url = new URI(t.find("upload").get)
+        val isDir = t.find("type").exists(_ == "dir")
+        if (isDir) {
+          CommandToken.InputDir(url, t.find("id"))
+        } else {
+          CommandToken.InputFile(url, t.find("id"))
+        }
+
+      case t @ PipelineScript.ArgToken(args) if t.find("out").nonEmpty =>
+        if (t.find("type").exists(_ == "dir")) {
+          OutputDir(t.find("out").get)
+        } else {
+          OutputFile(t.find("out").get, t.find("suffix").getOrElse(""))
+        }
+      case t @ PipelineScript.ArgToken(args) if t.find("upload").nonEmpty =>
+        if (t.find("type").exists(_ == "dir")) {
+          OutputDir(t.find("out").get)
+        } else {
+          OutputFile(t.find("out").get, t.find("suffix").getOrElse(""))
+        }
+      case t @ PipelineScript.ArgToken(args) if t.find("ref").nonEmpty =>
+        ReferenceOutput(t.find("ref").get)
+    }
   }
 
   def parseLines(outputDir: URI)(lines: TraversableOnce[String]): WorkflowScript = {
@@ -49,7 +84,9 @@ object PipelineScript {
 
   sealed abstract class Token
   case class StringToken(value: String) extends Token
-  case class ArgToken(args: Seq[Arg]) extends Token
+  case class ArgToken(args: Seq[Arg]) extends Token {
+    def find(argName: String) = args.find(_.name == argName).map(_.value)
+  }
 
   class Parser extends RegexParsers {
     def line = comment | packageStatement | stepStatement
@@ -64,7 +101,7 @@ object PipelineScript {
     def stepStatement = rep(token) ^^ { case tokens => StepStatement(tokens) }
     def token: Parser[Token] = argToken | stringToken
     def argToken = "{" ~ args ~ "}" ^^ { case _ ~ args ~ _ => ArgToken(args) }
-    def stringToken = """[^{}]+""".r ^^ { s =>
+    def stringToken = """[^{}\s]+""".r ^^ { s =>
       StringToken(s)
     }
 

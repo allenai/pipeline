@@ -9,13 +9,15 @@ import com.typesafe.config.ConfigFactory
 import java.io.File
 import scala.collection.mutable
 
-class WorkflowScriptPipeline(script: WorkflowScript) {
+object WorkflowScriptPipeline {
 
-  def buildPipeline: Pipeline = {
-    val config = ConfigFactory.parseString(s"""
-output.dir = "${script.outputDir}"
-""")
-    val pipeline = S3Pipeline.configured(config)
+  def buildPipeline(rootOutputUrl: URI, lines: Iterable[String]): Pipeline = {
+    val script = new PipelineScriptParser().parseLines(rootOutputUrl)(lines)
+    buildPipeline(script)
+  }
+
+  def buildPipeline(script: WorkflowScript) = {
+    val pipeline = S3Pipeline(script.outputDir)
 
     val producers = mutable.Map[String, Producer[File]]()
 
@@ -27,8 +29,8 @@ output.dir = "${script.outputDir}"
       val result = arg
       result match {
         case input: InputArg =>
-          require(cachedInputArgs.get(id).isEmpty, s"$id already cached!")
-          cachedInputArgs(id) = input
+          if (!cachedInputArgs.contains(id))
+            cachedInputArgs(id) = input
         case output: OutputArg =>
           require(cachedInputArgs.get(id).isEmpty, s"$id already cached!")
           cachedOutputArgs(id) = output

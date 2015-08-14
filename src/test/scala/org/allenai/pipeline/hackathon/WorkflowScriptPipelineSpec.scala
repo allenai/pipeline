@@ -3,9 +3,9 @@ package org.allenai.pipeline.hackathon
 import java.io.File
 import java.net.URI
 import org.allenai.common.Logging
-import org.allenai.common.testkit.UnitSpec
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
-class WorkflowScriptPipelineSpec extends UnitSpec {
+class WorkflowScriptPipelineSpec extends UnitSpec with ScratchDirectory {
 
   import CommandToken._
 
@@ -63,7 +63,7 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
   )
 
   "WorkflowScriptPipeline" should "work" in {
-    val pipeline = new WorkflowScriptPipeline(script).buildPipeline
+    val pipeline = WorkflowScriptPipeline.buildPipeline(script)
     pipeline.run("WOOOT!")
     // pipeline.dryRun(
     //   outputDir = new File("/Users/markschaake/tmp"),
@@ -74,6 +74,6 @@ class WorkflowScriptPipelineSpec extends UnitSpec {
 
 object WorflowScriptTester extends App with Logging {
   val test = new WorkflowScriptPipelineSpec
-  val pipeline = new WorkflowScriptPipeline(test.script).buildPipeline
+  val pipeline = WorkflowScriptPipeline.buildPipeline(test.script)
   pipeline.run("WOOOT!")
 }

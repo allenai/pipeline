@@ -1,6 +1,8 @@
 package org.allenai.pipeline.hackathon
 
-import org.allenai.common.testkit.UnitSpec
+import java.io.File
+
+import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.allenai.pipeline.hackathon.PipelineScript._
 
 import scala.io.Source
@@ -43,7 +45,7 @@ class TestPipelineScript extends UnitSpec {
     assert(parsed.size > 0)
   }
 
-  it should "build a pipeline from a script" in {
+  ignore should "build a pipeline from a script" in {
     val resourceUrl = {
       val url = this.getClass.getResource("/pipeline/vision-workflow.pipe")
       require(url != null, "Could not find resource.")
@@ -52,6 +54,20 @@ class TestPipelineScript extends UnitSpec {
     val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
 
     val parser = new PipelineScriptParser()
-    parser.parseLines(null)(visionWorkflow)
+    val script = parser.parseLines(null)(visionWorkflow)
+    println(script)
+  }
+
+  it should "run a pipeline from a script" in {
+    val resourceUrl = {
+      val url = this.getClass.getResource("/pipeline/vision-workflow.pipe")
+      require(url != null, "Could not find resource.")
+      url
+    }
+    val visionScriptLines = Source.fromURL(resourceUrl).getLines.toList
+
+    val dir = new File(new File("pipeline-output"), "RunScript").toURI
+    val pipeline = WorkflowScriptPipeline.buildPipeline(dir, visionScriptLines)
+    pipeline.run("RunFromScript")
   }
 }
