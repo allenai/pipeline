@@ -1,5 +1,7 @@
 package org.allenai.pipeline.hackathon
 
+import scala.util.matching.Regex
+import scala.util.matching.Regex.Match
 import scala.util.parsing.combinator._
 
 object PipescriptParser {
@@ -14,17 +16,17 @@ object PipescriptParser {
       args.exists(_.name == name)
     }
 
-    def find(name: String): Option[String] = {
+    def find(name: String): Option[Value] = {
       args.find(_.name == name).map(_.value)
     }
 
-    def findGet(name: String): String = {
+    def findGet(name: String): Value = {
       args.find(_.name == name).getOrElse {
         throw new IllegalArgumentException(s"Could not find key '${name}' in arguments: " + args)
       }.value
     }
   }
-  case class Arg(name: String, value: String)
+  case class Arg(name: String, value: Value)
 
   sealed abstract class Token
   case class StringToken(value: String) extends Token
@@ -37,7 +39,32 @@ object PipescriptParser {
     def resolve(environment: Map[String, String]): String = string
   }
   case class SubstitutionString(string: String) extends Value {
-    def resolve(environment: Map[String, String]): String = string // TODO: BROKEN
+    def resolve(environment: Map[String, String]): String = {
+      case class Replacement(regex: Regex, logic: Match=>String)
+
+      def lookup(m: Match): String = {
+        val ref = m.group(1)
+        val value = environment.get(ref).getOrElse {
+          throw new IllegalArgumentException("Could not find variable 'x' in environment: " +
+              environment)
+        }
+
+        value
+      }
+
+      val replacements = Seq(
+        Replacement(SubstitutionString.bracesVariableRegex, lookup),
+        Replacement(SubstitutionString.plainVariableRegex, lookup)
+      )
+
+      replacements.foldLeft(string) { (string, replacement) =>
+        replacement.regex.replaceAllIn(string, replacement.logic)
+      }
+    }
+  }
+  object SubstitutionString {
+    val bracesVariableRegex = """\$\{([^}]+)\}""".r
+    val plainVariableRegex = """\$(\w+)""".r
   }
 
   class Parser extends JavaTokenParsers {
@@ -64,16 +91,14 @@ object PipescriptParser {
     }
 
     def value = substitutionString | simpleString
-    def substitutionString = "s" ~> stringLiteral ^^ { SubstitutionString(_) }
-    def simpleString = stringLiteral ^^ { SimpleString(_) }
+    def substitutionString = "s" ~> stringLiteral ^^ { s => SubstitutionString(s.substring(1, s.length - 1)) }
+    def simpleString = stringLiteral ^^ { s => SimpleString(s.substring(1, s.length - 1)) }
 
     def block: Parser[Block] = "{" ~> args <~ "}" ^^ { args =>
       Block(args)
     }
     def args: Parser[List[Arg]] = repsep(arg, ",")
-    def arg: Parser[Arg] = term ~ ":" ~ string ^^ { case term ~ ":" ~ string => Arg(term, string) }
-
-    def string = "\"" ~> "[^\"]*".r <~ "\""
+    def arg: Parser[Arg] = term ~ ":" ~ value ^^ { case term ~ ":" ~ value => Arg(term, value) }
 
     // TODO(schmmd): actually escape strings properly.
     def WS = """[ \t]*""".r
