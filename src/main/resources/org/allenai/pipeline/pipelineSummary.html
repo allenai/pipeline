@@ -1,333 +1,366 @@
-<!DOCTYPE html><html>
-  <head>
+<!DOCTYPE html>
+<html>
+<head>
     <meta charset="utf-8">
     <title>Experiment Workflow</title>
     <style type="text/css">
-      html,body {
+        html,body {
         height: 100%%;
-      }
+        }
 
-      html {
+        html {
         font-size: 100%%;
         background: #fff;
-      }
+        }
 
-      body {
-        display: flex;
+        body {
+        display:flex;
+        flex-direction:column;
         margin: 0;
-      }
+        }
 
-      svg {
+        header {
+        text-align:center;
+        }
+
+        #app {
+        display:flex;
+        flex:auto;
+        }
+
+        #dag {
+        display:flex;
+        flex:auto;
+        flex-direction:row;
+        }
+
+        nav {
+        padding: 20px;
+        font-size: 0.75rem;
+        display:flex;
+        flex: 0 0 150px;
+        }
+
+        svg {
         border: 1px solid #ccc;
         margin: 40px;
-        flex-grow: 1;
+        // flex-grow: 1;
         background: #fff;
         padding: 0px;
         box-sizing: border-box;
         overflow: scroll;
         box-shadow: inset 2px 2px 3px 0 #ccc;
-      }
+        flex: 1 1 auto;
+        }
 
-      .node div {
+        .node div {
         padding: 20px;
-      }
+        }
 
-      .node div h2 {
+        .node div h2 {
         margin: 0;
         font-size: 1.25em;
         text-align: center;
-      }
+        }
 
-      .node ul {
+        .node ul {
         list-style-type: none;
         margin: 10px 0;
         padding: 0;
-      }
+        }
 
-      .node ul li {
+        .node ul li {
         margin: 10px 0;
-      }
+        }
 
-      .node ul li:first-child {
+        .node ul li:first-child {
         margin-top: 0;
-      }
+        }
 
-      .node ul li:last-child {
+        .node ul li:last-child {
         margin-bottom: 0;
-      }
+        }
 
-      .node .links {
+        .node .links {
         border-top: 1px solid #2a75a1;
         padding-top: 10px;
-      }
+        }
 
         .node .data {
-          border-top: 1px solid #2a75a1;
-          padding-top: 10px;
+        border-top: 1px solid #2a75a1;
+        padding-top: 10px;
         }
 
         .node rect {
         stroke: #2a75a1;
         stroke-width: 2px;
         fill: #e2f0f8;
-      }
+        }
 
-      .node a {
+        .node a {
         color: #2a75a1;
-      }
+        }
 
-      .node a:hover {
+        .node a:hover {
         color: #489dcf;
-      }
+        }
 
-      .edgeLabel rect {
+        .edgeLabel rect {
         fill: #fff;
-      }
+        }
 
-      .edgePath {
+        .edgePath {
         stroke: #2a75a1;
         stroke-width: 2px;
         fill: none;
-      }/*! normalize.css v3.0.1 | MIT License | git.io/normalize */html {
+        }/*! normalize.css v3.0.1 | MIT License | git.io/normalize */html {
         font-family: sans-serif;
         -ms-text-size-adjust: 100%%;
         -webkit-text-size-adjust: 100%%;
-      }
+        }
 
-      article,aside,details,figcaption,figure,footer,header,hgroup,main,nav,section,summary {
+        article,aside,details,figcaption,figure,footer,header,hgroup,main,nav,section,summary {
         display: block;
-      }
+        }
 
-      audio,canvas,progress,video {
+        audio,canvas,progress,video {
         display: inline-block;
         vertical-align: baseline;
-      }
+        }
 
-      audio:not([controls]) {
+        audio:not([controls]) {
         display: none;
         height: 0;
-      }
+        }
 
-      [hidden],template {
+        [hidden],template {
         display: none;
-      }
+        }
 
-      a {
+        a {
         background: 0 0;
-      }
+        }
 
-      a:active,a:hover {
+        a:active,a:hover {
         outline: 0;
-      }
+        }
 
-      abbr[title] {
+        abbr[title] {
         border-bottom: 1px dotted;
-      }
+        }
 
-      b,strong {
+        b,strong {
         font-weight: 700;
-      }
+        }
 
-      dfn {
+        dfn {
         font-style: italic;
-      }
+        }
 
-      h1 {
+        h1 {
         font-size: 2em;
         margin: .67em 0;
-      }
+        }
 
-      mark {
+        mark {
         background: #ff0;
         color: #000;
-      }
+        }
 
-      small {
+        small {
         font-size: 80%%;
-      }
+        }
 
-      sub,sup {
+        sub,sup {
         font-size: 75%%;
         line-height: 0;
         position: relative;
         vertical-align: baseline;
-      }
+        }
 
-      sup {
+        sup {
         top: -.5em;
-      }
+        }
 
-      sub {
+        sub {
         bottom: -.25em;
-      }
+        }
 
-      img {
+        img {
         border: 0;
-      }
+        }
 
-      svg:not(:root) {
+        svg:not(:root) {
         overflow: hidden;
-      }
+        }
 
-      figure {
+        figure {
         margin: 1em 40px;
-      }
+        }
 
-      hr {
+        hr {
         -moz-box-sizing: content-box;
         box-sizing: content-box;
         height: 0;
-      }
+        }
 
-      pre {
+        pre {
         overflow: auto;
-      }
+        }
 
-      code,kbd,pre,samp {
+        code,kbd,pre,samp {
         font-family: monospace,monospace;
         font-size: 1em;
-      }
+        }
 
-      button,input,optgroup,select,textarea {
+        button,input,optgroup,select,textarea {
         color: inherit;
         font: inherit;
         margin: 0;
-      }
+        }
 
-      button {
+        button {
         overflow: visible;
-      }
+        }
 
-      button,select {
+        button,select {
         text-transform: none;
-      }
+        }
 
-      button,html input[type=button],input[type=reset],input[type=submit] {
+        button,html input[type=button],input[type=reset],input[type=submit] {
         -webkit-appearance: button;
         cursor: pointer;
-      }
+        }
 
-      button[disabled],html input[disabled] {
+        button[disabled],html input[disabled] {
         cursor: default;
-      }
+        }
 
-      button::-moz-focus-graph,input::-moz-focus-graph {
+        button::-moz-focus-graph,input::-moz-focus-graph {
         border: 0;
         padding: 0;
-      }
+        }
 
-      input {
+        input {
         line-height: normal;
-      }
+        }
 
-      input[type=checkbox],input[type=radio] {
+        input[type=checkbox],input[type=radio] {
         box-sizing: border-box;
         padding: 0;
-      }
+        }
 
-      input[type=number]::-webkit-graph-spin-button,input[type=number]::-webkit-outer-spin-button {
+        input[type=number]::-webkit-graph-spin-button,input[type=number]::-webkit-outer-spin-button
+        {
         height: auto;
-      }
+        }
 
-      input[type=search] {
+        input[type=search] {
         -webkit-appearance: textfield;
         -moz-box-sizing: content-box;
         -webkit-box-sizing: content-box;
         box-sizing: content-box;
-      }
+        }
 
-      input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration {
+        input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration
+        {
         -webkit-appearance: none;
-      }
+        }
 
-      fieldset {
+        fieldset {
         border: 1px solid silver;
         margin: 0 2px;
         padding: .35em .625em .75em;
-      }
-
-      legend {
-        border: 0;
-        padding: 0;
-      }
-
-      textarea {
-        overflow: auto;
-      }
-
-      optgroup {
-        font-weight: 700;
-      }
-
-      table {
-        border-collapse: collapse;
-        border-spacing: 0;
-      }
-
-      td,th {
-        padding: 0;
-      }
-
-      .sourceNode rect {
-        fill: #C3E4F7;
-      }
-
-      .sinkNode rect {
-        fill: #C3E4F7;
-      }
-
-      .errorNode rect {
-        fill: #C38888;
-      }
-
-        .executionInfo {
-         font-size: 20%%;
-         float: right;
         }
 
-        #outputContainer {
-        position: absolute;
-        top: 41px;
-        left: 41px;
-        width: 250px;
-        padding: 20px;
-        font-size: 0.75rem;
-      }
+        legend {
+        border: 0;
+        padding: 0;
+        }
 
-      #outputContainer h2 {
+        textarea {
+        overflow: auto;
+        }
+
+        optgroup {
+        font-weight: 700;
+        }
+
+        table {
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+
+        td,th {
+        padding: 0;
+        }
+
+        .sourceNode rect {
+        fill: #C3E4F7;
+        }
+
+        .sinkNode rect {
+        fill: #C3E4F7;
+        }
+
+        .errorNode rect {
+        fill: #C38888;
+        }
+
+        .executionInfo {
+        font-size: 20%%;
+        float: right;
+        }
+
+        // #outputContainer {
+        // position: absolute;
+        // top: 41px;
+        // left: 41px;
+        // width: 250px;
+        // padding: 20px;
+        // font-size: 0.75rem;
+        // }
+
+        nav h2 {
         margin: 0 0 15px;
         font-size: 0.75rem;
         text-transform: uppercase;
-      }
+        }
 
-      #outputContainer ul {
+        nav ul {
         padding: 0;
         margin: 0;
-      }
+        }
 
-      #outputContainer ul li {
+        nav ul li {
         text-align: left;
         margin: 10px 0;
         list-style-position: inside;
-      }
+        }
 
-      #outputContainer ul li:last-child {
+        nav ul li:last-child {
         margin-bottom: 0;
-      }
+        }
     </style>
-  </head>
-  <body>
-    <div id="title">
-      %s
+</head>
+<body>
+<header>
+    %s
+</header>
+<div id="app">
+    <div id="dag">
+        <nav id="outputContainer">
+            <h2>Outputs</h2>
+            %s
+        </nav>
+        <svg width="100%%">
+            <g id="graph"/>
+        </svg>
     </div>
-      <svg width="100%%"><g id="graph"/></svg>
-    <div id="outputContainer">
-      <h2>Outputs</h2>
-%s
-    </div>
-    <script src="http://d3js.org/d3.v3.min.js"></script>
-    <script src="http://cpettitt.github.io/project/dagre-d3/v0.4.6/dagre-d3.min.js"></script>
-    <script>
+</div>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://cpettitt.github.io/project/dagre-d3/v0.4.6/dagre-d3.min.js"></script>
+<script>
       (function() {
         /**
          * Class representing an individual Link.
@@ -440,6 +473,8 @@
           .scale(scale)
           .event(svg);
       })();
-    </script>
-  </body>
+
+
+</script>
+</body>
 </html>
