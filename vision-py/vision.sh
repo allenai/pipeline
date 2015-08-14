@@ -8,4 +8,4 @@ python $scripts/ExtractBlobs.py -i $pngDir -o $outputDir/blobs
 
 python $scripts/ExtractText.py -i $pngDir -o $outputDir/text
 
-python $scripts/ExtractRelations.py -a $outputDir/arrows -b $outputDir/blobs -t $outputDir/text -o $outputDir/relations
+python $scripts/ExtractRelations.py -i $pngDir -a $outputDir/arrows -b $outputDir/blobs -t $outputDir/text -o $outputDir/relations
