@@ -14,8 +14,10 @@
      }
 
      body {
+       display:-webkit-flex;
        display:flex;
        flex-direction:column;
+       -webkit-flex-direction:column;
        margin: 0;
      }
 
@@ -31,20 +33,27 @@
      }
 
      #app {
+       display:-webkit-flex;
        display:flex;
        flex:auto;
+       -webkit-flex:auto;
      }
 
      #dag {
+       display:-webkit-flex;
        display:flex;
        flex:auto;
+       -webkit-flex:auto;
        flex-direction:row;
+       -webkit-flex-direction:row;
      }
 
      nav {
        font-size: 0.75rem;
+       display:-webkit-flex;
        display:flex;
        flex: 0 0 200px;
+       -webkit-flex: 0 0 200px;
        background-color: rgba(255, 165, 0, 0.25);
      }
 
@@ -91,6 +100,16 @@
        color: black;
      }
 
+     .outputs {
+       margin-top: 10px;
+     }
+
+     .outputs h2 {
+       background-color: #C5C5C5;
+       margin-top: 10px;
+       border-top: 1px solid #888;
+     }
+
      svg {
        border: 1px solid #ccc;
        background: #fff;
@@ -99,6 +118,7 @@
        overflow: scroll;
        box-shadow: inset 2px 2px 3px 0 #ccc;
        flex: 1 1 auto;
+       -webkit-flex: 1 1 auto;
      }
 
      .node div {
@@ -370,8 +390,10 @@
         <nav id="outputContainer">
           <!-- Sources will be rendered here if they are available -->
           %s
-          <h2>Outputs</h2>
-          %s
+          <div class="outputs" >
+            <h2>Outputs</h2>
+            %s
+          </div>
         </nav>
         <svg width="100%%">
           <g id="graph"/>
