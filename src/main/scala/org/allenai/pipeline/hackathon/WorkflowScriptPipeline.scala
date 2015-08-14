@@ -115,7 +115,7 @@ object WorkflowScriptPipeline {
       runProcess.outputDirs foreach {
         case (id, producer) =>
           producers(id) =
-            pipeline.persist(producer, UploadDirectory, name = id)
+            pipeline.persist(producer, UploadDirectory, name = id, suffix = ".zip")
       }
       runProcess
     }
