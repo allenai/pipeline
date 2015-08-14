@@ -1,6 +1,7 @@
 package org.allenai.pipeline.hackathon
 
 import java.io.File
+import java.nio.file.Files
 import java.net.URI
 
 import scala.io.Source
@@ -11,6 +12,7 @@ object RunScript extends App {
     System.exit(1)
   }
   val scriptFile = new File(args(0))
+
   val visionScriptLines = Source.fromFile(scriptFile).getLines.toList
 
   val outputUrl =
@@ -18,12 +20,27 @@ object RunScript extends App {
       new File(new File("pipeline-output"), "RunScript").toURI
     else
       new URI(args(1))
-  val pipeline = WorkflowScriptPipeline.buildPipeline(outputUrl, visionScriptLines)
-  val uploadedScriptUrl = {
+
+  val script = new PipescriptCompiler().parseLines(outputUrl)(visionScriptLines)
+  val pipeline = WorkflowScriptPipeline.buildPipeline(script)
+  val originalScriptUrl = {
     val upload = new ReplicateFile(scriptFile, None, outputUrl, pipeline.artifactFactory)
     upload.get
     pipeline.toHttpUrl(upload.artifact.url)
   }
-  pipeline.run(scriptFile.getName, Some(uploadedScriptUrl))
+
+  val stableScriptUrl = {
+    val stableTempFile = Files.createTempFile("stable", args(0)).toFile
+    WorkflowScriptWriter.write(script, pipeline, stableTempFile)
+    val upload = new ReplicateFile(stableTempFile, None, outputUrl, pipeline.artifactFactory)
+    upload.get
+    pipeline.toHttpUrl(upload.artifact.url)
+  }
+
+  val scripts = PipescriptSources(
+    original = originalScriptUrl,
+    stable = stableScriptUrl
+  )
+  pipeline.run(scriptFile.getName, Some(scripts))
 
 }

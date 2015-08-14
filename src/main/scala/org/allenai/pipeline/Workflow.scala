@@ -2,6 +2,7 @@ package org.allenai.pipeline
 
 import java.net.URI
 
+import org.allenai.pipeline.hackathon.PipescriptSources
 import org.allenai.common.Resource
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -10,7 +11,7 @@ import scala.io.Source
 
 /** DAG representation of the execution of a set of Producers.
   */
-case class Workflow(nodes: Map[String, Node], links: Iterable[Link], titleLink: Option[(String, String)] = None) {
+case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: String, pipescripts: Option[PipescriptSources] = None) {
   def sourceNodes() = nodes.filter {
     case (nodeId, node) =>
       !links.exists(link => link.toId == nodeId)
@@ -97,8 +98,17 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], titleLink: 
       source.mkString
     }
     val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
-    val title = this.titleLink.map { case (s, l) => s"""<h1><a href="$l">$s</a></h1>""" }.getOrElse("")
-    template.format(title, outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
+    val pipescriptsHtml = (pipescripts map {
+      case PipescriptSources(original, stable) =>
+        s"""<h2>PipeScripts</h2>
+<ul>
+<li><a href="$original">Original</a></li>
+<li><a href="$stable">Stable</a></li>
+</ul>
+"""
+    }).getOrElse("")
+
+    template.format(title, pipescriptsHtml, outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
   }
 }
 
@@ -147,7 +157,7 @@ object Node {
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String], titleLink: Option[(String, String)] = None): Workflow = {
+  def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String], title: String, pipescripts: Option[PipescriptSources]): Workflow = {
     val idToName = steps.map { case (k, v) => (v.stepInfo.signature.id, k) }.toMap
     val nameToStep = steps.toMap
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
@@ -177,7 +187,7 @@ object Workflow {
       step = nameToStep(stepName)
       (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
-    Workflow(nodes, links, titleLink)
+    Workflow(nodes, links, title, pipescripts)
   }
 
   def upstreamDependencies(step: PipelineStep): Set[PipelineStep] = {
@@ -187,18 +197,17 @@ object Workflow {
 
   implicit val jsFormat = {
     implicit val linkFormat = jsonFormat3(Link)
-    implicit val nodeFormat = {
-      implicit val uriFormat = new JsonFormat[URI] {
-        override def write(uri: URI): JsValue = JsString(uri.toString)
+    implicit val uriFormat = new JsonFormat[URI] {
+      override def write(uri: URI): JsValue = JsString(uri.toString)
 
-        override def read(value: JsValue): URI = value match {
-          case JsString(uri) => new URI(uri)
-          case s => sys.error(s"Invalid URI: $s")
-        }
+      override def read(value: JsValue): URI = value match {
+        case JsString(uri) => new URI(uri)
+        case s => sys.error(s"Invalid URI: $s")
       }
-      jsonFormat10(Node.apply)
     }
-    jsonFormat(Workflow.apply, "nodes", "links", "title")
+    implicit val nodeFormat = jsonFormat10(Node.apply)
+    implicit val pipescriptsFormat = jsonFormat2(PipescriptSources.apply)
+    jsonFormat(Workflow.apply, "nodes", "links", "title", "pipescripts")
   }
 
   private def toHttp(uri: URI) = uri.getScheme match {
