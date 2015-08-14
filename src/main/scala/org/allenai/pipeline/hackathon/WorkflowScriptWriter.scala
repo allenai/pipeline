@@ -1,27 +1,15 @@
 package org.allenai.pipeline.hackathon
 
+import org.allenai.common.Resource
+import org.allenai.pipeline._
+
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
 import java.net.URI
-import org.allenai.common.Resource
-import org.allenai.pipeline._
 
 object WorkflowScriptWriter {
   def write(script: WorkflowScript, pipeline: Pipeline, dest: File): Unit = {
-    def getStepInfos(step: PipelineStep): Seq[PipelineStepInfo] = {
-      val stepInfo = step.stepInfo
-      if (stepInfo.dependencies.isEmpty) {
-        List(stepInfo)
-      } else {
-        stepInfo :: stepInfo.dependencies.values.flatMap(getStepInfos).toList
-      }
-    }
-
-    val allSteps: Map[String, PipelineStepInfo] =
-      (pipeline.persistedSteps.values.flatMap(getStepInfos) map { stepInfo =>
-        (stepInfo.className, stepInfo)
-      }).toMap
 
     Resource.using(new PrintWriter(dest)) { writer =>
       writer.println("# This is an AI2 Pipeline Workflow Script")
@@ -31,11 +19,10 @@ object WorkflowScriptWriter {
         writer.println("# Packaged directories containing pipeline resources:")
       }
       script.packages foreach { pkg =>
-        val stepInfo = allSteps(pkg.source.toString)
-        stepInfo.outputLocation match {
-          case Some(out) => writer.println(pkg.copy(source = out).toString)
-          case None => writer.println(pkg.toString)
-        }
+        val replicated = ReplicateDirectory(
+          new File(pkg.source), None, pipeline.rootOutputUrl, pipeline.artifactFactory
+        ).get.toURI
+        writer.println(pkg.copy(source = replicated))
       }
 
       if (script.packages.nonEmpty) {
@@ -43,24 +30,24 @@ object WorkflowScriptWriter {
       }
 
       writer.println("# Pipeline steps:")
-      script.stepCommands foreach { step =>
-        val stringifiedTokens = step.tokens map {
-          case dir: CommandToken.InputDir =>
-            allSteps(dir.source.toString).outputLocation match {
-              case Some(s3Uri) => dir.copy(source = s3Uri).toString
-              case None => dir
-            }
+      // script.stepCommands foreach { step =>
+      //   val stringifiedTokens = step.tokens map {
+      //     case dir: CommandToken.InputDir =>
+      //       allSteps(dir.source.toString).outputLocation match {
+      //         case Some(s3Uri) => dir.copy(source = s3Uri).toString
+      //         case None => dir
+      //       }
 
-          case file: CommandToken.InputFile =>
-            allSteps(file.source.toString).outputLocation match {
-              case Some(s3Uri) => file.copy(source = s3Uri).toString
-              case None => file
-            }
+      //     case file: CommandToken.InputFile =>
+      //       allSteps(file.source.toString).outputLocation match {
+      //         case Some(s3Uri) => file.copy(source = s3Uri).toString
+      //         case None => file
+      //       }
 
-          case other => other.toString
-        }
-        writer.println(stringifiedTokens.mkString(" "))
-      }
+      //     case other => other.toString
+      //   }
+      //   writer.println(stringifiedTokens.mkString(" "))
+      //}
     }
   }
 }
