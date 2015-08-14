@@ -1,5 +1,7 @@
 package org.allenai.pipeline.hackathon
 
+import com.typesafe.config.{ConfigValueFactory, ConfigFactory, Config}
+
 import java.net.URI
 
 import org.allenai.pipeline.hackathon
@@ -14,58 +16,69 @@ class PipelineScriptParser() {
     var packages = Vector.empty[hackathon.Package]
     var stepCommands = Vector.empty[hackathon.StepCommand]
 
+    var environment = ConfigFactory.empty
     parsedStatements.foreach {
       case PipelineScript.CommentStatement(_) =>
-      case PipelineScript.PackageStatement(args) =>
-        val source = args.find(_.name == "source").getOrElse {
-          throw new IllegalArgumentException("No argument 'source' in package: " + args)
-        }
-        val id = args.find(_.name == "id").getOrElse {
-          throw new IllegalArgumentException("No argument 'id' in package: " + args)
-        }
-        val sourceUri = new URI(source.value)
-        packages :+= hackathon.Package(id.value, sourceUri)
+      case PipelineScript.VariableStatement(name, value) =>
+        val resolvedValue = ConfigFactory.parseString("v=" + value).getString("v")
+        environment = environment.withValue(name, ConfigValueFactory.fromAnyRef(resolvedValue))
+      case PipelineScript.PackageStatement(block) =>
+        val source = block.resolve(environment).getString("source")
+        val id = block.resolve(environment).getString("id")
+        val sourceUri = new URI(source)
+        packages :+= hackathon.Package(id, sourceUri)
       case PipelineScript.StepStatement(tokens) =>
         stepCommands :+= StepCommand(tokens.map(transformToken))
     }
 
-    WorkflowScript(packages, stepCommands, outputDir)
-  }
-
-  def transformToken(scriptToken: PipelineScript.Token): CommandToken = {
-    scriptToken match {
-      case PipelineScript.StringToken(s) => CommandToken.StringToken(s)
-      case t @ PipelineScript.ArgToken(args) if t.find("file").nonEmpty =>
-        t.find("package").map {
-          pkgName => PackagedInput(pkgName, t.find("file").get)
-        }.getOrElse(sys.error(s"'file' without 'package' in $t"))
-      case t @ PipelineScript.ArgToken(args) if t.find("upload").nonEmpty =>
-        val url = new URI(t.find("upload").get)
-        val isDir = t.find("type").exists(_ == "dir")
-        val isUrl = t.find("type").exists(_ == "url")
-        if (isDir) {
-          CommandToken.InputDir(url)
-        } else if (isUrl) {
-          CommandToken.InputUrl(url)
-        } else {
-          CommandToken.InputFile(url)
-        }
-
-      case t @ PipelineScript.ArgToken(args) if t.find("out").nonEmpty =>
-        if (t.find("type").exists(_ == "dir")) {
-          OutputDir(t.find("out").get)
-        } else {
-          OutputFile(t.find("out").get, t.find("suffix").getOrElse(""))
-        }
-      case t @ PipelineScript.ArgToken(args) if t.find("upload").nonEmpty =>
-        if (t.find("type").exists(_ == "dir")) {
-          OutputDir(t.find("out").get)
-        } else {
-          OutputFile(t.find("out").get, t.find("suffix").getOrElse(""))
-        }
-      case t @ PipelineScript.ArgToken(args) if t.find("ref").nonEmpty =>
-        ReferenceOutput(t.find("ref").get)
+    def transformToken(scriptToken: PipelineScript.Token): CommandToken = {
+      scriptToken match {
+        case PipelineScript.StringToken(s) => CommandToken.StringToken(s)
+        case t@PipelineScript.ArgToken(block) =>
+          val resolved = block.resolve(environment)
+          def find(key: String) = {
+            if (resolved.hasPath(key)) {
+              Some(resolved.getString(key))
+            }
+            else {
+              None
+            }
+          }
+          if (resolved.hasPath("file")) {
+            find("package").map {
+              pkgName => PackagedInput(pkgName, find("file").get)
+            }.getOrElse(sys.error(s"'file' without 'package' in $t"))
+          } else if (find("upload").nonEmpty) {
+            val url = new URI(find("upload").get)
+            val isDir = find("type").exists(_ == "dir")
+            val isUrl = find("type").exists(_ == "url")
+            if (isDir) {
+              CommandToken.InputDir(url)
+            } else if (isUrl) {
+              CommandToken.InputUrl(url)
+            }
+            else {
+              CommandToken.InputFile(url)
+            }
+          }
+          else if (find("out").nonEmpty) {
+            if (find("type").exists(_ == "dir")) {
+              OutputDir(find("out").get)
+            } else {
+              OutputFile(find("out").get, find("suffix").getOrElse(""))
+            }
+          }
+          else if (find("ref").nonEmpty) {
+            ReferenceOutput(find("ref").get)
+          }
+          else {
+            throw new IllegalArgumentException("This should not happen!")
+          }
+      }
     }
+
+
+    WorkflowScript(packages, stepCommands, outputDir)
   }
 
   def parseLines(outputDir: URI)(lines: TraversableOnce[String]): WorkflowScript = {
@@ -78,34 +91,60 @@ class PipelineScriptParser() {
 }
 
 object PipelineScript {
+
   case class Arg(name: String, value: String)
 
   sealed abstract class Statement
+
   case class CommentStatement(comment: String) extends Statement
-  case class PackageStatement(args: Seq[Arg]) extends Statement
+
+  case class VariableStatement(name: String, value: String) extends Statement
+
+  case class PackageStatement(block: Block) extends Statement
+
   case class StepStatement(tokens: Seq[Token]) extends Statement
 
-  sealed abstract class Token
-  case class StringToken(value: String) extends Token
-  case class ArgToken(args: Seq[Arg]) extends Token {
-    def find(argName: String) = args.find(_.name == argName).map(_.value)
+  case class Block(value: String) {
+    def resolve(context: Config): Config = {
+      ConfigFactory.parseString(value).resolveWith(context)
+    }
   }
 
+  sealed abstract class Token
+
+  case class StringToken(value: String) extends Token
+
+  case class ArgToken(block: Block) extends Token
+
   class Parser extends RegexParsers {
-    def line = comment | packageStatement | stepStatement
+    def line = comment | packageStatement | variableStatement | stepStatement
 
     def comment = """#.*""".r ^^ { string => CommentStatement(string) }
 
-    def packageStatement = "package {" ~ args ~ "}" ^^ {
-      case _ ~ args ~ _ =>
-        PackageStatement(args)
+    def packageStatement = "package" ~ block ^^ { case _ ~ b =>
+      PackageStatement(b)
     }
 
     def stepStatement = rep(token) ^^ { case tokens => StepStatement(tokens) }
+
     def token: Parser[Token] = argToken | stringToken
-    def argToken = "{" ~ args ~ "}" ^^ { case _ ~ args ~ _ => ArgToken(args) }
+
+    def argToken = block ^^ { block => ArgToken(block) }
+
     def stringToken = """[^{}\s]+""".r ^^ { s =>
       StringToken(s)
+    }
+
+    def variableStatement = "set" ~> term ~ "=" ~ """.*""".r ^^ { case name ~ _ ~ value =>
+      VariableStatement(name, value)
+    }
+
+    def block: Parser[Block] = blockText ^^ {
+      Block(_)
+    }
+
+    def blockText: Parser[String] = "{" ~ "[^{}]*".r ~ rep(blockText) ~ "[^{}]*".r ~ "}" ^^ {
+      case "{" ~ left ~ subblocks ~ right ~ "}" => "{" + left + subblocks.mkString("") + right + "}"
     }
 
     def args: Parser[List[Arg]] = repsep(arg, ",")
@@ -130,11 +169,9 @@ object PipelineScript {
       } yield {
         this.parseLine(line) match {
           case Success(matchers, _) => matchers
-          case fail: Failure =>
-            throw new IllegalArgumentException(s"improper pattern syntax on '${line}': " + fail.msg)
-          case error: Error =>
-            throw new IllegalArgumentException(s"error on pattern syntax '${line}': " +
-              error.toString)
+          case e: NoSuccess =>
+            Console.err.println(e)
+            throw new IllegalArgumentException(s"failed to parse '${line}'")
         }
       }
     }
@@ -143,4 +180,5 @@ object PipelineScript {
       parseLines(s.split("\n").toList)
     }
   }
+
 }

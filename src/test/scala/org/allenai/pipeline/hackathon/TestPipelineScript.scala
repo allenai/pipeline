@@ -12,10 +12,41 @@ class TestPipelineScript extends UnitSpec {
     val program = """python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}"""
     val parser = new PipelineScript.Parser
     val parsed = parser.parseAll(parser.stepStatement, program)
-    assert(parser.parseAll(parser.stepStatement, program).successful)
+    assert(parsed.successful)
   }
 
-  it should "successfully parse a small sample program" in {
+  it should "successfully parse a variable command" in {
+    val program = """set x = foo"""
+    val parser = new PipelineScript.Parser
+    val parsed = parser.parseAll(parser.variableStatement, program)
+    assert(parsed.successful)
+  }
+
+  it should "successfully parse and resolve a variable command" in {
+    val program =
+      """set x = foo
+        |package {id: "pkg", source: ${x}}
+      """.stripMargin
+    val parser = new PipelineScriptParser
+    val parsed = parser.parseText(null)(program)
+  }
+
+  /*
+  it should "successfully parse and use a variable command" in {
+    val program =
+      """set x = foo
+        |echo {in: "$x"}
+      """.stripMargin
+    val parser = new PipelineScript.Parser
+    val parsed = parser.parseText(program).toSeq
+    assert(parsed.length === 2)
+    assert(parsed(1).isInstanceOf[StepStatement])
+    assert(parsed(1).asInstanceOf[StepStatement].tokens(1).asInstanceOf[ArgToken].args.find(_
+        .name == "in").get.value === "foo")
+  }
+  */
+
+  ignore should "successfully parse a small sample program" in {
     val simpleProgram =
       """|package {source: "./scripts", id: "scripts"}
         |
@@ -24,14 +55,17 @@ class TestPipelineScript extends UnitSpec {
 
     val parser = new PipelineScript.Parser
     val parsed = parser.parseText(simpleProgram).toSeq
-    assert(parsed.toList === List(
-      PackageStatement(List(Arg("source", "./scripts"), Arg("id", "scripts"))),
+    assert(parsed === Seq(
+      PackageStatement(Block("""{source: "./scripts", id: "scripts"}""")),
       CommentStatement("# Woohoo"),
-      StepStatement(List(ArgToken(Seq(Arg("in", "$scripts/asdf"))), StringToken("eek"), ArgToken(Seq(Arg("out", "$scripts/asdf")))))
-    ))
+      StepStatement(Seq(
+        ArgToken(Block("""{in:"$scripts/asdf"}""")),
+        StringToken("eek "),
+        ArgToken(Block("""{out:"$scripts/asdf"}""")))))
+    )
   }
 
-  ignore should "successfully parse the sample vision workflow" in {
+  it should "successfully parse the sample vision workflow" in {
     val resourceUrl = {
       val url = this.getClass.getResource("/pipeline/vision-workflow.pipe")
       require(url != null, "Could not find resource.")
@@ -39,10 +73,8 @@ class TestPipelineScript extends UnitSpec {
     }
     val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
 
-    val parser = new PipelineScript.Parser
-    val parsed = parser.parseLines(visionWorkflow).toSeq
-
-    assert(parsed.size > 0)
+    val parser = new PipelineScriptParser
+    val parsed = parser.parseLines(null)(visionWorkflow)
   }
 
   it should "build a pipeline from a script" in {
@@ -55,7 +87,6 @@ class TestPipelineScript extends UnitSpec {
 
     val parser = new PipelineScriptParser()
     val script = parser.parseLines(null)(visionWorkflow)
-    println(script)
   }
 
   it should "run a pipeline from a script" in {
