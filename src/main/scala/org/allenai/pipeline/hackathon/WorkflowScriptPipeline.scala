@@ -41,12 +41,12 @@ object WorkflowScriptPipeline {
 
     def replicatedDirProducer(source: URI): Producer[File] = Option(source.getScheme) match {
       case Some("s3") =>
-        // TODO: create a producer that reads a directory from S3
-        // val artifact = new S3ZipArtifact(source.toString, S3Config(source.getAuthority))
-        // val foo = pipeline.s3Cache.readZip(artifact)
-        // IoHelpers.Read.fromArtifact()
-        val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
-        ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+        pipeline.artifactFactory.createArtifact[StructuredArtifact](source) match {
+          case d: DirectoryArtifact =>
+            ReplicateDirectory(d.dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+          case a => ReadFromArtifact(UploadDirectory, a)
+        }
+
       case None =>
         val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
         ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
