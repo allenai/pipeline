@@ -8,8 +8,6 @@ package {id:"aristoScripts", source:"solver-combo/aristo-scripts"}
 package {id:"mathematicaScripts", source:"solver-combo/mathematica-scripts"}
 package {id:"pythonScripts", source:"solver-combo/python-scripts"}
 
-
-
 # Get feature vectors
 {file:"GetFeatureVectorsFromEF.sh", package:"aristoScripts"} {output:"train1"} http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/Regents%20Training%20and%20Regents%20Test%20and%20Monarch%20Training%20and%20Monarch%20Test/evaluation/b6d38f34-d08b-478c-af60-99c04b1b4d2d Train
 {file:"GetFeatureVectorsFromEF.sh", package:"aristoScripts"} {output:"train2"} http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/13b48240-1681-4911-908c-d3e7b00cf2dc/evaluation/f736cf66-5a20-4b52-970f-3db71737d95c Train

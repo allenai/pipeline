@@ -18,10 +18,11 @@ object RunScript extends App {
   val isStable = scriptLines.head == WorkflowScriptWriter.StableComment
 
   val outputUrl =
-    if (args.length == 1)
+    if (args.length == 1) {
       new File(new File("pipeline-output"), "RunScript").toURI
-    else
+    } else {
       new URI(args(1))
+    }
 
   val script = new PipescriptCompiler().parseLines(outputUrl)(scriptLines)
   val pipeline = WorkflowScriptPipeline.buildPipeline(script)

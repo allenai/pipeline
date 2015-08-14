@@ -93,6 +93,9 @@ object PipescriptParser {
     val stringBody = StringHelpers.stripQuotes(stringLiteral)
     def resolve(environment: Map[String, String]): String = StringHelpers.unescape(stringBody)
   }
+  object SimpleString {
+    def from(s: String): SimpleString = SimpleString("\"" + s + "\"")
+  }
 
   /** A scala-style substitution string."
     * s"Hello ${your.name}! My name is ${myName}"
@@ -139,11 +142,12 @@ object PipescriptParser {
 
     def comment = """#.*""".r ^^ { string => CommentStatement(string) }
 
-    def packageStatement = "package" ~! block ^^ { case _ ~ b =>
-      PackageStatement(b)
+    def packageStatement = "package" ~! block ^^ {
+      case _ ~ b =>
+        PackageStatement(b)
     }
 
-    def stepStatement = rep(token) ^^ { case tokens => StepStatement(tokens) }
+    def stepStatement = "run" ~> rep(token) ^^ { case tokens => StepStatement(tokens) }
 
     def token: Parser[Token] = argToken | stringToken
 
@@ -153,8 +157,9 @@ object PipescriptParser {
       StringToken(s)
     }
 
-    def variableStatement = "set" ~! block ^^ { case _ ~ block =>
-      SetStatement(block)
+    def variableStatement = "set" ~! block ^^ {
+      case _ ~ block =>
+        SetStatement(block)
     }
 
     def value = substitutionString | simpleString | variableReference
