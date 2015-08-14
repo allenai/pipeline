@@ -86,17 +86,20 @@ object WorkflowScriptPipeline {
           val producer = replicatedDirProducer(source)
           val id = source.toString
           producers(id) = producer
-          cacheArg(id)(InputFileArg(id, producer))
+          val name = producer.stepInfo.className
+          cacheArg(id)(InputDirArg(name, producer))
 
         case CommandToken.InputFile(source) =>
           val producer = replicatedFileProducer(source)
           val id = source.toString
-          cacheArg(id)(InputFileArg(id, producer))
+          val name = producer.stepInfo.className
+          cacheArg(id)(InputFileArg(name, producer))
 
         case CommandToken.InputUrl(source) =>
           val producer = replicatedUrlProducer(source)
           val id = source.toString
-          cacheArg(id)(InputFileArg(id, producer))
+          val name = producer.stepInfo.className
+          cacheArg(id)(InputFileArg(name, producer))
 
         case CommandToken.ReferenceOutput(id) => cachedOutputArgs(id) match {
           case f: OutputFileArg => InputFileArg(id, producers(id))

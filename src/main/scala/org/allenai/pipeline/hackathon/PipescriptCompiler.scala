@@ -1,6 +1,6 @@
 package org.allenai.pipeline.hackathon
 
-import com.typesafe.config.{ConfigValueFactory, ConfigFactory, Config}
+import com.typesafe.config.{ ConfigValueFactory, ConfigFactory, Config }
 
 import java.net.URI
 
@@ -33,15 +33,15 @@ class PipescriptCompiler() {
     def transformToken(scriptToken: PipescriptParser.Token): CommandToken = {
       scriptToken match {
         case PipescriptParser.StringToken(s) => CommandToken.StringToken(s)
-        case t@PipescriptParser.ArgToken(block) =>
+        case t @ PipescriptParser.ArgToken(block) =>
           if (block.hasKey("file")) {
             block.find("package").map(_.resolve(environment)).map {
               pkgName => PackagedInput(pkgName, block.findGet("file").resolve(environment))
             }.getOrElse(sys.error(s"'file' without 'package' in $t"))
           } else if (block.hasKey("input")) {
             val url = new URI(block.findGet("input").resolve(environment))
-            val isDir = block.find("type").exists(_ == "dir")
-            val isUrl = block.find("type").exists(_ == "url")
+            val isDir = block.find("type").exists(_.resolve(environment) == "dir")
+            val isUrl = block.find("type").exists(_.resolve(environment) == "url")
             if (isDir) {
               CommandToken.InputDir(url)
             } else if (isUrl) {
@@ -50,7 +50,7 @@ class PipescriptCompiler() {
               CommandToken.InputFile(url)
             }
           } else if (block.hasKey("output")) {
-            if (block.find("type").exists(_ == "dir")) {
+            if (block.find("type").exists(_.resolve(environment) == "dir")) {
               OutputDir(block.findGet("output").resolve(environment))
             } else {
               OutputFile(
@@ -65,7 +65,6 @@ class PipescriptCompiler() {
           }
       }
     }
-
 
     WorkflowScript(packages, stepCommands, outputDir)
   }

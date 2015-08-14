@@ -65,7 +65,7 @@ class TestPipescriptParser extends UnitSpec {
     assert(parsed(2) === StepStatement(List(
       ArgToken(Block(List(Arg("in", SimpleString("asdf"))))),
       StringToken("eek"),
-      ArgToken(Block(List(Arg("out", SimpleString("fdsa"))))))
-    ))
+      ArgToken(Block(List(Arg("out", SimpleString("fdsa")))))
+    )))
   }
 }
