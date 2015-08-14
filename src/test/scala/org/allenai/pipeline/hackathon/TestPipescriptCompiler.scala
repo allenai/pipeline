@@ -45,6 +45,8 @@ class TestPipescriptCompiler extends UnitSpec {
 
     assert(workflow.packages.size === 1)
     assert(workflow.stepCommands.size === 4)
+
+    workflow.stepCommands foreach println
   }
 
   it should "build a pipeline from a script" in {

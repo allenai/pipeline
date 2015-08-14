@@ -35,21 +35,28 @@ object PipescriptParser {
   case class ArgToken(block: Block) extends Token
 
   sealed abstract class Value {
-    def stringLiteral: String
-    val stringBody = StringHelpers.stripQuotes(stringLiteral)
     def resolve(environment: Map[String, String]): String
   }
+  case class VariableReference(name: String) extends Value {
+    def resolve(environment: Map[String, String]): String =
+      environment.get(name).getOrElse {
+        throw new IllegalArgumentException(s"Could not find variable '$name' in environment: " +
+            environment)
+      }
+  }
   case class SimpleString(stringLiteral: String) extends Value {
+    val stringBody = StringHelpers.stripQuotes(stringLiteral)
     def resolve(environment: Map[String, String]): String = StringHelpers.unescape(stringBody)
   }
   case class SubstitutionString(stringLiteral: String) extends Value {
+    val stringBody = StringHelpers.stripQuotes(stringLiteral)
     def resolve(environment: Map[String, String]): String = {
       case class Replacement(regex: Regex, logic: Match=>String)
 
       def lookup(m: Match): String = {
         val ref = m.group(1)
         val value = environment.get(ref).getOrElse {
-          throw new IllegalArgumentException("Could not find variable 'x' in environment: " +
+          throw new IllegalArgumentException(s"Could not find variable '$ref' in environment: " +
               environment)
         }
 
@@ -100,9 +107,12 @@ object PipescriptParser {
       VariableStatement(name, value)
     }
 
-    def value = substitutionString | simpleString
+    def value = substitutionString | simpleString | variableReference
     def substitutionString = "s" ~> stringLiteral ^^ { s => SubstitutionString(s) }
     def simpleString = stringLiteral ^^ { s => SimpleString(s) }
+    def variableReference = simpleVariableReference | complexVariableReference
+    def simpleVariableReference = "$" ~> """\w+""".r  ^^ { VariableReference(_) }
+    def complexVariableReference = "${" ~> """\w+""".r <~ "}" ^^ { VariableReference(_) }
 
     def block: Parser[Block] = "{" ~> args <~ "}" ^^ { args =>
       Block(args)
