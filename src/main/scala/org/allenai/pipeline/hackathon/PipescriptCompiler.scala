@@ -22,8 +22,8 @@ class PipescriptCompiler() {
       case PipescriptParser.VariableStatement(name, value) =>
         environment += (name -> value.resolve(environment))
       case PipescriptParser.PackageStatement(block) =>
-        val source = block.findGet("source")
-        val id = block.findGet("id")
+        val source = block.findGet("source").resolve(environment)
+        val id = block.findGet("id").resolve(environment)
         val sourceUri = new URI(source)
         packages :+= hackathon.Package(id, sourceUri)
       case PipescriptParser.StepStatement(tokens) =>
@@ -35,11 +35,11 @@ class PipescriptCompiler() {
         case PipescriptParser.StringToken(s) => CommandToken.StringToken(s)
         case t@PipescriptParser.ArgToken(block) =>
           if (block.hasKey("file")) {
-            block.find("package").map {
-              pkgName => PackagedInput(pkgName, block.findGet("file"))
+            block.find("package").map(_.resolve(environment)).map {
+              pkgName => PackagedInput(pkgName, block.findGet("file").resolve(environment))
             }.getOrElse(sys.error(s"'file' without 'package' in $t"))
           } else if (block.hasKey("upload")) {
-            val url = new URI(block.findGet("upload"))
+            val url = new URI(block.findGet("upload").resolve(environment))
             val isDir = block.find("type").exists(_ == "dir")
             val isUrl = block.find("type").exists(_ == "url")
             if (isDir) {
@@ -53,13 +53,14 @@ class PipescriptCompiler() {
           }
           else if (block.hasKey("out")) {
             if (block.find("type").exists(_ == "dir")) {
-              OutputDir(block.findGet("out"))
+              OutputDir(block.findGet("out").resolve(environment))
             } else {
-              OutputFile(block.findGet("out"), block.find("suffix").getOrElse(""))
+              OutputFile(block.findGet("out").resolve(environment),
+                block.find("suffix").map(_.resolve(environment)).getOrElse(""))
             }
           }
           else if (block.find("ref").nonEmpty) {
-            ReferenceOutput(block.find("ref").get)
+            ReferenceOutput(block.findGet("ref").resolve(environment))
           }
           else {
             throw new IllegalArgumentException("This should not happen!")
