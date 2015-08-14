@@ -50,6 +50,9 @@ object WorkflowScriptPipeline {
       case None =>
         val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
         ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
+
+      case Some(unknownSchema) =>
+        throw new IllegalArgumentException("Unsupported schema: " + unknownSchema)
     }
 
     def replicatedFileProducer(source: URI): Producer[File] = Option(source.getScheme) match {
