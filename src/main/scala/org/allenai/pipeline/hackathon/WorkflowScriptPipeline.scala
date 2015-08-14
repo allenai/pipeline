@@ -12,7 +12,7 @@ import scala.collection.mutable
 object WorkflowScriptPipeline {
 
   def buildPipeline(rootOutputUrl: URI, lines: Iterable[String]): Pipeline = {
-    val script = new PipelineScriptParser().parseLines(rootOutputUrl)(lines)
+    val script = new PipescriptCompiler().parseLines(rootOutputUrl)(lines)
     buildPipeline(script)
   }
 

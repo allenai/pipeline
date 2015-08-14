@@ -1,35 +1,23 @@
 package org.allenai.pipeline.hackathon
 
-import java.io.File
-
 import org.allenai.common.testkit.UnitSpec
-import org.allenai.pipeline.hackathon.PipelineScript._
+import org.allenai.pipeline.hackathon.PipescriptParser._
 
 import scala.io.Source
 
-class TestPipelineScript extends UnitSpec {
-  "pipeline scripting" should "successfully parse a step command" in {
-    val program = """python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}"""
-    val parser = new PipelineScript.Parser
-    val parsed = parser.parseAll(parser.stepStatement, program)
-    assert(parsed.successful)
-  }
+import java.io.File
 
-  it should "successfully parse a variable command" in {
-    val program = """set x = foo"""
-    val parser = new PipelineScript.Parser
-    val parsed = parser.parseAll(parser.variableStatement, program)
-    assert(parsed.successful)
-  }
-
+class TestPipescriptCompiler extends UnitSpec {
+  /*
   it should "successfully parse and resolve a variable command" in {
     val program =
       """set x = foo
         |package {id: "pkg", source: ${x}}
       """.stripMargin
-    val parser = new PipelineScriptParser
+    val parser = new PipescriptCompiler
     val parsed = parser.parseText(null)(program)
   }
+  */
 
   /*
   it should "successfully parse and use a variable command" in {
@@ -37,7 +25,7 @@ class TestPipelineScript extends UnitSpec {
       """set x = foo
         |echo {in: "$x"}
       """.stripMargin
-    val parser = new PipelineScript.Parser
+    val parser = new PipescriptParser.Parser
     val parsed = parser.parseText(program).toSeq
     assert(parsed.length === 2)
     assert(parsed(1).isInstanceOf[StepStatement])
@@ -45,25 +33,6 @@ class TestPipelineScript extends UnitSpec {
         .name == "in").get.value === "foo")
   }
   */
-
-  ignore should "successfully parse a small sample program" in {
-    val simpleProgram =
-      """|package {source: "./scripts", id: "scripts"}
-        |
-        |# Woohoo
-        |{in:"$scripts/asdf"} eek {out:"$scripts/asdf"}""".stripMargin
-
-    val parser = new PipelineScript.Parser
-    val parsed = parser.parseText(simpleProgram).toSeq
-    assert(parsed === Seq(
-      PackageStatement(Block("""{source: "./scripts", id: "scripts"}""")),
-      CommentStatement("# Woohoo"),
-      StepStatement(Seq(
-        ArgToken(Block("""{in:"$scripts/asdf"}""")),
-        StringToken("eek "),
-        ArgToken(Block("""{out:"$scripts/asdf"}""")))))
-    )
-  }
 
   it should "successfully parse the sample vision workflow" in {
     val resourceUrl = {
@@ -73,8 +42,11 @@ class TestPipelineScript extends UnitSpec {
     }
     val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
 
-    val parser = new PipelineScriptParser
-    val parsed = parser.parseLines(null)(visionWorkflow)
+    val parser = new PipescriptCompiler
+    val workflow = parser.parseLines(null)(visionWorkflow)
+
+    assert(workflow.packages.size === 1)
+    assert(workflow.stepCommands.size === 4)
   }
 
   it should "build a pipeline from a script" in {
@@ -85,7 +57,7 @@ class TestPipelineScript extends UnitSpec {
     }
     val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
 
-    val parser = new PipelineScriptParser()
+    val parser = new PipescriptCompiler()
     val script = parser.parseLines(null)(visionWorkflow)
   }
 
