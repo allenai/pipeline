@@ -53,7 +53,7 @@ object PipescriptWriter {
 
           case other => other.toString
         }
-        writer.println(stringifiedTokens.mkString(" "))
+        writer.println(s"""run ${stringifiedTokens.mkString(" ")}""")
       }
     }
   }
