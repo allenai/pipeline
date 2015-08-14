@@ -8,10 +8,13 @@ import java.io.PrintWriter
 import java.net.URI
 
 object WorkflowScriptWriter {
+  val StableComment = "## stable ##"
+
   def write(script: WorkflowScript, pipeline: Pipeline, dest: File): Unit = {
 
     Resource.using(new PrintWriter(dest)) { writer =>
-      writer.println("# This is an AI2 Pipeline Workflow Script")
+      writer.println(StableComment)
+      writer.println("# This is an auto-generated AI2 Pipeline Workflow Script with stable inputs")
       writer.println()
 
       if (script.packages.nonEmpty) {
