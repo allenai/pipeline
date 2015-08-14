@@ -225,6 +225,7 @@ trait Pipeline extends Logging {
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
+    // NOTE: Rodney did not write this code
     if (System.getProperty("user.name") == "rodneykinney") {
       import sys.process._
       import scala.language.postfixOps
@@ -278,6 +279,7 @@ trait Pipeline extends Logging {
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
+    // Note: Rodney did not write this code
     if (System.getProperty("user.name") == "rodneykinney") {
       import sys.process._
       import scala.language.postfixOps
