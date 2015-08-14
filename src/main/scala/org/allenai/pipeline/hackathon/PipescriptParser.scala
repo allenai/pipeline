@@ -128,8 +128,8 @@ object PipescriptParser {
     }
   }
   object StringHelpers {
-    val bracesVariableRegex = """\$\{([^}]+)\}""".r
-    val plainVariableRegex = """\$(\w+)""".r
+    val bracesVariableRegex = """(?<!\\)\$\{([^}]+)\}""".r
+    val plainVariableRegex = """(?<!\\)\$(\w+)""".r
     def stripQuotes(s: String) = s.substring(1, s.length - 1)
     def unescape(s: String) = {
       StringEscapeUtils.unescapeJava(s)
