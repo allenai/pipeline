@@ -30,24 +30,24 @@ object WorkflowScriptWriter {
       }
 
       writer.println("# Pipeline steps:")
-      script.stepCommands foreach { step =>
-        val stringifiedTokens = step.tokens map {
-          case dir: CommandToken.InputDir =>
-            allSteps(dir.source.toString).outputLocation match {
-              case Some(s3Uri) => dir.copy(source = s3Uri).toString
-              case None => dir
-            }
+      // script.stepCommands foreach { step =>
+      //   val stringifiedTokens = step.tokens map {
+      //     case dir: CommandToken.InputDir =>
+      //       allSteps(dir.source.toString).outputLocation match {
+      //         case Some(s3Uri) => dir.copy(source = s3Uri).toString
+      //         case None => dir
+      //       }
 
-          case file: CommandToken.InputFile =>
-            allSteps(file.source.toString).outputLocation match {
-              case Some(s3Uri) => file.copy(source = s3Uri).toString
-              case None => file
-            }
+      //     case file: CommandToken.InputFile =>
+      //       allSteps(file.source.toString).outputLocation match {
+      //         case Some(s3Uri) => file.copy(source = s3Uri).toString
+      //         case None => file
+      //       }
 
-          case other => other.toString
-        }
-        writer.println(stringifiedTokens.mkString(" "))
-      }
+      //     case other => other.toString
+      //   }
+      //   writer.println(stringifiedTokens.mkString(" "))
+      //}
     }
   }
 }
