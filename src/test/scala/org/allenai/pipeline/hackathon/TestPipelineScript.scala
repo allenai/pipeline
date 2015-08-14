@@ -1,10 +1,9 @@
-package org.allenai.pipeline
+package org.allenai.pipeline.hackathon
 
-import org.allenai.common.testkit.{ UnitSpec }
+import org.allenai.common.testkit.UnitSpec
+import org.allenai.pipeline.hackathon.PipelineScript._
 
 import scala.io.Source
-
-import org.allenai.pipeline.PipelineScript._
 
 class TestPipelineScript extends UnitSpec {
   "pipeline scripting" should "successfully parse a step command" in {

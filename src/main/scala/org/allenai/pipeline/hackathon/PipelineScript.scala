@@ -1,6 +1,6 @@
-package org.allenai.pipeline
+package org.allenai.pipeline.hackathon
 
-import org.allenai.pipeline.hackathon.WorkflowScript
+import org.allenai.pipeline.hackathon
 
 import scala.util.parsing.combinator._
 
