@@ -1,23 +1,20 @@
 package org.allenai.pipeline.hackathon
 
-import java.io.File
-import java.net.URI
-
 import org.allenai.pipeline._
-import org.allenai.pipeline.s3._
 
 import scala.collection.mutable
 
-object PipescriptPipeline {
+import java.io.File
+import java.net.URI
 
-  def buildPipeline(rootOutputUrl: URI, lines: Iterable[String]): Pipeline = {
-    val script = new PipescriptCompiler().parseLines(rootOutputUrl)(lines)
+class PipescriptPipeline(val pipeline: Pipeline) {
+
+  def buildPipeline(lines: Iterable[String]): Pipeline = {
+    val script = new PipescriptCompiler().parseLines(lines)
     buildPipeline(script)
   }
 
   def buildPipeline(script: Pipescript) = {
-    val pipeline = S3Pipeline(script.outputDir)
-
     val producers = mutable.Map[String, Producer[File]]()
 
     val cachedOutputArgs = mutable.Map[String, OutputArg]()
@@ -37,34 +34,6 @@ object PipescriptPipeline {
         case a => throw new RuntimeException(s"You CAN'T cache a $a!")
       }
       result
-    }
-
-    def replicatedDirProducer(source: URI): Producer[File] = Option(source.getScheme) match {
-      case Some("s3") =>
-        pipeline.artifactFactory.createArtifact[StructuredArtifact](source) match {
-          case d: DirectoryArtifact =>
-            ReplicateDirectory(d.dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
-          case a => ReadFromArtifact(UploadDirectory, a)
-        }
-
-      case None =>
-        val dir = pipeline.artifactFactory.createArtifact[DirectoryArtifact](source).dir
-        ReplicateDirectory(dir, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
-
-      case Some(unknownSchema) =>
-        throw new IllegalArgumentException("Unsupported schema: " + unknownSchema)
-    }
-
-    def replicatedFileProducer(source: URI): Producer[File] = Option(source.getScheme) match {
-      case Some("s3") =>
-        // TODO: create a producer that reads a file from S3
-        val file = pipeline.artifactFactory.createArtifact[FileArtifact](source).file
-        ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
-      case None =>
-        val file = pipeline.artifactFactory.createArtifact[FileArtifact](source).file
-        ReplicateFile(file, None, pipeline.rootOutputUrl, pipeline.artifactFactory)
-      case Some(unknownSchema) =>
-        throw new IllegalArgumentException("Unknown schema: " + unknownSchema)
     }
 
     def replicatedUrlProducer(source: URI): Producer[File] = {
@@ -129,5 +98,57 @@ object PipescriptPipeline {
       runProcess
     }
     pipeline
+  }
+
+  def replicatedDirProducer(source: URI): ReplicateDirectory =
+    pipeline.artifactFactory.createArtifact[StructuredArtifact](source) match {
+      case d: DirectoryArtifact =>
+        def createArtifact(name: String) =
+          pipeline.artifactFactory.createArtifact[StructuredArtifact](
+            pipeline.rootOutputUrl,
+            s"uploads/$name.zip")
+        ReplicateDirectory(Left((d.dir, createArtifact _)))
+      case uploaded =>
+        def getName(a: StructuredArtifact) = {
+          a.url.getPath.split('/').last.split('.').head
+        }
+        ReplicateDirectory(Right((uploaded, getName _)))
+    }
+
+  def replicatedFileProducer(source: URI): ReplicateFile =
+    pipeline.artifactFactory.createArtifact[FlatArtifact](source) match {
+      case d: FileArtifact =>
+        def createArtifact(name: String) =
+          pipeline.artifactFactory.createArtifact[FlatArtifact](
+            pipeline.rootOutputUrl,
+            s"uploads/$name")
+        ReplicateFile(Left((d.file, createArtifact _)))
+      case uploaded =>
+        def getName(a: FlatArtifact) = {
+          a.url.getPath.split('/').last.split('.').head
+        }
+        ReplicateFile(Right((uploaded, getName _)))
+    }
+
+  def makePortable(script: Pipescript) = {
+    import CommandToken._
+    val packages =
+      for (pkg <- script.packages) yield {
+        pkg.copy(source = replicatedDirProducer(pkg.source).artifact.url)
+      }
+    val steps =
+      for (cmd <- script.stepCommands) yield {
+        val tokens =
+          for (token <- cmd.tokens) yield
+            token match {
+              case InputDir(url) =>
+                InputDir(replicatedDirProducer(url).artifact.url)
+              case InputFile(url) =>
+                InputFile(replicatedFileProducer(url).artifact.url)
+              case other => other
+          }
+        StepCommand(tokens)
+      }
+    Pipescript(packages, steps)
   }
 }

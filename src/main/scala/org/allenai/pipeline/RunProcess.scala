@@ -273,6 +273,13 @@ object UploadDirectory extends ArtifactIo[File, StructuredArtifact] with Ai2Simp
   }
 }
 
+case class FileInDirectory(dir: Producer[File], fileName: String) extends Producer[File] {
+  override def create = new File(dir.get, fileName)
+  override def stepInfo =
+    PipelineStepInfo(fileName)
+      .addParameters("dir" -> dir)
+}
+
 object SaveStream extends ArtifactIo[InputStream, FlatArtifact] with Ai2SimpleStepInfo {
   override def write(data: InputStream, artifact: FlatArtifact): Unit = {
     artifact.write { writer =>

@@ -98,14 +98,14 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: Stri
     val template = Resource.using(Source.fromURL(resourceUrl)) { source =>
       source.mkString
     }
-    val titleWithoutSuffix = title.replace(".pipe", "")
+    val portableTitle = title.replace(".pipe", ".portable.pipe")
     val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
     val pipescriptsHtml = (pipescripts map {
       case PipescriptSources(original, stable) =>
         s"""<div class="typescripts">
 <ul>
 <li><a href="$original" type="text/plain" download="$title">Original</a></li>
-<li><a href="$stable" type="text/plain" download="$titleWithoutSuffix-portable.pipe">Portable</a></li>
+<li><a href="$stable" type="text/plain" download="$portableTitle">Portable</a></li>
 </ul></div>
 """
     }).getOrElse("")

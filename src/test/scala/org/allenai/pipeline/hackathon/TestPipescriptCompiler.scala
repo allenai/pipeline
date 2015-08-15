@@ -1,6 +1,7 @@
 package org.allenai.pipeline.hackathon
 
 import org.allenai.common.testkit.UnitSpec
+import org.allenai.pipeline.Pipeline
 
 import scala.io.Source
 
@@ -14,7 +15,7 @@ class TestPipescriptCompiler extends UnitSpec {
         |package {id: "pkg2", source: s"$x"}
       """.stripMargin
     val parser = new PipescriptCompiler
-    val parsed = parser.parseText(null)(program)
+    val parsed = parser.parseText(program)
   }
 
   it should "successfully parse the sample vision workflow" in {
@@ -26,7 +27,7 @@ class TestPipescriptCompiler extends UnitSpec {
     val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
 
     val parser = new PipescriptCompiler
-    val workflow = parser.parseLines(null)(visionWorkflow)
+    val workflow = parser.parseLines(visionWorkflow)
 
     assert(workflow.packages.size === 1)
     assert(workflow.stepCommands.size === 4)
@@ -41,7 +42,7 @@ class TestPipescriptCompiler extends UnitSpec {
     val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
 
     val parser = new PipescriptCompiler()
-    val script = parser.parseLines(null)(visionWorkflow)
+    val script = parser.parseLines(visionWorkflow)
   }
 
   it should "run a pipeline from a script" in {
@@ -52,11 +53,8 @@ class TestPipescriptCompiler extends UnitSpec {
     }
     val visionScriptLines = Source.fromURL(resourceUrl).getLines.toList
 
-    val dir = new File(new File("pipeline-output"), "RunScript").toURI
-    //    val dir = new java.net.URI("s3://ai2-misc/hackathon-2015/pipeline/")
-    val pipeline = PipescriptPipeline.buildPipeline(dir, visionScriptLines)
-    val scriptlink = new ReplicateFile(new java.io.File(resourceUrl.toURI), None, dir, pipeline.artifactFactory)
-    scriptlink.get
+    val dir = new File(new File("pipeline-output"), "RunScript")
+    val pipeline = new PipescriptPipeline(Pipeline(dir)).buildPipeline(visionScriptLines)
     pipeline.run("RunFromScript", None)
   }
 }

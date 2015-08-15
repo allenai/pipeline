@@ -3,14 +3,13 @@ package org.allenai.pipeline.hackathon
 import org.allenai.common.Resource
 import org.allenai.pipeline._
 
-import java.io.{ File, FileInputStream, InputStream, SequenceInputStream }
+import java.io.{File, FileInputStream, InputStream, SequenceInputStream}
 import java.util.Collections
 
 case class ReplicateFile(
-    name: String,
-    resource: Either[File, FlatArtifact],
-    createArtifact: String => FlatArtifact
-) extends ReplicateResource[FlatArtifact](name, resource, createArtifact) {
+  resource: Either[(File, String => FlatArtifact),
+    (FlatArtifact, FlatArtifact => String)])
+  extends ReplicateResource[FlatArtifact](resource) {
   override protected[this] def computeChecksum(file: File) =
     InputStreamChecksum(new FileInputStream(file))
 
@@ -20,10 +19,9 @@ case class ReplicateFile(
 }
 
 case class ReplicateDirectory(
-    name: String,
-    resource: Either[File, StructuredArtifact],
-    createArtifact: String => StructuredArtifact
-) extends ReplicateResource[StructuredArtifact](name, resource, createArtifact) {
+  resource: Either[(File, String => StructuredArtifact),
+    (StructuredArtifact, StructuredArtifact => String)]
+  ) extends ReplicateResource[StructuredArtifact](resource) {
   override protected[this] def computeChecksum(file: File) =
     InputStreamChecksum.forDirectory(file)
 
@@ -32,37 +30,38 @@ case class ReplicateDirectory(
   protected[this] def download(artifact: StructuredArtifact): File = UploadDirectory.read(artifact)
 }
 
-/** If resource is an Artifact, then it has already been uploaded. Download and return a local copy
-  * If resource is a File, compute a checksum, upload the file if a copy with that checksum
-  * has not been uploaded, and return the original file
+/** If resource is an Artifact, then it has already been uploaded:
+  * Download and return a local copy
+  * If resource is a File:
+  * compute a checksum,
+  * upload the file (if a copy with that checksum has not already been uploaded),
+  * return the original file
   */
 abstract class ReplicateResource[T <: Artifact](
-  name: String,
-  resource: Either[File, T],
-  createArtifact: String => T
-)
-    extends Producer[File] with Ai2SimpleStepInfo {
-  override def create = {
-    resource match {
-      case Left(file) =>
-        if (!artifact.exists) {
-          upload(file)
-        }
-        file
-      case Right(artifact) =>
-        download(artifact)
-    }
-  }
+  resource: Either[(File, String => T), (T, T => String)])
+  extends Producer[File] with Ai2SimpleStepInfo {
 
   protected[this] def upload(file: File)
 
   protected[this] def download(artifact: T): File
 
-  protected[this] def computeChecksum(file: File)
+  protected[this] def computeChecksum(file: File): String
+
+  override def create = {
+    resource match {
+      case Left((file, _)) =>
+        if (!artifact.exists) {
+          upload(file)
+        }
+        file
+      case Right((artifact, _)) =>
+        download(artifact)
+    }
+  }
 
   lazy val artifact: T =
     resource match {
-      case Left(file) =>
+      case Left((file, createArtifact)) =>
         val checksum = computeChecksum(file)
         val idx = file.getName.lastIndexOf('.')
         val fileName =
@@ -74,12 +73,18 @@ abstract class ReplicateResource[T <: Artifact](
             s"$prefix.$checksum.$suffix"
           }
         createArtifact(fileName)
-      case Right(a) => a
+      case Right((a, _)) => a
+    }
+
+  lazy val resourceName =
+    resource match {
+      case Left((file, createArtifact)) => file.getName
+      case Right((a, shortName)) => shortName(a)
     }
 
   override def stepInfo =
     super.stepInfo.copy(
-      className = name,
+      className = resourceName,
       outputLocation = Some(artifact.url)
     )
       .addParameters("src" -> artifact.url)

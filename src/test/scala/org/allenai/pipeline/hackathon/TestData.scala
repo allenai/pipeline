@@ -53,7 +53,5 @@ object TestData {
           OutputDir("relationsDir")
         )
       )
-    ),
-    outputDir = new URI("s3://ai2-misc/hackathon-2015/pipeline")
-  )
+    ))
 }

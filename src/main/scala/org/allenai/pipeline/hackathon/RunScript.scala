@@ -1,10 +1,14 @@
 package org.allenai.pipeline.hackathon
 
-import java.io.File
-import java.nio.file.Files
-import java.net.URI
+import org.allenai.common.Resource
+import org.allenai.pipeline.FlatArtifact
+import org.allenai.pipeline.s3.S3Pipeline
 
 import scala.io.Source
+
+import java.io.{File, PrintWriter}
+import java.net.URI
+import java.nio.file.Files
 
 object RunScript extends App {
   if (args.length == 0) {
@@ -15,8 +19,6 @@ object RunScript extends App {
 
   val scriptLines = Source.fromFile(scriptFile).getLines.toList
 
-  val isStable = scriptLines.head == PipescriptWriter.StableComment
-
   val outputUrl =
     if (args.length == 1) {
       new File(new File("pipeline-output"), "RunScript").toURI
@@ -24,32 +26,35 @@ object RunScript extends App {
       new URI(args(1))
     }
 
-  val script = new PipescriptCompiler().parseLines(outputUrl)(scriptLines)
-  val pipeline = PipescriptPipeline.buildPipeline(script)
+  def scriptUploadLocation(name: String) =
+    pipeline.artifactFactory.createArtifact[FlatArtifact](
+      pipeline.rootOutputUrl, s"scripts/$name")
+
+  val script = new PipescriptCompiler().parseLines(scriptLines)
+  val interpreter = new PipescriptPipeline(S3Pipeline(outputUrl))
+  val pipeline = interpreter.buildPipeline(script)
   val originalScriptUrl = {
-    val upload = new ReplicateFile(scriptFile, None, outputUrl, pipeline.artifactFactory)
+    val upload = new ReplicateFile(Left((scriptFile, scriptUploadLocation _)))
     upload.get
     pipeline.toHttpUrl(upload.artifact.url)
   }
 
+
   val stableScriptUrl = {
-    if (isStable) {
-      originalScriptUrl
-    } else {
-      val tmpDir = Files.createTempDirectory("pipescript")
-      val stableTempFile = Files.createTempFile(tmpDir, "stable", "pipe").toFile
-      stableTempFile.deleteOnExit()
-      tmpDir.toFile.deleteOnExit()
-      PipescriptWriter.write(script, pipeline, stableTempFile)
-      val upload = new ReplicateFile(stableTempFile, None, outputUrl, pipeline.artifactFactory)
-      upload.get
-      pipeline.toHttpUrl(upload.artifact.url)
+    val portableScriptText = interpreter.makePortable(script).scriptText
+    val tmpFile = Files.createTempFile("portable", "pipe").toFile
+    tmpFile.deleteOnExit()
+    Resource.using(new PrintWriter(tmpFile)) {
+      _.print(portableScriptText)
     }
+    val upload = new ReplicateFile(Left((tmpFile, scriptUploadLocation _)))
+    upload.get
+    pipeline.toHttpUrl(upload.artifact.url)
   }
 
   val scripts = PipescriptSources(
     original = originalScriptUrl,
-    stable = stableScriptUrl
+    portable = stableScriptUrl
   )
   pipeline.run(scriptFile.getName, Some(scripts))
   pipeline.openDiagram
