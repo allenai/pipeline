@@ -1,131 +1,88 @@
 package org.allenai.pipeline.hackathon
 
-import java.io.{ SequenceInputStream, File, FileInputStream, InputStream }
-import java.net.URI
-import java.util.Collections
-
 import org.allenai.common.Resource
 import org.allenai.pipeline._
 
-/** Computes a checksum of a local file and replicates it to a shared store
-  */
+import java.io.{ File, FileInputStream, InputStream, SequenceInputStream }
+import java.util.Collections
+
 case class ReplicateFile(
-  file: File,
-  checksum: Option[String],
-  rootOutputUrl: URI,
-  artifactFactory: ArtifactFactory
-)
-    extends Producer[File] with Ai2SimpleStepInfo {
-  override def create = {
-    checksum match {
-      case None =>
-        if (!artifact.exists) {
-          UploadFile.write(file, artifact)
-        }
-        file
-      case Some(x) =>
-        if (x != resolvedChecksum) {
-          UploadFile.write(file, artifact)
-        }
-        file
-    }
-  }
+    name: String,
+    resource: Either[File, FlatArtifact],
+    createArtifact: String => FlatArtifact
+) extends ReplicateResource[FlatArtifact](name, resource, createArtifact) {
+  override protected[this] def computeChecksum(file: File) =
+    InputStreamChecksum(new FileInputStream(file))
 
-  private lazy val resolvedChecksum = {
-    checksum match {
-      case None if file.exists =>
-        InputStreamChecksum(new FileInputStream(file))
-      case None if !file.exists =>
-        sys.error(s"$file does not exist.")
-      case Some(x) if !file.exists =>
-        x
-      case Some(x) if file.exists =>
-        InputStreamChecksum(new FileInputStream(file))
-    }
-  }
+  override protected[this] def upload(file: File) = UploadFile.write(file, artifact)
 
-  lazy val artifact = artifactForChecksum(resolvedChecksum)
-
-  override def stepInfo =
-    super.stepInfo.copy(
-      className = file.getName,
-      outputLocation = Some(artifact.url)
-    )
-      .addParameters("src" -> artifact.url)
-
-  private def artifactForChecksum(checksum: String) = {
-    val idx = file.getName.lastIndexOf('.')
-    val name =
-      if (idx < 0) {
-        s"${file.getName}.$checksum"
-      } else {
-        val prefix = file.getName.take(idx - 1)
-        val suffix = file.getName.drop(idx)
-        s"$prefix.$checksum.$suffix"
-      }
-    artifactFactory.createArtifact[FlatArtifact](rootOutputUrl, name)
-  }
-
+  protected[this] def download(artifact: FlatArtifact): File = UploadFile.read(artifact)
 }
 
 case class ReplicateDirectory(
-  file: File,
-  checksum: Option[String],
-  rootOutputUrl: URI,
-  artifactFactory: ArtifactFactory
+    name: String,
+    resource: Either[File, StructuredArtifact],
+    createArtifact: String => StructuredArtifact
+) extends ReplicateResource[StructuredArtifact](name, resource, createArtifact) {
+  override protected[this] def computeChecksum(file: File) =
+    InputStreamChecksum.forDirectory(file)
+
+  override protected[this] def upload(file: File) = UploadDirectory.write(file, artifact)
+
+  protected[this] def download(artifact: StructuredArtifact): File = UploadDirectory.read(artifact)
+}
+
+/** If resource is an Artifact, then it has already been uploaded. Download and return a local copy
+  * If resource is a File, compute a checksum, upload the file if a copy with that checksum
+  * has not been uploaded, and return the original file
+  */
+abstract class ReplicateResource[T <: Artifact](
+  name: String,
+  resource: Either[File, T],
+  createArtifact: String => T
 )
     extends Producer[File] with Ai2SimpleStepInfo {
-  require(file.isDirectory, s"$file not a directory")
   override def create = {
-    checksum match {
-      case None =>
+    resource match {
+      case Left(file) =>
         if (!artifact.exists) {
-          UploadDirectory.write(file, artifact)
+          upload(file)
         }
         file
-      case Some(x) =>
-        if (x != resolvedChecksum) {
-          UploadDirectory.write(file, artifact)
-        }
-        file
+      case Right(artifact) =>
+        download(artifact)
     }
   }
 
-  private lazy val resolvedChecksum = {
-    checksum match {
-      case None if file.exists =>
-        InputStreamChecksum.forDirectory(file)
-      case None if !file.exists =>
-        sys.error(s"$file does not exist.")
-      case Some(x) if !file.exists =>
-        x
-      case Some(x) if file.exists =>
-        InputStreamChecksum.forDirectory(file)
-    }
-  }
+  protected[this] def upload(file: File)
 
-  lazy val artifact = artifactForChecksum(resolvedChecksum)
+  protected[this] def download(artifact: T): File
+
+  protected[this] def computeChecksum(file: File)
+
+  lazy val artifact: T =
+    resource match {
+      case Left(file) =>
+        val checksum = computeChecksum(file)
+        val idx = file.getName.lastIndexOf('.')
+        val fileName =
+          if (idx < 0) {
+            s"${file.getName}.$checksum"
+          } else {
+            val prefix = file.getName.take(idx - 1)
+            val suffix = file.getName.drop(idx)
+            s"$prefix.$checksum.$suffix"
+          }
+        createArtifact(fileName)
+      case Right(a) => a
+    }
 
   override def stepInfo =
     super.stepInfo.copy(
-      className = file.getName,
+      className = name,
       outputLocation = Some(artifact.url)
     )
       .addParameters("src" -> artifact.url)
-
-  private def artifactForChecksum(checksum: String) = {
-    val idx = file.getName.lastIndexOf('.')
-    val name =
-      if (idx < 0) {
-        s"${file.getName}.$checksum.zip"
-      } else {
-        val prefix = file.getName.take(idx - 1)
-        val suffix = file.getName.drop(idx)
-        s"$prefix.$checksum.$suffix"
-      }
-    artifactFactory.createArtifact[StructuredArtifact](rootOutputUrl, name)
-  }
-
 }
 
 object InputStreamChecksum {

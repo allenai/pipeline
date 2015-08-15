@@ -226,17 +226,7 @@ trait Pipeline extends Logging {
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
-    // NOTE: Rodney did not write this code
-    if (System.getProperty("user.name") == "rodneykinney") {
-      import sys.process._
-      import scala.language.postfixOps
-      val link = toHttpUrl(htmlArtifact.url)
-      Try {
-        java.awt.Desktop.getDesktop.browse(link)
-      }
-        .orElse(Try(s"open $link" !!))
-        .orElse(Try(s"xdg-open $link" !!))
-    }
+    dagUrl = Some(toHttpUrl(htmlArtifact.url))
 
     val signatureArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter
@@ -246,6 +236,22 @@ trait Pipeline extends Logging {
     logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
     result
   }
+
+  private var dagUrl: Option[URI] = None
+
+  def diagramUrl = dagUrl
+
+  /** Open the DAG HTML in local browser (if pipeline has been run) */
+  def openDiagram() =
+    dagUrl.foreach { link =>
+      import scala.language.postfixOps
+      import scala.sys.process._
+      Try {
+        java.awt.Desktop.getDesktop.browse(link)
+      }
+        .orElse(Try(s"open $link" !!))
+        .orElse(Try(s"xdg-open $link" !!))
+    }
 
   // Generate a hash unique to this Producer/Serialization combination
   protected def hashId[T, A <: Artifact](
@@ -280,17 +286,7 @@ trait Pipeline extends Logging {
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
 
-    // Note: Rodney did not write this code
-    if (System.getProperty("user.name") == "rodneykinney") {
-      import sys.process._
-      import scala.language.postfixOps
-      val link = toHttpUrl(htmlArtifact.url)
-      Try {
-        java.awt.Desktop.getDesktop.browse(link)
-      }
-        .orElse(Try(s"open $link" !!))
-        .orElse(Try(s"xdg-open $link" !!))
-    }
+    dagUrl = Some(toHttpUrl(htmlArtifact.url))
 
     val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
     val signatureFormat = Signature.jsonWriter

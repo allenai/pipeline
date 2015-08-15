@@ -52,5 +52,5 @@ object RunScript extends App {
     stable = stableScriptUrl
   )
   pipeline.run(scriptFile.getName, Some(scripts))
-
+  pipeline.openDiagram
 }
