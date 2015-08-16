@@ -1,6 +1,7 @@
 package org.allenai.pipeline.hackathon
 
 import org.apache.commons.lang3.StringEscapeUtils
+import scala.collection.mutable.{ Map => MMap }
 
 import scala.util.matching.Regex
 import scala.util.matching.Regex.Match
@@ -14,29 +15,48 @@ object PipescriptParser {
 
   /** Each line in a pipescript file corresponds to a statement.
     */
-  sealed abstract class Statement
+  sealed abstract class Statement {
+    /** Resolve variable references within this Statement.
+      * A SetStatement will modify the environment
+      * Other statements will use the environment to do variable substitution
+      */
+    def resolve(env: MMap[String, String]): Statement
+  }
 
   /** A comment statement is ignored.
     *
     * @param comment the text of the comment.
     */
-  case class CommentStatement(comment: String) extends Statement
+  case class CommentStatement(comment: String) extends Statement {
+    def resolve(env: MMap[String, String]) = this
+  }
 
   /** A variable statement sets one or more variables to the associated values.
     */
-  case class SetStatement(block: Block) extends Statement
-
+  case class SetStatement(block: Block) extends Statement {
+    def resolve(env: MMap[String, String]) = {
+      val resolvedBlock = block.resolve(env)
+      for (arg <- resolvedBlock.args) {
+        env.put(arg.name, arg.value.asInstanceOf[SimpleString].stringLiteral)
+      }
+      SetStatement(resolvedBlock)
+    }
+  }
   /** A package statement specifies the scripts to store so the experiment is repeatable.
     *
     * @param block a typesafe-config like block specifying arguments
     */
-  case class PackageStatement(block: Block) extends Statement
+  case class PackageStatement(block: Block) extends Statement {
+    def resolve(env: MMap[String, String]) = PackageStatement(block.resolve(env))
+  }
 
   /** A step command describes one stage of a pipeline's execution.
     *
     * @param tokens a list of typesafe-config like block specifying arguments
     */
-  case class StepStatement(tokens: Seq[Token]) extends Statement
+  case class StepStatement(tokens: Seq[Token]) extends Statement {
+    def resolve(env: MMap[String, String]) = StepStatement(tokens.map(_.resolve(env)))
+  }
 
   /** A block is JSON or Typesafe-Config like code that specifies a map.
     *
@@ -51,38 +71,48 @@ object PipescriptParser {
       args.exists(_.name == name)
     }
 
-    def find(name: String): Option[Value] = {
-      args.find(_.name == name).map(_.value)
+    def find(name: String): Option[String] = {
+      args.find(_.name == name).map(_.value.asString)
     }
 
-    def findGet(name: String): Value = {
-      args.find(_.name == name).getOrElse {
+    def findGet(name: String): String = {
+      find(name).getOrElse {
         throw new IllegalArgumentException(s"Could not find key '${name}' in arguments: " + args)
-      }.value
+      }
     }
+    def resolve(env: MMap[String, String]) = Block(args.map(_.resolve(env)))
   }
-  case class Arg(name: String, value: Value)
+  case class Arg(name: String, value: Value) {
+    def resolve(env: MMap[String, String]) = Arg(name, value.resolve(env))
+  }
 
   /** A step command is composed of tokens.  They are either raw string tokens describing the
     * script to be run, or argument tokens describing input/output components from other parts
     * of the pipeline.
     */
-  sealed abstract class Token
-  case class StringToken(value: String) extends Token
-  case class ArgToken(block: Block) extends Token
+  sealed abstract class Token {
+    def resolve(env: MMap[String, String]): Token
+  }
+  case class StringToken(value: String) extends Token {
+    def resolve(env: MMap[String, String]) = this
+  }
+  case class ArgToken(block: Block) extends Token {
+    def resolve(env: MMap[String, String]) = ArgToken(block.resolve(env))
+  }
 
   /** A value is either a string, an s-string (for substitutions within a string), or a
     * variable reference (for convenience).
     */
   sealed abstract class Value {
-    def resolve(environment: Map[String, String]): String
+    def asString: String
+    def resolve(environment: MMap[String, String]): SimpleString
   }
   /** i.e. ${var} */
   case class VariableReference(name: String) extends Value {
-    def resolve(environment: Map[String, String]): String =
-      environment.get(name).getOrElse {
-        throw new IllegalArgumentException(s"Could not find variable '$name' in environment: " +
-          environment)
+    def asString = sys.error(s"Unresolved variable $name")
+    def resolve(environment: MMap[String, String]): SimpleString =
+      environment.get(name).map(SimpleString.apply).getOrElse {
+        throw new IllegalArgumentException(s"Could not find variable '$name' in environment: $environment")
       }
   }
 
@@ -90,8 +120,9 @@ object PipescriptParser {
     * i.e. "Hel\"o"
     */
   case class SimpleString(stringLiteral: String) extends Value {
+    def asString = stringLiteral
     val stringBody = StringHelpers.stripQuotes(stringLiteral)
-    def resolve(environment: Map[String, String]): String = StringHelpers.unescape(stringBody)
+    def resolve(environment: MMap[String, String]): SimpleString = SimpleString(StringHelpers.unescape(stringBody))
   }
   object SimpleString {
     def from(s: String): SimpleString = SimpleString("\"" + s + "\"")
@@ -102,14 +133,15 @@ object PipescriptParser {
     */
   case class SubstitutionString(stringLiteral: String) extends Value {
     val stringBody = StringHelpers.stripQuotes(stringLiteral)
-    def resolve(environment: Map[String, String]): String = {
+    def asString: String = sys.error(s"String literal with unresolved escape characters: $stringLiteral")
+    def resolve(env: MMap[String, String]): SimpleString = {
       case class Replacement(regex: Regex, logic: Match => String)
 
       def lookup(m: Match): String = {
         val ref = m.group(1)
-        val value = environment.get(ref).getOrElse {
+        val value = env.get(ref).getOrElse {
           throw new IllegalArgumentException(s"Could not find variable '$ref' in environment: " +
-            environment)
+            env)
         }
 
         value
@@ -124,7 +156,7 @@ object PipescriptParser {
         replacement.regex.replaceAllIn(string, replacement.logic)
       }
 
-      StringHelpers.unescape(replaced)
+      SimpleString(StringHelpers.unescape(replaced))
     }
   }
   object StringHelpers {

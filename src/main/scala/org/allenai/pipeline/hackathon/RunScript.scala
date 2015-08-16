@@ -40,7 +40,7 @@ object RunScript extends App {
     pipeline.toHttpUrl(upload.artifact.url)
   }
 
-  val stableScriptUrl = {
+  val portableScriptUrl = {
     val portableScriptText = interpreter.makePortable(script).scriptText
     val tmpFile = Files.createTempFile("portable", "pipe").toFile
     tmpFile.deleteOnExit()
@@ -54,7 +54,7 @@ object RunScript extends App {
 
   val scripts = PipescriptSources(
     original = originalScriptUrl,
-    portable = stableScriptUrl
+    portable = portableScriptUrl
   )
   pipeline.run(scriptFile.getName, Some(scripts))
   pipeline.openDiagram

@@ -1,6 +1,7 @@
 package org.allenai.pipeline.hackathon
 
 import com.typesafe.config.{ ConfigValueFactory, ConfigFactory, Config }
+import scala.collection.mutable.{ Map => MMap }
 
 import java.net.URI
 
@@ -12,20 +13,18 @@ import scala.util.parsing.combinator._
 class PipescriptCompiler() {
   protected[this] val parser = new PipescriptParser.Parser
 
-  def parseStatements(parsedStatements: TraversableOnce[PipescriptParser.Statement]): Pipescript = {
+  def compile(statements: TraversableOnce[PipescriptParser.Statement]): Pipescript = {
     var packages = Vector.empty[hackathon.Package]
     var stepCommands = Vector.empty[hackathon.StepCommand]
 
-    var environment = Map.empty[String, String]
-    parsedStatements.foreach {
+    var environment = MMap.empty[String, String]
+    statements.map(_.resolve(environment)) foreach {
       case PipescriptParser.CommentStatement(_) =>
+      // The call to resolve above has already modified the environment
       case PipescriptParser.SetStatement(block) =>
-        for (arg <- block.args) {
-          environment += (arg.name -> arg.value.resolve(environment))
-        }
       case PipescriptParser.PackageStatement(block) =>
-        val source = block.findGet("source").resolve(environment)
-        val id = block.findGet("id").resolve(environment)
+        val source = block.findGet("source")
+        val id = block.findGet("id")
         val sourceUri = new URI(source)
         packages :+= hackathon.Package(id, sourceUri)
       case PipescriptParser.StepStatement(tokens) =>
@@ -37,13 +36,13 @@ class PipescriptCompiler() {
         case PipescriptParser.StringToken(s) => CommandToken.StringToken(s)
         case t @ PipescriptParser.ArgToken(block) =>
           if (block.hasKey("file")) {
-            block.find("package").map(_.resolve(environment)).map {
-              pkgName => PackagedInput(pkgName, block.findGet("file").resolve(environment))
+            block.find("package").map {
+              pkgName => PackagedInput(pkgName, block.findGet("file"))
             }.getOrElse(sys.error(s"'file' without 'package' in $t"))
           } else if (block.hasKey("input")) {
-            val url = new URI(block.findGet("input").resolve(environment))
-            val isDir = block.find("type").exists(_.resolve(environment) == "dir")
-            val isUrl = block.find("type").exists(_.resolve(environment) == "url")
+            val url = new URI(block.findGet("input"))
+            val isDir = block.find("type").exists(_ == "dir")
+            val isUrl = block.find("type").exists(_ == "url")
             if (isDir) {
               CommandToken.InputDir(url)
             } else if (isUrl) {
@@ -52,16 +51,16 @@ class PipescriptCompiler() {
               CommandToken.InputFile(url)
             }
           } else if (block.hasKey("output")) {
-            if (block.find("type").exists(_.resolve(environment) == "dir")) {
-              OutputDir(block.findGet("output").resolve(environment))
+            if (block.find("type").exists(_ == "dir")) {
+              OutputDir(block.findGet("output"))
             } else {
               OutputFile(
-                block.findGet("output").resolve(environment),
-                block.find("suffix").map(_.resolve(environment)).getOrElse("")
+                block.findGet("output"),
+                block.find("suffix").getOrElse("")
               )
             }
           } else if (block.find("ref").nonEmpty) {
-            ReferenceOutput(block.findGet("ref").resolve(environment))
+            ReferenceOutput(block.findGet("ref"))
           } else {
             throw new IllegalArgumentException("This should not happen!")
           }
@@ -72,6 +71,6 @@ class PipescriptCompiler() {
   }
 
   def compileScript(text: String): Pipescript = {
-    this.parseStatements(parser.parseScript(text))
+    this.compile(parser.parseScript(text))
   }
 }

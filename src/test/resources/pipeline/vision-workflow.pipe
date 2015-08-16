@@ -2,6 +2,7 @@
 
 package {id:"scripts", source:"vision-py/scripts"}
 
+set { longUrl: "file:///Users/rodneykinney/workspace/allenai/pipeline/pipeline-output/RunScript/scripts/vision-workflow.3e642a15e9f724a4.pipe" }
 set { pngDir: "vision-py/png" }
 
 # Extract arrow head/tail

@@ -5,15 +5,15 @@ import org.allenai.pipeline.hackathon.PipescriptParser._
 
 class TestPipescriptParser extends UnitSpec {
   "variable resolution" should "work with curly braces" in {
-    val environment = Map("x" -> "foo")
+    val environment = collection.mutable.Map("x" -> "foo")
     val s = SubstitutionString("\"y = ${x}\"")
-    assert(s.resolve(environment) === "y = foo")
+    assert(s.resolve(environment).asString === "y = foo")
   }
 
   it should "work without curly braces" in {
-    val environment = Map("x" -> "foo")
+    val environment = collection.mutable.Map("x" -> "foo")
     val s = new SubstitutionString("\"y = $x\"")
-    assert(s.resolve(environment) === "y = foo")
+    assert(s.resolve(environment).asString === "y = foo")
   }
 
   "pipeline scripting" should "successfully parse a step command" in {
