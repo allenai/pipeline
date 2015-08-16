@@ -1,15 +1,28 @@
 # A vision-like pipeline workflow
 
-package {id:"scripts", source:"vision-py/scripts"}
+package {id:scripts, source:vision-py/scripts}
 
-set { longUrl: "file:///Users/rodneykinney/workspace/allenai/pipeline/pipeline-output/RunScript/scripts/vision-workflow.3e642a15e9f724a4.pipe" }
-set { pngDir: "vision-py/png" }
+set { pngDir: vision-py/png }
 
 # Extract arrow head/tail
-run python {file:"ExtractArrows.py", package:"scripts"} -i {input:$pngDir, type:"dir"} -o {output:"arrowDir", type:"dir"}
+run python {file:ExtractArrows.py, package:scripts}
+  -i {input:$pngDir, type:dir}
+  -o {output:arrowDir, type:dir}
 
-run python {file:"ExtractBlobs.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -o {output:"blobsDir", type:"dir"}
+# Extract entity within image
+run python {file:ExtractBlobs.py, package:scripts}
+  -i {input: $pngDir, type:dir}
+  -o {output:blobsDir, type:dir}
 
-run python {file:"ExtractText.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -o {output:"textDir", type:"dir"}
+# Extract text
+run python {file:ExtractText.py, package:scripts}
+  -i {input: $pngDir, type:dir}
+  -o {output:textDir, type:dir}
 
-run python {file:"ExtractRelations.py", package:"scripts"} -i {input: $pngDir, type:"dir"} -a {ref:"arrowDir"} -b {ref:"blobsDir"} -t {ref:"textDir"} -o {output:"relationsDir", type:"dir"}
+# Find arrow/text/blob relations
+run python {file:ExtractRelations.py, package:scripts}
+  -i {input: $pngDir, type:dir}
+  -a {ref:arrowDir}
+  -b {ref:blobsDir}
+  -t {ref:textDir}
+  -o {output:relationsDir, type:dir}
