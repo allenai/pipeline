@@ -5,19 +5,19 @@ import java.net.URI
 case class PipescriptSources(
   original: URI,
   portable: URI
-  )
+)
 
 /** Model that a workflow script is parsed into */
 case class Pipescript(
-  packages: Seq[Package],
-  stepCommands: Seq[StepCommand]) {
+    packages: Seq[Package],
+    stepCommands: Seq[StepCommand]
+) {
 
-  /**
-   * Text that can be parsed into this script.
-   * May not be identical to the text this script was originally parsed from
-   * Formatting will not be preserved, and variables will be resolved
-   * @return
-   */
+  /** Text that can be parsed into this script.
+    * May not be identical to the text this script was originally parsed from
+    * Formatting will not be preserved, and variables will be resolved
+    * @return
+    */
   def scriptText = {
     val buffer = new StringBuilder
     packages foreach { pkg =>
@@ -28,91 +28,91 @@ case class Pipescript(
       buffer.append(step.scriptText).append("\n")
     }
     buffer.mkString
- }
+  }
 }
 
-  /** A file or directory to package up and persist in S3.
-    * Primary use case is to upload a directory of scripts
+/** A file or directory to package up and persist in S3.
+  * Primary use case is to upload a directory of scripts
+  */
+case class Package(id: String, source: URI) {
+  def scriptText: String = s"""package {id:"${id}", source:"${source}"}"""
+}
+
+/** A single line in a WorkflowScript that maps to a pipeline step
+  *
+  * Example StepCommand:
+  * {{{
+  * {in:$scripts/ExtractArrows.py} -i {in:./png, id:pngDir} -o {out:arrowDir, type:dir}
+  * }}}
+  */
+case class StepCommand(tokens: Seq[CommandToken]) {
+  /** Lookup output files by ID */
+  def outputFiles: Map[String, CommandToken.OutputFile] = (tokens collect {
+    case f: CommandToken.OutputFile => (f.id, f)
+  }).toMap
+  def scriptText = s"""run ${tokens.map(_.scriptText).mkString(" ")}"""
+}
+
+sealed trait CommandToken {
+  def scriptText: String
+}
+
+object CommandToken {
+
+  /** A directory input
+    * @param source
     */
-  case class Package(id: String, source: URI) {
-    def scriptText: String = s"""package {id:"${id}", source:"${source}"}"""
+  case class InputDir(source: URI) extends CommandToken {
+    def scriptText: String = s"""{input:"$source", type:"dir"}"""
   }
 
-  /** A single line in a WorkflowScript that maps to a pipeline step
-    *
-    * Example StepCommand:
-    * {{{
-    * {in:$scripts/ExtractArrows.py} -i {in:./png, id:pngDir} -o {out:arrowDir, type:dir}
-    * }}}
+  /** A file input
+    * @param source
     */
-  case class StepCommand(tokens: Seq[CommandToken]) {
-    /** Lookup output files by ID */
-    def outputFiles: Map[String, CommandToken.OutputFile] = (tokens collect {
-      case f: CommandToken.OutputFile => (f.id, f)
-    }).toMap
-    def scriptText = s"""run ${tokens.map(_.scriptText).mkString(" ")}"""
+  case class InputFile(source: URI) extends CommandToken {
+    def scriptText: String = s"""{input:"$source", type:"file"}"""
   }
 
-  sealed trait CommandToken {
-    def scriptText: String
+  /** A URL input
+    * @param source
+    */
+  case class InputUrl(source: URI) extends CommandToken {
+    def scriptText: String = s"""{input:"$source", type:"url"}"""
   }
 
-  object CommandToken {
-
-    /** A directory input
-      * @param source
-      */
-    case class InputDir(source: URI) extends CommandToken {
-      def scriptText: String = s"""{input:"$source", type:"dir"}"""
-    }
-
-    /** A file input
-      * @param source
-      */
-    case class InputFile(source: URI) extends CommandToken {
-      def scriptText: String = s"""{input:"$source", type:"file"}"""
-    }
-
-    /** A URL input
-      * @param source
-      */
-    case class InputUrl(source: URI) extends CommandToken {
-      def scriptText: String = s"""{input:"$source", type:"url"}"""
-    }
-
-    /** A file that exists in a Package
-      * @param id the package's ID
-      * @param path relative path from the package
-      */
-    case class PackagedInput(id: String, path: String) extends CommandToken {
-      def scriptText: String = s"""{file:"$path", package:"$id"}"""
-    }
-
-    /** An input that is a reference to an output declared in an upstream step
-      * @param id the id given to the upstream output
-      */
-    case class ReferenceOutput(id: String) extends CommandToken {
-      def scriptText: String = s"""{ref:"$id"}"""
-    }
-
-    /** A file to output
-      * @param id id to use as a reference in downstream steps
-      * @param suffix will determine the content type
-      */
-    case class OutputFile(id: String, suffix: String) extends CommandToken {
-      def scriptText: String = s"""{output:"$id", type:"file", suffix:"$suffix"}"""
-    }
-
-    /** A directory to output
-      * @param id id to use as a reference in downstream steps
-      */
-    case class OutputDir(id: String) extends CommandToken {
-      def scriptText: String = s"""{output:"$id", type:"dir"}"""
-    }
-
-    /** An arbitrary string */
-    case class StringToken(value: String) extends CommandToken {
-      def scriptText: String = value
-    }
-
+  /** A file that exists in a Package
+    * @param id the package's ID
+    * @param path relative path from the package
+    */
+  case class PackagedInput(id: String, path: String) extends CommandToken {
+    def scriptText: String = s"""{file:"$path", package:"$id"}"""
   }
+
+  /** An input that is a reference to an output declared in an upstream step
+    * @param id the id given to the upstream output
+    */
+  case class ReferenceOutput(id: String) extends CommandToken {
+    def scriptText: String = s"""{ref:"$id"}"""
+  }
+
+  /** A file to output
+    * @param id id to use as a reference in downstream steps
+    * @param suffix will determine the content type
+    */
+  case class OutputFile(id: String, suffix: String) extends CommandToken {
+    def scriptText: String = s"""{output:"$id", type:"file", suffix:"$suffix"}"""
+  }
+
+  /** A directory to output
+    * @param id id to use as a reference in downstream steps
+    */
+  case class OutputDir(id: String) extends CommandToken {
+    def scriptText: String = s"""{output:"$id", type:"dir"}"""
+  }
+
+  /** An arbitrary string */
+  case class StringToken(value: String) extends CommandToken {
+    def scriptText: String = value
+  }
+
+}

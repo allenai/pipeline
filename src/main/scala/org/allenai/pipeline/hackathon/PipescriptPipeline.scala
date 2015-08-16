@@ -9,8 +9,8 @@ import java.net.URI
 
 class PipescriptPipeline(val pipeline: Pipeline) {
 
-  def buildPipeline(lines: Iterable[String]): Pipeline = {
-    val script = new PipescriptCompiler().parseLines(lines)
+  def buildPipeline(scriptText: String): Pipeline = {
+    val script = new PipescriptCompiler().compileScript(scriptText)
     buildPipeline(script)
   }
 
@@ -106,7 +106,8 @@ class PipescriptPipeline(val pipeline: Pipeline) {
         def createArtifact(name: String) =
           pipeline.artifactFactory.createArtifact[StructuredArtifact](
             pipeline.rootOutputUrl,
-            s"uploads/$name.zip")
+            s"uploads/$name.zip"
+          )
         ReplicateDirectory(Left((d.dir, createArtifact _)))
       case uploaded =>
         def getName(a: StructuredArtifact) = {
@@ -121,7 +122,8 @@ class PipescriptPipeline(val pipeline: Pipeline) {
         def createArtifact(name: String) =
           pipeline.artifactFactory.createArtifact[FlatArtifact](
             pipeline.rootOutputUrl,
-            s"uploads/$name")
+            s"uploads/$name"
+          )
         ReplicateFile(Left((d.file, createArtifact _)))
       case uploaded =>
         def getName(a: FlatArtifact) = {
@@ -139,13 +141,12 @@ class PipescriptPipeline(val pipeline: Pipeline) {
     val steps =
       for (cmd <- script.stepCommands) yield {
         val tokens =
-          for (token <- cmd.tokens) yield
-            token match {
-              case InputDir(url) =>
-                InputDir(replicatedDirProducer(url).artifact.url)
-              case InputFile(url) =>
-                InputFile(replicatedFileProducer(url).artifact.url)
-              case other => other
+          for (token <- cmd.tokens) yield token match {
+            case InputDir(url) =>
+              InputDir(replicatedDirProducer(url).artifact.url)
+            case InputFile(url) =>
+              InputFile(replicatedFileProducer(url).artifact.url)
+            case other => other
           }
         StepCommand(tokens)
       }

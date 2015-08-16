@@ -18,10 +18,9 @@ class TestPipescriptParser extends UnitSpec {
 
   "pipeline scripting" should "successfully parse a step command" in {
     val program =
-      """run python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o
-        |{out:"arrowDir", type:"dir"}""".stripMargin
+      """run python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}""".stripMargin
     val parser = new PipescriptParser.Parser
-    val parsed = parser.parseAll(parser.stepStatement, program)
+    val parsed = parser.parseAll(parser.script, program)
     assert(parsed.successful)
   }
 
@@ -49,13 +48,17 @@ class TestPipescriptParser extends UnitSpec {
 
   it should "successfully parse a small sample program" in {
     val simpleProgram =
-      """|package {source: "./scripts", id: "scripts"}
+      """| package {source: "./scripts", id: "scripts"}
         |
         |# Woohoo
-        |run {in:"asdf"} eek {out:"fdsa"}""".stripMargin
+        |run {input:"asdf",
+        |     ignore:"false"} `run`
+        |     {output:"fdsa"}
+        |
+        |run echo done""".stripMargin
 
     val parser = new PipescriptParser.Parser
-    val parsed = parser.parseText(simpleProgram).toList
+    val parsed = parser.parseScript(simpleProgram).toList
 
     assert(parsed(0) === PackageStatement(Block(Seq(
       Arg("source", SimpleString.from("./scripts")),
@@ -65,9 +68,13 @@ class TestPipescriptParser extends UnitSpec {
     assert(parsed(1).isInstanceOf[CommentStatement])
 
     assert(parsed(2) === StepStatement(List(
-      ArgToken(Block(List(Arg("in", SimpleString.from("asdf"))))),
-      StringToken("eek"),
-      ArgToken(Block(List(Arg("out", SimpleString.from("fdsa")))))
+      ArgToken(Block(List(Arg("input", SimpleString.from("asdf")), Arg("ignore", SimpleString.from("false"))))),
+      StringToken("run"),
+      ArgToken(Block(List(Arg("output", SimpleString.from("fdsa")))))
+    )))
+
+    assert(parsed(3) === StepStatement(List(
+      StringToken("echo"), StringToken("done")
     )))
   }
 }

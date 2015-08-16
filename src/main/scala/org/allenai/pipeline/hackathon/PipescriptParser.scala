@@ -34,7 +34,7 @@ object PipescriptParser {
 
   /** A step command describes one stage of a pipeline's execution.
     *
-    * @param block a typesafe-config like block specifying arguments
+    * @param tokens a list of typesafe-config like block specifying arguments
     */
   case class StepStatement(tokens: Seq[Token]) extends Statement
 
@@ -138,7 +138,9 @@ object PipescriptParser {
 
   /** The parser combinator.  This is a subclass because parser combinators are not threadsafe. */
   class Parser extends JavaTokenParsers {
-    def line = comment | packageStatement | variableStatement | stepStatement
+    def script: Parser[TraversableOnce[Statement]] = rep(line)
+
+    def line = (comment | packageStatement | variableStatement | stepStatement)
 
     def comment = """#.*""".r ^^ { string => CommentStatement(string) }
 
@@ -149,18 +151,22 @@ object PipescriptParser {
 
     def stepStatement = "run" ~> rep(token) ^^ { case tokens => StepStatement(tokens) }
 
-    def token: Parser[Token] = argToken | stringToken
-
-    def argToken = block ^^ { block => ArgToken(block) }
-
-    def stringToken = """[^{}\s]+""".r ^^ { s =>
-      StringToken(s)
-    }
-
     def variableStatement = "set" ~! block ^^ {
       case _ ~ block =>
         SetStatement(block)
     }
+
+    def token: Parser[Token] = argToken | stringToken
+
+    def argToken = block ^^ { block => ArgToken(block) }
+
+    def stringToken = nonKeyword | quotedKeyword
+
+    def nonKeyword = not(reserved) ~> """[^{}\s`]+""".r ^^ StringToken
+
+    def reserved = "run" | "package" | "set"
+
+    def quotedKeyword = "`" ~> reserved <~ "`" ^^ StringToken
 
     def value = substitutionString | simpleString | variableReference
     def substitutionString = "s" ~> stringLiteral ^^ { s => SubstitutionString(s) }
@@ -182,32 +188,15 @@ object PipescriptParser {
     /** An argument, which is a key, value pair. */
     def arg: Parser[Arg] = term ~ ":" ~ value ^^ { case term ~ ":" ~ value => Arg(term, value) }
 
-    /** Whitespace */
-    def WS = """[ \t]*""".r
-
     /** A term may only have letters. */
     def term: Parser[String] = """\w+""".r
 
-    def parseLine(s: String) = {
-      parseAll(line, s)
-    }
-
-    def parseLines(lines: TraversableOnce[String]): TraversableOnce[PipescriptParser.Statement] = {
-      for {
-        line <- lines
-        if !line.trim.isEmpty
-      } yield {
-        this.parseLine(line) match {
-          case Success(matchers, _) => matchers
-          case e: NoSuccess =>
-            Console.err.println(e)
-            throw new IllegalArgumentException(s"failed to parse '${line}'")
-        }
+    def parseScript(s: String) = {
+      parseAll(script, s) match {
+        case Success(statements, _) => statements
+        case e: NoSuccess =>
+          sys.error(s"Failed to parse script: $e")
       }
-    }
-
-    def parseText(s: String) = {
-      parseLines(s.split("\n").toList)
     }
   }
 }

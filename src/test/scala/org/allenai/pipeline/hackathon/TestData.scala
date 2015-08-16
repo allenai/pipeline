@@ -53,5 +53,6 @@ object TestData {
           OutputDir("relationsDir")
         )
       )
-    ))
+    )
+  )
 }

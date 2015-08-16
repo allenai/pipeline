@@ -6,7 +6,7 @@ import org.allenai.pipeline.s3.S3Pipeline
 
 import scala.io.Source
 
-import java.io.{File, PrintWriter}
+import java.io.{ File, PrintWriter }
 import java.net.URI
 import java.nio.file.Files
 
@@ -17,7 +17,7 @@ object RunScript extends App {
   }
   val scriptFile = new File(args(0))
 
-  val scriptLines = Source.fromFile(scriptFile).getLines.toList
+  val scriptText = Source.fromFile(scriptFile).mkString
 
   val outputUrl =
     if (args.length == 1) {
@@ -28,9 +28,10 @@ object RunScript extends App {
 
   def scriptUploadLocation(name: String) =
     pipeline.artifactFactory.createArtifact[FlatArtifact](
-      pipeline.rootOutputUrl, s"scripts/$name")
+      pipeline.rootOutputUrl, s"scripts/$name"
+    )
 
-  val script = new PipescriptCompiler().parseLines(scriptLines)
+  val script = new PipescriptCompiler().compileScript(scriptText)
   val interpreter = new PipescriptPipeline(S3Pipeline(outputUrl))
   val pipeline = interpreter.buildPipeline(script)
   val originalScriptUrl = {
@@ -38,7 +39,6 @@ object RunScript extends App {
     upload.get
     pipeline.toHttpUrl(upload.artifact.url)
   }
-
 
   val stableScriptUrl = {
     val portableScriptText = interpreter.makePortable(script).scriptText

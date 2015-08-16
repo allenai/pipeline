@@ -15,7 +15,7 @@ class TestPipescriptCompiler extends UnitSpec {
         |package {id: "pkg2", source: s"$x"}
       """.stripMargin
     val parser = new PipescriptCompiler
-    val parsed = parser.parseText(program)
+    val parsed = parser.compileScript(program)
   }
 
   it should "successfully parse the sample vision workflow" in {
@@ -24,10 +24,10 @@ class TestPipescriptCompiler extends UnitSpec {
       require(url != null, "Could not find resource.")
       url
     }
-    val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
+    val visionWorkflow = Source.fromURL(resourceUrl).mkString
 
     val parser = new PipescriptCompiler
-    val workflow = parser.parseLines(visionWorkflow)
+    val workflow = parser.compileScript(visionWorkflow)
 
     assert(workflow.packages.size === 1)
     assert(workflow.stepCommands.size === 4)
@@ -39,10 +39,10 @@ class TestPipescriptCompiler extends UnitSpec {
       require(url != null, "Could not find resource.")
       url
     }
-    val visionWorkflow = Source.fromURL(resourceUrl).getLines.toList
+    val scriptText = Source.fromURL(resourceUrl).mkString
 
     val parser = new PipescriptCompiler()
-    val script = parser.parseLines(visionWorkflow)
+    val script = parser.compileScript(scriptText)
   }
 
   it should "run a pipeline from a script" in {
@@ -51,10 +51,10 @@ class TestPipescriptCompiler extends UnitSpec {
       require(url != null, "Could not find resource.")
       url
     }
-    val visionScriptLines = Source.fromURL(resourceUrl).getLines.toList
+    val scriptText = Source.fromURL(resourceUrl).mkString
 
     val dir = new File(new File("pipeline-output"), "RunScript")
-    val pipeline = new PipescriptPipeline(Pipeline(dir)).buildPipeline(visionScriptLines)
+    val pipeline = new PipescriptPipeline(Pipeline(dir)).buildPipeline(scriptText)
     pipeline.run("RunFromScript", None)
   }
 }

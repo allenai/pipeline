@@ -71,11 +71,7 @@ class PipescriptCompiler() {
     Pipescript(packages, stepCommands)
   }
 
-  def parseLines(lines: TraversableOnce[String]): Pipescript = {
-    this.parseStatements(parser.parseLines(lines))
-  }
-
-  def parseText(text: String): Pipescript = {
-    this.parseStatements(parser.parseText(text))
+  def compileScript(text: String): Pipescript = {
+    this.parseStatements(parser.parseScript(text))
   }
 }

@@ -3,13 +3,13 @@ package org.allenai.pipeline.hackathon
 import org.allenai.common.Resource
 import org.allenai.pipeline._
 
-import java.io.{File, FileInputStream, InputStream, SequenceInputStream}
+import java.io.{ File, FileInputStream, InputStream, SequenceInputStream }
 import java.util.Collections
 
 case class ReplicateFile(
-  resource: Either[(File, String => FlatArtifact),
-    (FlatArtifact, FlatArtifact => String)])
-  extends ReplicateResource[FlatArtifact](resource) {
+  resource: Either[(File, String => FlatArtifact), (FlatArtifact, FlatArtifact => String)]
+)
+    extends ReplicateResource[FlatArtifact](resource) {
   override protected[this] def computeChecksum(file: File) =
     InputStreamChecksum(new FileInputStream(file))
 
@@ -19,9 +19,8 @@ case class ReplicateFile(
 }
 
 case class ReplicateDirectory(
-  resource: Either[(File, String => StructuredArtifact),
-    (StructuredArtifact, StructuredArtifact => String)]
-  ) extends ReplicateResource[StructuredArtifact](resource) {
+    resource: Either[(File, String => StructuredArtifact), (StructuredArtifact, StructuredArtifact => String)]
+) extends ReplicateResource[StructuredArtifact](resource) {
   override protected[this] def computeChecksum(file: File) =
     InputStreamChecksum.forDirectory(file)
 
@@ -38,8 +37,9 @@ case class ReplicateDirectory(
   * return the original file
   */
 abstract class ReplicateResource[T <: Artifact](
-  resource: Either[(File, String => T), (T, T => String)])
-  extends Producer[File] with Ai2SimpleStepInfo {
+  resource: Either[(File, String => T), (T, T => String)]
+)
+    extends Producer[File] with Ai2SimpleStepInfo {
 
   protected[this] def upload(file: File)
 
