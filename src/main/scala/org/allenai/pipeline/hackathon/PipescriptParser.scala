@@ -140,21 +140,15 @@ object PipescriptParser {
   class Parser extends JavaTokenParsers {
     def script: Parser[TraversableOnce[Statement]] = rep(line)
 
-    def line = (comment | packageStatement | variableStatement | stepStatement)
+    def line = comment | packageStatement | variableStatement | stepStatement
 
-    def comment = """#.*""".r ^^ { string => CommentStatement(string) }
+    def comment = """#.*""".r ^^ CommentStatement
 
-    def packageStatement = "package" ~! block ^^ {
-      case _ ~ b =>
-        PackageStatement(b)
-    }
+    def packageStatement = "package" ~> block ^^ PackageStatement
 
-    def stepStatement = "run" ~> rep(token) ^^ { case tokens => StepStatement(tokens) }
+    def stepStatement = "run" ~> rep(token) ^^ StepStatement
 
-    def variableStatement = "set" ~! block ^^ {
-      case _ ~ block =>
-        SetStatement(block)
-    }
+    def variableStatement = "set" ~> block ^^ SetStatement
 
     def token: Parser[Token] = argToken | stringToken
 
@@ -169,20 +163,19 @@ object PipescriptParser {
     def quotedKeyword = "`" ~> reserved <~ "`" ^^ StringToken
 
     def value = substitutionString | simpleString | variableReference
-    def substitutionString = "s" ~> stringLiteral ^^ { s => SubstitutionString(s) }
+    def substitutionString = "s" ~> stringLiteral ^^ SubstitutionString
     def simpleString = stringLiteral ^^ { s => SimpleString(s) }
     def variableReference = simpleVariableReference | complexVariableReference
-    def simpleVariableReference = "$" ~> """\w+""".r ^^ { VariableReference(_) }
-    def complexVariableReference = "${" ~> """\w+""".r <~ "}" ^^ { VariableReference(_) }
+    def simpleVariableReference = "$" ~> """\w+""".r ^^ VariableReference
+    def complexVariableReference = "${" ~> """\w+""".r <~ "}" ^^ VariableReference
 
     /** A block is a JSON or Typesafe Config style block between braces.
       * However, it is never nested.
       *
       * { name: "pipescript", value: ${var} }
       */
-    def block: Parser[Block] = "{" ~> args <~ "}" ^^ { args =>
-      Block(args)
-    }
+    def block: Parser[Block] = "{" ~> args <~ "}" ^^ Block
+
     /** An argument list, separated by comma. */
     def args: Parser[List[Arg]] = repsep(arg, ",")
     /** An argument, which is a key, value pair. */

@@ -68,8 +68,8 @@ abstract class ReplicateResource[T <: Artifact](
           if (idx < 0) {
             s"${file.getName}.$checksum"
           } else {
-            val prefix = file.getName.take(idx - 1)
-            val suffix = file.getName.drop(idx)
+            val prefix = file.getName.take(idx)
+            val suffix = file.getName.drop(idx + 1)
             s"$prefix.$checksum.$suffix"
           }
         createArtifact(fileName)
