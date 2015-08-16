@@ -27,14 +27,14 @@ class PipescriptCompiler() {
         val id = block.findGet("id")
         val sourceUri = new URI(source)
         packages :+= hackathon.Package(id, sourceUri)
-      case PipescriptParser.StepStatement(tokens) =>
+      case PipescriptParser.RunStatement(tokens) =>
         stepCommands :+= StepCommand(tokens.map(transformToken))
     }
 
     def transformToken(scriptToken: PipescriptParser.Token): CommandToken = {
       scriptToken match {
-        case PipescriptParser.StringToken(s) => CommandToken.StringToken(s)
-        case t @ PipescriptParser.ArgToken(block) =>
+        case PipescriptParser.StringToken(s) => CommandToken.StringToken(s.asString)
+        case t @ PipescriptParser.KeyValuePairsToken(block) =>
           if (block.hasKey("file")) {
             block.find("package").map {
               pkgName => PackagedInput(pkgName, block.findGet("file"))

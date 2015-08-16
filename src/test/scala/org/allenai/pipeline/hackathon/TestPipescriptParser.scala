@@ -18,35 +18,39 @@ class TestPipescriptParser extends UnitSpec {
 
   "pipeline scripting" should "successfully parse a step command" in {
     val program =
-      """run python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}""".stripMargin
+      """run python {in:"$scripts/ExtractArrows.py"} -i {in:"./png", id:"pngDir"} -o {out:"arrowDir", type:"dir"}"""
     val parser = new PipescriptParser.Parser
-    val parsed = parser.parseAll(parser.script, program)
-    assert(parsed.successful)
+    val parsed = parser.parseScript(program)
   }
 
-  it should "successfully parse a variable command" in {
+  it should "parse a string without quotes" in {
+    val program =
+      """run python {in:./ExtractArrows.py} -i {in:png, id:pngDir}"""
+    val parser = new PipescriptParser.Parser
+    val parsed = parser.parseScript(program)
+    println()
+  }
+
+  it should "parse a set command" in {
     val program = """set {x: "foo"}"""
     val parser = new PipescriptParser.Parser
-    val parsed = parser.parseAll(parser.variableStatement, program)
-    assert(parsed.successful)
+    val parsed = parser.parseScript(program)
   }
 
-  /*
-  it should "successfully parse and use a variable command" in {
+  it should "parse a variable reference in a run command" in {
     val program =
-      """set x = foo
-        |echo {in: "$x"}
+      """set {x: foo.txt}
+        |run echo $x
+        |run echo s"abc-$x"
       """.stripMargin
-    val parser = new PipescriptParser.Parser
-    val parsed = parser.parseText(program).toSeq
-    assert(parsed.length === 2)
-    assert(parsed(1).isInstanceOf[StepStatement])
-    assert(parsed(1).asInstanceOf[StepStatement].tokens(1).asInstanceOf[ArgToken].args.find(_
-        .name == "in").get.value === "foo")
+    val script = new PipescriptCompiler().compileScript(program)
+    assert(script.stepCommands.map(_.scriptText).find(_.indexOf("echo foo.txt") >= 0).nonEmpty)
+    assert(script.stepCommands.map(_.scriptText).find(_.indexOf("echo abc-foo.txt") >= 0).nonEmpty)
   }
-  */
 
-  it should "successfully parse a small sample program" in {
+  it should "parse a small sample program" in {
+    def javaString(s: String) = JavaString(s""""$s"""")
+
     val simpleProgram =
       """| package {source: "./scripts", id: "scripts"}
         |
@@ -60,21 +64,21 @@ class TestPipescriptParser extends UnitSpec {
     val parser = new PipescriptParser.Parser
     val parsed = parser.parseScript(simpleProgram).toList
 
-    assert(parsed(0) === PackageStatement(Block(Seq(
-      Arg("source", SimpleString.from("./scripts")),
-      Arg("id", SimpleString.from("scripts"))
+    assert(parsed(0) === PackageStatement(KeyValuePairs(Seq(
+      KeyValue("source", javaString("./scripts")),
+      KeyValue("id", javaString("scripts"))
     ))))
 
     assert(parsed(1).isInstanceOf[CommentStatement])
 
-    assert(parsed(2) === StepStatement(List(
-      ArgToken(Block(List(Arg("input", SimpleString.from("asdf")), Arg("ignore", SimpleString.from("false"))))),
-      StringToken("run"),
-      ArgToken(Block(List(Arg("output", SimpleString.from("fdsa")))))
+    assert(parsed(2) === RunStatement(List(
+      KeyValuePairsToken(KeyValuePairs(List(KeyValue("input", javaString("asdf")), KeyValue("ignore", javaString("false"))))),
+      StringToken(LiteralString("run")),
+      KeyValuePairsToken(KeyValuePairs(List(KeyValue("output", javaString("fdsa")))))
     )))
 
-    assert(parsed(3) === StepStatement(List(
-      StringToken("echo"), StringToken("done")
+    assert(parsed(3) === RunStatement(List(
+      StringToken(LiteralString("echo")), StringToken(LiteralString("done"))
     )))
   }
 }

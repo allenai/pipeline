@@ -33,11 +33,11 @@ object PipescriptParser {
 
   /** A variable statement sets one or more variables to the associated values.
     */
-  case class SetStatement(block: Block) extends Statement {
+  case class SetStatement(block: KeyValuePairs) extends Statement {
     def resolve(env: MMap[String, String]) = {
       val resolvedBlock = block.resolve(env)
-      for (arg <- resolvedBlock.args) {
-        env.put(arg.name, arg.value.asInstanceOf[SimpleString].stringLiteral)
+      for (arg <- resolvedBlock.keyValuePairs) {
+        env.put(arg.key, arg.value.asString)
       }
       SetStatement(resolvedBlock)
     }
@@ -46,7 +46,7 @@ object PipescriptParser {
     *
     * @param block a typesafe-config like block specifying arguments
     */
-  case class PackageStatement(block: Block) extends Statement {
+  case class PackageStatement(block: KeyValuePairs) extends Statement {
     def resolve(env: MMap[String, String]) = PackageStatement(block.resolve(env))
   }
 
@@ -54,8 +54,8 @@ object PipescriptParser {
     *
     * @param tokens a list of typesafe-config like block specifying arguments
     */
-  case class StepStatement(tokens: Seq[Token]) extends Statement {
-    def resolve(env: MMap[String, String]) = StepStatement(tokens.map(_.resolve(env)))
+  case class RunStatement(tokens: Seq[Token]) extends Statement {
+    def resolve(env: MMap[String, String]) = RunStatement(tokens.map(_.resolve(env)))
   }
 
   /** A block is JSON or Typesafe-Config like code that specifies a map.
@@ -64,26 +64,26 @@ object PipescriptParser {
     *
     * The only value supported is a string.
     *
-    * @param args
+    * @param keyValuePairs
     */
-  case class Block(args: Seq[Arg]) {
+  case class KeyValuePairs(keyValuePairs: Seq[KeyValue]) {
     def hasKey(name: String): Boolean = {
-      args.exists(_.name == name)
+      keyValuePairs.exists(_.key == name)
     }
 
     def find(name: String): Option[String] = {
-      args.find(_.name == name).map(_.value.asString)
+      keyValuePairs.find(_.key == name).map(_.value.asString)
     }
 
     def findGet(name: String): String = {
       find(name).getOrElse {
-        throw new IllegalArgumentException(s"Could not find key '${name}' in arguments: " + args)
+        throw new IllegalArgumentException(s"Could not find key '${name}' in arguments: " + keyValuePairs)
       }
     }
-    def resolve(env: MMap[String, String]) = Block(args.map(_.resolve(env)))
+    def resolve(env: MMap[String, String]) = KeyValuePairs(keyValuePairs.map(_.resolve(env)))
   }
-  case class Arg(name: String, value: Value) {
-    def resolve(env: MMap[String, String]) = Arg(name, value.resolve(env))
+  case class KeyValue(key: String, value: StringExp) {
+    def resolve(env: MMap[String, String]) = KeyValue(key, value.resolve(env))
   }
 
   /** A step command is composed of tokens.  They are either raw string tokens describing the
@@ -93,48 +93,52 @@ object PipescriptParser {
   sealed abstract class Token {
     def resolve(env: MMap[String, String]): Token
   }
-  case class StringToken(value: String) extends Token {
-    def resolve(env: MMap[String, String]) = this
+  case class StringToken(value: StringExp) extends Token {
+    def resolve(env: MMap[String, String]) = StringToken(value.resolve(env))
   }
-  case class ArgToken(block: Block) extends Token {
-    def resolve(env: MMap[String, String]) = ArgToken(block.resolve(env))
+  case class KeyValuePairsToken(keyValuePairs: KeyValuePairs) extends Token {
+    def resolve(env: MMap[String, String]) = KeyValuePairsToken(keyValuePairs.resolve(env))
   }
 
-  /** A value is either a string, an s-string (for substitutions within a string), or a
-    * variable reference (for convenience).
+  /** A StringExp is either:
+    * a string (quotes optional if it contains no special characters)
+    * an s-string (for substitutions within a string),
+    * or a variable reference.
     */
-  sealed abstract class Value {
+  sealed abstract class StringExp {
     def asString: String
-    def resolve(environment: MMap[String, String]): SimpleString
+    def resolve(environment: MMap[String, String]): LiteralString
   }
   /** i.e. ${var} */
-  case class VariableReference(name: String) extends Value {
+  case class VariableReference(name: String) extends StringExp {
     def asString = sys.error(s"Unresolved variable $name")
-    def resolve(environment: MMap[String, String]): SimpleString =
-      environment.get(name).map(SimpleString.apply).getOrElse {
+    def resolve(environment: MMap[String, String]): LiteralString =
+      environment.get(name).map(LiteralString.apply).getOrElse {
         throw new IllegalArgumentException(s"Could not find variable '$name' in environment: $environment")
       }
   }
 
-  /** A simple string is a Java string.
+  /** A string expressed in Java Syntax.
     * i.e. "Hel\"o"
     */
-  case class SimpleString(stringLiteral: String) extends Value {
-    def asString = stringLiteral
-    val stringBody = StringHelpers.stripQuotes(stringLiteral)
-    def resolve(environment: MMap[String, String]): SimpleString = SimpleString(StringHelpers.unescape(stringBody))
+  case class JavaString(s: String) extends StringExp {
+    def asString = StringHelpers.unescape(StringHelpers.stripQuotes(s))
+    def resolve(environment: MMap[String, String]): LiteralString = LiteralString(asString)
   }
-  object SimpleString {
-    def from(s: String): SimpleString = SimpleString("\"" + s + "\"")
+
+  /** A literal string without quotes, escaping, or anything else */
+  case class LiteralString(s: String) extends StringExp {
+    def asString = s
+    def resolve(environment: MMap[String, String]): LiteralString = this
   }
 
   /** A scala-style substitution string."
     * s"Hello ${your.name}! My name is ${myName}"
     */
-  case class SubstitutionString(stringLiteral: String) extends Value {
+  case class SubstitutionString(stringLiteral: String) extends StringExp {
     val stringBody = StringHelpers.stripQuotes(stringLiteral)
     def asString: String = sys.error(s"String literal with unresolved escape characters: $stringLiteral")
-    def resolve(env: MMap[String, String]): SimpleString = {
+    def resolve(env: MMap[String, String]): LiteralString = {
       case class Replacement(regex: Regex, logic: Match => String)
 
       def lookup(m: Match): String = {
@@ -156,7 +160,7 @@ object PipescriptParser {
         replacement.regex.replaceAllIn(string, replacement.logic)
       }
 
-      SimpleString(StringHelpers.unescape(replaced))
+      LiteralString(StringHelpers.unescape(replaced))
     }
   }
   object StringHelpers {
@@ -176,27 +180,30 @@ object PipescriptParser {
 
     def comment = """#.*""".r ^^ CommentStatement
 
-    def packageStatement = "package" ~> block ^^ PackageStatement
+    def packageStatement = "package" ~> propertyBag ^^ PackageStatement
 
-    def stepStatement = "run" ~> rep(token) ^^ StepStatement
+    def stepStatement = "run" ~> rep(token) ^^ RunStatement
 
-    def variableStatement = "set" ~> block ^^ SetStatement
+    def variableStatement = "set" ~> propertyBag ^^ SetStatement
 
     def token: Parser[Token] = argToken | stringToken
 
-    def argToken = block ^^ { block => ArgToken(block) }
+    def argToken = propertyBag ^^ { block => KeyValuePairsToken(block) }
 
-    def stringToken = nonKeyword | quotedKeyword
+    def stringToken = stringExp ^^ StringToken
 
-    def nonKeyword = not(reserved) ~> """[^{}\s`]+""".r ^^ StringToken
+    def bareString = (not(reserved) ~> """[^{}\s`:,]+""".r) | quotedKeyword
+
+    //def nonKeyword = bareString ^^ StringToken
 
     def reserved = "run" | "package" | "set"
 
-    def quotedKeyword = "`" ~> reserved <~ "`" ^^ StringToken
+    def quotedKeyword = "`" ~> reserved <~ "`"
 
-    def value = substitutionString | simpleString | variableReference
+    def stringExp = substitutionString | javaString | variableReference | literalString
     def substitutionString = "s" ~> stringLiteral ^^ SubstitutionString
-    def simpleString = stringLiteral ^^ { s => SimpleString(s) }
+    def javaString = stringLiteral ^^ JavaString
+    def literalString = bareString ^^ LiteralString
     def variableReference = simpleVariableReference | complexVariableReference
     def simpleVariableReference = "$" ~> """\w+""".r ^^ VariableReference
     def complexVariableReference = "${" ~> """\w+""".r <~ "}" ^^ VariableReference
@@ -206,12 +213,12 @@ object PipescriptParser {
       *
       * { name: "pipescript", value: ${var} }
       */
-    def block: Parser[Block] = "{" ~> args <~ "}" ^^ Block
+    def propertyBag: Parser[KeyValuePairs] = "{" ~> keyValuePairs <~ "}" ^^ KeyValuePairs
 
     /** An argument list, separated by comma. */
-    def args: Parser[List[Arg]] = repsep(arg, ",")
+    def keyValuePairs: Parser[List[KeyValue]] = repsep(keyValue, ",")
     /** An argument, which is a key, value pair. */
-    def arg: Parser[Arg] = term ~ ":" ~ value ^^ { case term ~ ":" ~ value => Arg(term, value) }
+    def keyValue: Parser[KeyValue] = term ~ ":" ~ stringExp ^^ { case term ~ ":" ~ value => KeyValue(term, value) }
 
     /** A term may only have letters. */
     def term: Parser[String] = """\w+""".r
