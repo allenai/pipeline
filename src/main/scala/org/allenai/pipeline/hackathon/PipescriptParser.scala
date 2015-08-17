@@ -176,9 +176,13 @@ object PipescriptParser {
   class Parser extends JavaTokenParsers {
     def script: Parser[TraversableOnce[Statement]] = rep(line)
 
-    def line = comment | packageStatement | variableStatement | stepStatement
+//    def line = comment | variableStatement | packageStatement | stepStatement
+    def line = packageStatement | variableStatement | stepStatement
 
-    def comment = """#.*""".r ^^ CommentStatement
+//    override protected val whiteSpace = """\s+|(#[^\n\r]*[\n\r]+)""".r
+    override protected val whiteSpace = """(\s|#.*)+""".r
+
+//    def comment = """#[^\n\r]*[\n\r]*""".r ^^ CommentStatement
 
     def packageStatement = "package" ~> propertyBag ^^ PackageStatement
 
@@ -193,8 +197,6 @@ object PipescriptParser {
     def stringToken = stringExp ^^ StringToken
 
     def bareString = (not(reserved) ~> """[^{}\s`:,]+""".r) | quotedKeyword
-
-    //def nonKeyword = bareString ^^ StringToken
 
     def reserved = "run" | "package" | "set"
 

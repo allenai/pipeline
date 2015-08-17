@@ -28,7 +28,6 @@ class TestPipescriptParser extends UnitSpec {
       """run python {in:./ExtractArrows.py} -i {in:png, id:pngDir}"""
     val parser = new PipescriptParser.Parser
     val parsed = parser.parseScript(program)
-    println()
   }
 
   it should "parse a set command" in {
