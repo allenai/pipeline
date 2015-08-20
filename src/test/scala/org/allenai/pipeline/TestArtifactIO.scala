@@ -8,8 +8,6 @@ import org.allenai.pipeline.IoHelpers._
 
 import scala.util.Random
 
-/** Created by rodneykinney on 8/19/14.
-  */
 // scalastyle:off magic.number
 class TestArtifactIo extends UnitSpec with ScratchDirectory {
 

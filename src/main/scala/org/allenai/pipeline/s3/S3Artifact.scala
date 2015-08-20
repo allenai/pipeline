@@ -1,16 +1,15 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.common.Logging
-import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
-import org.allenai.pipeline._
+import java.io.{ File, FileOutputStream, InputStream }
+import java.net.URI
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.{ BasicAWSCredentials, EnvironmentVariableCredentialsProvider }
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata, PutObjectRequest }
-
-import java.io.{ File, FileOutputStream, InputStream }
-import java.net.URI
+import org.allenai.common.Logging
+import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
+import org.allenai.pipeline._
 
 case class S3Config(bucket: String, credentials: S3Credentials = S3Config.environmentCredentials()) {
   @transient

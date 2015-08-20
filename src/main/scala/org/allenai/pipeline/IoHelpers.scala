@@ -74,16 +74,59 @@ object IoHelpers extends ColumnFormats {
         fromArtifact(io, artifact)
       }
     }
+
   }
+
   import scala.language.implicitConversions
 
+  implicit def convertToProcessArg(s: String): StringArg = StringArg(s)
+
+  implicit def convertToInputFile(input: (String, File)) = {
+    val (name, file) = input
+    if (file.exists && file.isDirectory) {
+      val readDir = {
+        val p = ReadFromArtifact(UploadDirectory, new DirectoryArtifact(file))
+        p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+      }
+      InputDirArg(name, readDir)
+    } else {
+      val readFile = {
+        val p = ReadFromArtifact(UploadFile, new FileArtifact(file))
+        p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+      }
+      InputFileArg(name, readFile)
+    }
+  }
+
+  implicit def convertArtifactToInputFile(input: (String, FlatArtifact)) = {
+    val (name, artifact) = input
+    val readFile = {
+      val p = ReadFromArtifact(UploadFile, artifact)
+      p.copy[File](stepInfo = () => p.stepInfo.copy(className = name))
+    }
+    new InputFileArg(name, readFile)
+  }
+
+  implicit def convertPersistedProducerToInputFile[T, A <: FlatArtifact](
+    input: (String, PersistedProducer[T, A])
+  ) = {
+    val (name, p) = input
+    InputFileArg(name, p.copy(create = () => {
+      p.get
+      new ReadFromArtifact(UploadFile, p.artifact).get
+    }))
+  }
+
   implicit def asFileArtifact(f: File) = new FileArtifact(f)
+
   implicit def asStructuredArtifact(f: File): StructuredArtifact = f match {
     case f if f.exists && f.isDirectory => new DirectoryArtifact(f)
     case _ => new ZipFileArtifact(f)
   }
+
   implicit def asFlatArtifact(url: URI) =
     CreateCoreArtifacts.fromFileUrls.urlToArtifact[FlatArtifact].apply(url)
+
   implicit def asStructuredArtifact(url: URI) =
     CreateCoreArtifacts.fromFileUrls.urlToArtifact[StructuredArtifact].apply(url)
 

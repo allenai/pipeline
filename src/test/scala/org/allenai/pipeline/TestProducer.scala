@@ -6,8 +6,6 @@ import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
 import scala.util.Random
 
-/** Created by rodneykinney on 8/19/14.
-  */
 // scalastyle:off magic.number
 class TestProducer extends UnitSpec with ScratchDirectory {
 
@@ -46,8 +44,8 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   }
 
   "Producer" should "should support map" in {
-    val producer = Producer.fromMemory(Seq(1,2,3,4))
-    val sumProducer = producer.map("SumNums",(xs: Seq[Int]) => xs.sum)
+    val producer = Producer.fromMemory(Seq(1, 2, 3, 4))
+    val sumProducer = producer.map("SumNums", (xs: Seq[Int]) => xs.sum)
     sumProducer.get shouldBe 10
     sumProducer.stepInfo.className shouldBe "SumNums"
   }

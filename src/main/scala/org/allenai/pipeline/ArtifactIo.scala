@@ -2,7 +2,6 @@ package org.allenai.pipeline
 
 import org.allenai.common.Resource
 import org.allenai.pipeline.IoHelpers._
-
 import spray.json.JsonFormat
 
 import scala.io.{ Codec, Source }

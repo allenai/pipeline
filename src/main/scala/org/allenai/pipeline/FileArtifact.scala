@@ -1,12 +1,12 @@
 package org.allenai.pipeline
 
-import org.apache.commons.io.FileUtils
-
-import scala.collection.JavaConverters._
-
 import java.io._
 import java.net.URI
 import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
+
+import org.apache.commons.io.FileUtils
+
+import scala.collection.JavaConverters._
 
 /** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {

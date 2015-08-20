@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
-import scala.reflect.ClassTag
-
 import java.io.File
 import java.net.URI
+
+import scala.reflect.ClassTag
 
 /** Creates an Artifact from a URL
   */
