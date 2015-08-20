@@ -1,0 +1,29 @@
+# A vision-like pipeline workflow
+
+set { rootDir: src/test/resources/pipeline/vision-example}
+set { pngDir: s"${rootDir}/png" }
+
+package {id:scripts, source:s"${rootDir}/scripts"}
+
+# Extract arrow head/tail
+run python {file:ExtractArrows.py, package:scripts}
+  -i {input:$pngDir, type:dir}
+  -o {output:arrowDir, type:dir}
+
+# Extract entity within image
+run python {file:ExtractBlobs.py, package:scripts}
+  -i {input: $pngDir, type:dir}
+  -o {output:blobsDir, type:dir}
+
+# Extract text
+run python {file:ExtractText.py, package:scripts}
+  -i {input: $pngDir, type:dir}
+  -o {output:textDir, type:dir}
+
+# Find arrow/text/blob relations
+run python {file:ExtractRelations.py, package:scripts}
+  -i {input: $pngDir, type:dir}
+  -a {ref:arrowDir}
+  -b {ref:blobsDir}
+  -t {ref:textDir}
+  -o {output:relationsDir, type:dir}

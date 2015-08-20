@@ -6,11 +6,12 @@ import org.allenai.common.Resource
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
+import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
 /** DAG representation of the execution of a set of Producers.
   */
-case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
+case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: String, pipescripts: Option[PipescriptSources] = None) {
   def sourceNodes() = nodes.filter {
     case (nodeId, node) =>
       !links.exists(link => link.toId == nodeId)
@@ -50,7 +51,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
         // Params show up as line items in the pipeline diagram node.
         val params = info.parameters.toList.map {
           case (key, value) =>
-            s"$key=${limitLength(value)}"
+            s"$key=${unescape(limitLength(value))}"
         }
         // A link is like a param but it hyperlinks somewhere.
         val links =
@@ -74,7 +75,25 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
           case _ => ""
         }
         val name = info.stepName
-        val desc = info.description.getOrElse(if (name == info.className) "" else info.className)
+        val desc = {
+          // Word wrap the description
+          val text = unescape(info.description.getOrElse(if (name == info.className) "" else info.className))
+            .split("""\s+""").map(linkUrlsInString)
+          val textLines = new ListBuffer[String]
+          val currentLine = new StringBuilder
+          for (idx <- 0 until text.size) {
+            if (currentLine.toString.size > 0 && currentLine.toString.size + text(idx).size > DEFAULT_MAX_SIZE) {
+              textLines += currentLine.toString
+              currentLine.clear()
+              currentLine.append(text(idx))
+            } else {
+              if (currentLine.toString.size > 0) currentLine.append(" ")
+              currentLine.append(text(idx))
+            }
+          }
+          if (currentLine.toString.size > 0) textLines += currentLine.toString
+          textLines.mkString("<ul><li>", "</li><li>", "</li></ul>")
+        }
         s"""        g.setNode("$id", {
                                     |       class: "$clazz",
                                                             |       labelType: "html",
@@ -96,8 +115,19 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link]) {
     val template = Resource.using(Source.fromURL(resourceUrl)) { source =>
       source.mkString
     }
+    val portableTitle = title.replace(".pipe", ".portable.pipe")
     val outputNodeHtml = outputNodeLinks.map("<li>" + _ + "</li>").mkString("<ul>", "\n", "</ul>")
-    template.format(outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
+    val pipescriptsHtml = (pipescripts map {
+      case PipescriptSources(original, stable) =>
+        s"""<div class="typescripts">
+<ul>
+<li><a href="$original" type="text/plain" download="$title">Original</a></li>
+<li><a href="$stable" type="text/plain" download="$portableTitle">Portable</a></li>
+</ul></div>
+"""
+    }).getOrElse("")
+
+    template.format(title, pipescriptsHtml, outputNodeHtml, addNodes.mkString("\n\n"), addEdges.mkString("\n\n"))
   }
 }
 
@@ -146,7 +176,7 @@ object Node {
 case class Link(fromId: String, toId: String, name: String)
 
 object Workflow {
-  def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String]): Workflow = {
+  def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String], title: String, pipescripts: Option[PipescriptSources]): Workflow = {
     val idToName = steps.map { case (k, v) => (v.stepInfo.signature.id, k) }.toMap
     val nameToStep = steps.toMap
     def findNodes(s: PipelineStep): Iterable[PipelineStep] =
@@ -176,7 +206,7 @@ object Workflow {
       step = nameToStep(stepName)
       (from, to, name) <- findLinks(step.stepInfo)
     } yield Link(from.signature.id, to.signature.id, name)).toSet
-    Workflow(nodes, links)
+    Workflow(nodes, links, title, pipescripts)
   }
 
   def upstreamDependencies(step: PipelineStep): Set[PipelineStep] = {
@@ -186,18 +216,17 @@ object Workflow {
 
   implicit val jsFormat = {
     implicit val linkFormat = jsonFormat3(Link)
-    implicit val nodeFormat = {
-      implicit val uriFormat = new JsonFormat[URI] {
-        override def write(uri: URI): JsValue = JsString(uri.toString)
+    implicit val uriFormat = new JsonFormat[URI] {
+      override def write(uri: URI): JsValue = JsString(uri.toString)
 
-        override def read(value: JsValue): URI = value match {
-          case JsString(uri) => new URI(uri)
-          case s => sys.error(s"Invalid URI: $s")
-        }
+      override def read(value: JsValue): URI = value match {
+        case JsString(uri) => new URI(uri)
+        case s => sys.error(s"Invalid URI: $s")
       }
-      jsonFormat10(Node.apply)
     }
-    jsonFormat(Workflow.apply, "nodes", "links")
+    implicit val nodeFormat = jsonFormat10(Node.apply)
+    implicit val pipescriptsFormat = jsonFormat2(PipescriptSources.apply)
+    jsonFormat(Workflow.apply, "nodes", "links", "title", "pipescripts")
   }
 
   private def toHttp(uri: URI) = uri.getScheme match {
@@ -220,10 +249,15 @@ object Workflow {
     }
   }
 
+  private val urlRegex = """https?://[^\s]+""".r
+  private[pipeline] def linkUrlsInString(string: String) = {
+    urlRegex.replaceAllIn(string, m => s"<a href='${m.group(0)}'>${limitLength(m.group(0))}</a>")
+  }
+
   private val DEFAULT_MAX_SIZE = 40
   private val LHS_MAX_SIZE = 15
 
-  private def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) = {
+  private[pipeline] def limitLength(s: String, maxLength: Int = DEFAULT_MAX_SIZE) = {
     val trimmed = if (s.size < maxLength) {
       s
     } else {
@@ -231,7 +265,7 @@ object Workflow {
       val rightSize = maxLength - leftSize
       s"${s.take(leftSize)}...${s.drop(s.size - rightSize)}"
     }
-    trimmed.replaceAll(">", "&gt;").replaceAll("<", "&lt;")
+    trimmed
   }
-
+  private def unescape(s: String) = s.replaceAll(">", "&gt;").replaceAll("<", "&lt;")
 }

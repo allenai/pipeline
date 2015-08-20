@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
+import java.net.URI
+
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-
-import java.net.URI
 
 trait PipelineStep {
   def stepInfo: PipelineStepInfo

@@ -1,13 +1,9 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.pipeline.{ ConfiguredPipeline, UrlToArtifact, Pipeline }
-
-import com.typesafe.config.Config
-
 import java.net.URI
 
-/** Created by rodneykinney on 5/24/15.
-  */
+import com.typesafe.config.Config
+import org.allenai.pipeline.{ ConfiguredPipeline, Pipeline, UrlToArtifact }
 
 trait S3Pipeline extends Pipeline {
   def credentials: S3Credentials = S3Config.environmentCredentials()

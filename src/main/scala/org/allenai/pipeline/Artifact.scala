@@ -1,9 +1,10 @@
 package org.allenai.pipeline
 
-import org.allenai.common.Resource
 import java.io.{ InputStream, OutputStream }
 import java.net.URI
 import java.nio.charset.StandardCharsets
+
+import org.allenai.common.Resource
 
 /** Represents data in a persistent store. */
 trait Artifact {

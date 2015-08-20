@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
+import java.util.regex.Pattern
+
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
-
-import java.util.regex.Pattern
 
 /** Support for persisting to a column-delimited file.
   * Persisted object can be a case-class or Tuple.

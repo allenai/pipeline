@@ -1,0 +1,69 @@
+<h1 id="pipescript">PipeScript</h1>
+<p>PipeScript is a simple scripting language that makes your workflows reproducible and sharable.</p>
+<p>A PipeScript file can execute an arbitrary sequence of commands. After executing them, it will</p>
+<ul>
+<li>Upload all inputs to a shared location</li>
+<li>Write all outputs to a shared location</li>
+<li>Create a portable script that any user can run from anywhere to exactly reproduce the results</li>
+<li>Create an HTML page with a visualization of the workflow, with links to all input, intermediate, and final data</li>
+</ul>
+<p>Suppose you have a shell script named <code>ProcessData.sh</code> that takes an input file (specified with an <code>--input</code> argument) and produces an output file (specified with an <code>--output</code> argument). The equivalent PipeScript file would be:</p>
+<pre><code>run {input: ProcessData.sh} --input {input: InputData.txt} --output {output: result}
+ </code></pre>
+<p>When PipeScript executes this script, it will upload each input to the output location, using a file name that includes a checksum of the file contents. Later, if you change the contents of <code>ProcessData.sh</code> or <code>InputData.txt</code> and rerun the script, new copies of the inputs will be upload, but the old versions will still be retained. Thus, a complete history of all past PipeScript run is kept in the output location, allowing any past result to be reproduced.</p>
+<p>You can run a PipeScript file with</p>
+<pre><code>pipeScript/bin/runPipeScript &lt;PipeScript-file&gt; &lt;output-location-url&gt;</code></pre>
+<p>where <code>output-location-url</code> can be a <code>file:</code> or <code>s3:</code> URL. If you use <code>s3:</code> URLs, you must set the <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_KEY</code> environment variables.</p>
+<p>The HTML page summarizing the script execution will also contain a link to a portable script file, in which the local file paths have been replaced with corresponding urls in the output location, e.g.</p>
+<pre><code>run {input: &quot;&lt;output-location-url&gt;/ProcessData.&lt;hash-code&gt;.sh&quot;} 
+   --input {input: &quot;&lt;output-location-url&gt;/InputData.&lt;hash-code&gt;.txt&quot;} 
+   --output {output: result}</code></pre>
+<p>The portable script can be run from any machine and will produce the same results as the original run.</p>
+<h1 id="language-definition">Language Definition</h1>
+<p>PipeScript is a simple language. At its core is the <code>run</code> command, which specifies a system process and its arguments. Each argument is either a literal string or a <em>resource</em> (i.e. an input/output file or directory)</p>
+<h2 id="comments">Comments</h2>
+<p>Use the <code>#</code> character to ignore the remainder of a line</p>
+<h2 id="strings">Strings</h2>
+<p>Quotes are optional in a string if it does not contain whitespace or <code>{}`:,</code>. If quoted, it can use escape characters in the same way as Java. Strings of the form <code>s&quot;...&quot;</code> (quoted with an <code>s</code> character before the beginning quote) will perform variable substitution on their contents (similar to Scala)</p>
+<h2 id="variables">Variables</h2>
+<p>Variables are set with the <code>set</code> command:</p>
+<pre><code>set {var1: value1, var2: &quot;http://www.example.com/value2&quot;}</code></pre>
+<p>Variables can be used after they are declared by using a <code>$</code> prefix</p>
+<pre><code>$var1                     # =&gt; value1
+${var1}23                 # =&gt; value123
+s&quot;url=\&quot;${var2}\&quot;&quot;        # =&gt; url=&quot;http://www.example.com/value2&quot;</code></pre>
+<h2 id="packages">Packages</h2>
+<p>A <em>package</em> is a directory of files. It will be uploaded to the output location. Files within the package may be used by <code>run</code> commands by specifying a <em>file</em> resource. The most common use is for directories containing script files.</p>
+<pre><code>package {id:&lt;package-id&gt;, source:&lt;source-url&gt;}</code></pre>
+<p>where <em>package-id</em> is a unique name for the package and <em>source-url</em> is a file path to a local directory or <code>s3:</code> url pointing to a zip file (which will be downloaded and expanded).</p>
+<h2 id="run-command">Run Command</h2>
+<p>The <code>run</code> command indicates a system process to execute.</p>
+<pre><code>run &lt;args&gt;</code></pre>
+<p>where each argument is either a string (as defined above) or a <em>resource</em>. A <em>resource</em> is specified by <code>key:value</code> pairs separated by commas within curly braces. The different kinds of resources are:</p>
+<h4 id="inputsource-url-typefiledir"><code>{input:&lt;source-url&gt;, type:&lt;file|dir&gt;}</code></h4>
+<p>An input file or directory, where <em>source-url</em> is a local file path or <code>s3:</code> URL. At runtime, this will resolve to an absolute filesystem path. If not specified, the default type is <code>file</code>.</p>
+<h4 id="filefile-name-packagepackage-id"><code>{file:&lt;file-name&gt;,  package:&lt;package-id&gt;}</code></h4>
+<p>An individual file within a <em>package</em> declared earlier</p>
+<h4 id="outputoutput-id-typefiledir-suffixsuffix"><code>{output:&lt;output-id&gt;, type:&lt;file|dir&gt;, suffix:&lt;suffix&gt;</code>}</h4>
+<p>An output file or directory. At runtime, this will resolve to an absolute filesystem path. <strong>The system process must create a file/directory at that location when it finishes</strong>. If not specified, the default type is <code>file</code>. The output will be uploaded with a name of the form <code>&lt;output-id&gt;.&lt;hash-code&gt;&lt;suffix&gt;</code>.</p>
+<h4 id="refoutput-id"><code>{ref:&lt;output-id&gt;}</code></h4>
+<p>The output of a previous <code>run</code> command, matched by <em>output-id</em>. At runtime, this will resolve to an absolute local filesystem path.</p>
+<h1 id="example">Example</h1>
+<p>Here is an example of a prototypical Python-based workflow</p>
+<pre><code>set {imageDir: /home/ps-user/data/images, scriptDir: /home/ps-user/python/classification-scripts}
+
+package {id:scripts, source: $scriptDir}
+
+run python {file:TrainTestSplit.py, package: scripts} 
+    -input $imageDir 
+    -outTrain {output:trainImages, type:dir} 
+    -outTest {output:testImages, type:dir}
+    
+run python {file:TrainModel.py, package: scripts}
+    -images {ref: trainImages}
+    -output {output:modelFile}
+    
+ run python {file: EvalModel.py, package: scripts}
+     -images {ref:testImages}
+     -model {ref:modelFile}
+     -output {output: evaluation, suffix:&quot;.txt&quot;}</code></pre>
