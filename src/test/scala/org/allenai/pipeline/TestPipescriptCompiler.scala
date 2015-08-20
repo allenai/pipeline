@@ -43,7 +43,7 @@ class TestPipescriptCompiler extends UnitSpec {
     checkResult("""set {run: package} run $run""", "package")
     checkResult("""set {running: setting} run $running""", "setting")
     checkResult("""run running""", "running")
-    checkResult("""run `run`""", "run")
+    checkResult("""run "run"""", "run")
 
     compiler.compileScript("run run again").runCommands.map(_.tokens.size) should equal(List(0, 1))
     compiler.compileScript("run run").runCommands.map(_.tokens.size) should equal(List(0, 0))

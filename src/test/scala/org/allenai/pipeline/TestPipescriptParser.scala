@@ -53,7 +53,7 @@ class TestPipescriptParser extends UnitSpec {
         |
         |# Woohoo
         |run {input:"asdf",
-        |     ignore:false} `run`
+        |     ignore:false} "run"
         |     {output:s"fdsa"}
         |
         |run echo done""".stripMargin
@@ -71,7 +71,7 @@ class TestPipescriptParser extends UnitSpec {
         KeyValue("input", JavaString("\"asdf\"")),
         KeyValue("ignore", LiteralString("false"))
       ))),
-      StringToken(LiteralString("run")),
+      StringToken(JavaString("\"run\"")),
       KeyValuePairsToken(KeyValuePairs(List(
         KeyValue("output", SubstitutionString("\"fdsa\""))
       )))
