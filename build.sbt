@@ -41,5 +41,18 @@ libraryDependencies ++= Seq(
   allenAiCommon,
   allenAiTestkit % "test",
   scalaReflection,
-  awsJavaSdk
+  awsJavaSdk,
+  parserCombinators,
+  apacheCommonsLang
+)
+
+// To create release zip: sbt universal:packageBin
+enablePlugins(JavaAppPackaging)
+
+packageName in Universal := "pipeScript"
+
+executableScriptName := "runPipeScript"
+
+javaOptions in Universal ++= Seq(
+    "-Dlogback.configurationFile=logback-pipeScript.xml"	    
 )

@@ -1,0 +1,58 @@
+# A Solver Combination Ablation pipeline workflow
+# Oyvind, Aug 14, 2015
+
+# This uses a separate script to download each URL, then calling the script with file handles instead
+
+set {
+  train1:"http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/Regents%20Training%20and%20Regents%20Test%20and%20Monarch%20Training%20and%20Monarch%20Test/evaluation/b6d38f34-d08b-478c-af60-99c04b1b4d2d",
+  train2:"http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/13b48240-1681-4911-908c-d3e7b00cf2dc/evaluation/f736cf66-5a20-4b52-970f-3db71737d95c",
+  test1:"http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/Regents%20Training%20and%20Regents%20Test%20and%20Monarch%20Training%20and%20Monarch%20Test/evaluation/cdece2c1-32f4-4613-84d6-a92e4e73a1b9",
+  test2:"http://evaluation-framework.dev.allenai.org:8083/#/evaluation-sets/view/13b48240-1681-4911-908c-d3e7b00cf2dc/evaluation/e24bd1ed-20fb-4dea-966e-df42b8dde121"
+}
+
+# Packages
+package {id:aristoScripts, source:solver-combo/aristo-scripts}
+package {id:mathematicaScripts, source:solver-combo/mathematica-scripts}
+package {id:pythonScripts, source:solver-combo/python-scripts}
+
+# Get feature vectors for specific EF runs
+run bash {file:GetFeatureVectorsFromEF.sh, package:aristoScripts}
+  {output:fv-train1, suffix:.csv} 
+  $train1
+  Train
+  
+run {file:GetFeatureVectorsFromEF.sh, package:aristoScripts} 
+  {output:fv-train2, suffix:.csv} 
+  $train2
+  Train
+  
+run {file:GetFeatureVectorsFromEF.sh, package:aristoScripts} 
+  {output:fv-test1, suffix:.csv} 
+  $test1
+  Test
+  
+run {file:GetFeatureVectorsFromEF.sh, package:aristoScripts} 
+  {output:fv-test2, suffix:.csv} 
+  $test2
+  Test
+
+# Generate ablation data for a given solver set
+run {file:SolverAblationStudy.sh, package:aristoScripts} 
+  -s "Arizona,Inference,Lucene,Lucience,Salience"
+  -o {output:ablationOutputDir, type:dir, suffix:.zip} 
+  --train1 {ref:fv-train1} 
+  --train2 {ref:fv-train2} 
+  --test1 {ref:fv-test1} 
+  --test2 {ref:fv-test2}
+
+# Analyze ablation data in Mathematica
+run {file:AblationStudyReport.m, package:mathematicaScripts} 
+  -i {ref:ablationOutputDir} 
+  -html {output:ablationHTMLReport, suffix:.html} 
+  -csv {output:ablationCSVData, suffix:.csv}
+
+# Run analysis in Python
+run {file:runiPythonNotebook.sh, package:pythonScripts}
+  {file:testScript.ipynb, package:pythonScripts} 
+  {ref:ablationOutputDir} 
+  {output:pythonHTMLNotebook, suffix:.html}

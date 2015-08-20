@@ -1,12 +1,10 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.pipeline.StructuredArtifact.{ Writer, Reader }
-import org.allenai.pipeline.{ CreateCoreArtifacts => CreateCoreFileArtifacts, Pipeline => basePipeline, ArtifactStreamWriter, Artifact, ArtifactFactory, UrlToArtifact }
+import java.net.URI
+
+import org.allenai.pipeline.{ Artifact, CreateCoreArtifacts => CreateCoreFileArtifacts, Pipeline => basePipeline, UrlToArtifact }
 
 import scala.reflect.ClassTag
-
-import java.io.InputStream
-import java.net.URI
 
 /** Created by rodneykinney on 5/22/15.
   */

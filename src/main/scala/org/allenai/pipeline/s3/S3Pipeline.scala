@@ -1,10 +1,9 @@
 package org.allenai.pipeline.s3
 
-import org.allenai.pipeline.{ ConfiguredPipeline, UrlToArtifact, Pipeline }
+import java.net.URI
 
 import com.typesafe.config.Config
-
-import java.net.URI
+import org.allenai.pipeline.{ ConfiguredPipeline, Pipeline, UrlToArtifact }
 
 /** Created by rodneykinney on 5/24/15.
   */

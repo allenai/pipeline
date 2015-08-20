@@ -1,21 +1,21 @@
 package org.allenai.pipeline
 
+import java.io.File
+import java.net.URI
+import java.text.SimpleDateFormat
+import java.util.Date
+
+import com.typesafe.config.Config
 import org.allenai.common.Config._
 import org.allenai.common.Logging
 import org.allenai.pipeline.IoHelpers._
-
-import com.typesafe.config.Config
 import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
+import scala.util.Try
 import scala.util.control.NonFatal
-
-import java.io.File
-import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.Date
 
 /** A top-level data flow pipeline.
   * Provides methods for persisting Producers in a consistent location,
@@ -27,8 +27,8 @@ trait Pipeline extends Logging {
   def rootOutputUrl: URI
 
   /** Run the pipeline.  All steps that have been persisted will be computed, along with any upstream dependencies */
-  def run(title: String) = {
-    runPipelineReturnResults(title, persistedSteps.keys)
+  def run(title: String, pipescripts: Option[PipescriptSources] = None) = {
+    runPipelineReturnResults(title, persistedSteps.keys, pipescripts)
   }
 
   def persistedSteps = steps.toMap
@@ -193,10 +193,10 @@ trait Pipeline extends Logging {
       val dependencyNames = nonExistentDependencies.map(_.className).mkString(",")
       s"Cannot run steps [${targetNames.mkString(",")}]. Upstream dependencies [$dependencyNames] have not been computed"
     })
-    runPipelineReturnResults(title, targetNames)
+    runPipelineReturnResults(title, targetNames, None)
   }
 
-  protected[this] def runPipelineReturnResults(rawTitle: String, targetNames: Iterable[String]): Iterable[(String, Any)] = {
+  protected[this] def runPipelineReturnResults(rawTitle: String, targetNames: Iterable[String], pipescripts: Option[PipescriptSources]): Iterable[(String, Any)] = {
     // Order the outputs so that the ones with the fewest dependencies are executed first
     val targets = getStepsByName(targetNames)
     val outputs = targets.toVector.map {
@@ -218,11 +218,13 @@ trait Pipeline extends Logging {
     val today = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date())
 
     val workflowArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.workflow.json")
-    val workflow = Workflow.forPipeline(persistedSteps, targetNames)
+    val workflow = Workflow.forPipeline(persistedSteps, targetNames, title, pipescripts)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.html")
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
+
+    dagUrl = Some(toHttpUrl(htmlArtifact.url))
 
     val signatureArtifact = createOutputArtifact[FlatArtifact](s"summary/$title-$today.signatures.json")
     val signatureFormat = Signature.jsonWriter
@@ -232,6 +234,22 @@ trait Pipeline extends Logging {
     logger.info(s"Summary written to ${toHttpUrl(htmlArtifact.url)}")
     result
   }
+
+  private var dagUrl: Option[URI] = None
+
+  def diagramUrl = dagUrl
+
+  /** Open the DAG HTML in local browser (if pipeline has been run) */
+  def openDiagram() =
+    dagUrl.foreach { link =>
+      import scala.language.postfixOps
+      import scala.sys.process._
+      Try {
+        java.awt.Desktop.getDesktop.browse(link)
+      }
+        .orElse(Try(s"open $link" !!))
+        .orElse(Try(s"xdg-open $link" !!))
+    }
 
   // Generate a hash unique to this Producer/Serialization combination
   protected def hashId[T, A <: Artifact](
@@ -260,11 +278,13 @@ trait Pipeline extends Logging {
       rawTitle.replaceAll("""\s+""", "-")
     }-dryRun"
     val workflowArtifact = new FileArtifact(new File(outputDir, s"$title.workflow.json"))
-    val workflow = Workflow.forPipeline(persistedSteps, targets)
+    val workflow = Workflow.forPipeline(persistedSteps, targets, title, None)
     SingletonIo.json[Workflow].write(workflow, workflowArtifact)
 
     val htmlArtifact = new FileArtifact(new File(outputDir, s"$title.html"))
     SingletonIo.text[String].write(workflow.renderHtml, htmlArtifact)
+
+    dagUrl = Some(toHttpUrl(htmlArtifact.url))
 
     val signatureArtifact = new FileArtifact(new File(outputDir, s"$title.signatures.json"))
     val signatureFormat = Signature.jsonWriter
@@ -311,7 +331,7 @@ trait ConfiguredPipeline extends Pipeline {
       List()
     }
 
-  override def run(rawTitle: String) = {
+  override def run(rawTitle: String, pipescripts: Option[PipescriptSources] = None) = {
     val (targets, isRunOnly) =
       getStringList("runOnly") match {
         case seq if seq.nonEmpty =>
@@ -335,7 +355,7 @@ trait ConfiguredPipeline extends Pipeline {
         if (isRunOnly) {
           runOnly(rawTitle, targets)
         } else {
-          runPipelineReturnResults(rawTitle, targets)
+          runPipelineReturnResults(rawTitle, targets, pipescripts)
         }
     }
   }

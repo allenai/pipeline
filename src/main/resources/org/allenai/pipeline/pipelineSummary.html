@@ -1,442 +1,521 @@
-<!DOCTYPE html><html>
+<!DOCTYPE html>
+<html>
   <head>
     <meta charset="utf-8">
     <title>Experiment Workflow</title>
     <style type="text/css">
-      html,body {
-        height: 100%%;
-      }
+     html,body {
+       height: 100%%;
+     }
 
-      html {
-        font-size: 100%%;
-        background: #fff;
-      }
+     html {
+       font-size: 100%%;
+       background: #fff;
+     }
 
-      body {
-        display: flex;
-        margin: 0;
-      }
+     body {
+       display:-webkit-flex;
+       display:flex;
+       flex-direction:column;
+       -webkit-flex-direction:column;
+       margin: 0;
+     }
 
-      svg {
-        border: 1px solid #ccc;
-        margin: 40px;
-        flex-grow: 1;
-        background: #fff;
-        padding: 0px;
-        box-sizing: border-box;
-        overflow: scroll;
-        box-shadow: inset 2px 2px 3px 0 #ccc;
-      }
+     header {
+       text-align: center;
+       background-color: #58D75B;
+       box-shadow: 0 0 5px;
+     }
 
-      .node div {
-        padding: 20px;
-      }
+     header h1 {
+       font-size: 1.5em;
+       margin: 8px;
+     }
 
-      .node div h2 {
-        margin: 0;
-        font-size: 1.25em;
-        text-align: center;
-      }
+     #app {
+       display:-webkit-flex;
+       display:flex;
+       flex:auto;
+       -webkit-flex:auto;
+     }
 
-      .node ul {
-        list-style-type: none;
-        margin: 10px 0;
-        padding: 0;
-      }
+     #dag {
+       display:-webkit-flex;
+       display:flex;
+       flex:auto;
+       -webkit-flex:auto;
+       flex-direction:row;
+       -webkit-flex-direction:row;
+     }
 
-      .node ul li {
-        margin: 10px 0;
-      }
+     nav {
+       font-size: 0.75rem;
+       display:-webkit-flex;
+       display:flex;
+       flex: 0 0 200px;
+       -webkit-flex: 0 0 200px;
+       background-color: rgba(255, 165, 0, 0.25);
+     }
 
-      .node ul li:first-child {
-        margin-top: 0;
-      }
+     nav h2 {
+       padding: 10px;
+       margin: 0;
+       font-size: 0.75rem;
+       text-transform: uppercase;
+     }
 
-      .node ul li:last-child {
-        margin-bottom: 0;
-      }
+     nav ul {
+       padding: 0;
+       margin: 0;
+       list-style: none;
+     }
 
-      .node .links {
-        border-top: 1px solid #2a75a1;
-        padding-top: 10px;
-      }
+     nav ul li {
+       text-align: left;
+       padding: 5px 10px;
+       margin: 0;
+       list-style-position: inside;
+     }
 
-        .node .data {
-          border-top: 1px solid #2a75a1;
-          padding-top: 10px;
-        }
+     nav ul li:hover {
+       background-color: yellow;
+     }
 
-        .node rect {
-        stroke: #2a75a1;
-        stroke-width: 2px;
-        fill: #e2f0f8;
-      }
+     .typescripts {
+       background-image: url(http://s3-us-west-2.amazonaws.com/ai2-misc/hackathon-2015/pipescript.png);
+       margin-top: 10px;
+     }
 
-      .node a {
-        color: #2a75a1;
-      }
+     .typescripts ul {
+       padding-top: 54px;
+       padding-bottom: 10px;
+       margin: 0 20px;
+     }
 
-      .node a:hover {
-        color: #489dcf;
-      }
+     .typescripts ul li a {
+       color: white;
+     }
 
-      .edgeLabel rect {
-        fill: #fff;
-      }
+     .typescripts ul li:hover a {
+       color: black;
+     }
 
-      .edgePath {
-        stroke: #2a75a1;
-        stroke-width: 2px;
-        fill: none;
-      }/*! normalize.css v3.0.1 | MIT License | git.io/normalize */html {
-        font-family: sans-serif;
-        -ms-text-size-adjust: 100%%;
-        -webkit-text-size-adjust: 100%%;
-      }
+     .outputs {
+       margin-top: 10px;
+     }
 
-      article,aside,details,figcaption,figure,footer,header,hgroup,main,nav,section,summary {
-        display: block;
-      }
+     .outputs h2 {
+       margin-top: 10px;
+       border-top: 1px solid #888;
+     }
 
-      audio,canvas,progress,video {
-        display: inline-block;
-        vertical-align: baseline;
-      }
+     svg {
+       border: 1px solid #ccc;
+       background: #fff;
+       padding: 0px;
+       box-sizing: border-box;
+       overflow: scroll;
+       box-shadow: inset 2px 2px 3px 0 #ccc;
+       flex: 1 1 auto;
+       -webkit-flex: 1 1 auto;
+     }
 
-      audio:not([controls]) {
-        display: none;
-        height: 0;
-      }
+     .node div {
+       padding: 20px;
+     }
 
-      [hidden],template {
-        display: none;
-      }
+     .node div h2 {
+       margin: 0;
+       font-size: 1.25em;
+       text-align: center;
+     }
 
-      a {
-        background: 0 0;
-      }
+     .node ul {
+       list-style-type: none;
+       margin: 10px 0;
+       padding: 0;
+     }
 
-      a:active,a:hover {
-        outline: 0;
-      }
+     .node ul li {
+       margin: 10px 0;
+     }
 
-      abbr[title] {
-        border-bottom: 1px dotted;
-      }
+     .node ul li:first-child {
+       margin-top: 0;
+     }
 
-      b,strong {
-        font-weight: 700;
-      }
+     .node ul li:last-child {
+       margin-bottom: 0;
+     }
 
-      dfn {
-        font-style: italic;
-      }
+     .node .links {
+       border-top: 1px solid #2a75a1;
+       padding-top: 10px;
+     }
 
-      h1 {
-        font-size: 2em;
-        margin: .67em 0;
-      }
+     .node .data {
+       border-top: 1px solid #2a75a1;
+       padding-top: 10px;
+     }
 
-      mark {
-        background: #ff0;
-        color: #000;
-      }
+     .node rect {
+       stroke: #2a75a1;
+       stroke-width: 2px;
+       fill: #e2f0f8;
+     }
 
-      small {
-        font-size: 80%%;
-      }
+     .node a {
+       color: #2a75a1;
+     }
 
-      sub,sup {
-        font-size: 75%%;
-        line-height: 0;
-        position: relative;
-        vertical-align: baseline;
-      }
+     .node a:hover {
+       color: #489dcf;
+     }
 
-      sup {
-        top: -.5em;
-      }
+     .edgeLabel rect {
+       fill: #fff;
+     }
 
-      sub {
-        bottom: -.25em;
-      }
+     .edgePath {
+       stroke: #2a75a1;
+       stroke-width: 2px;
+       fill: none;
+     }/*! normalize.css v3.0.1 | MIT License | git.io/normalize */html {
+       font-family: sans-serif;
+       -ms-text-size-adjust: 100%%;
+       -webkit-text-size-adjust: 100%%;
+     }
 
-      img {
-        border: 0;
-      }
+     article,aside,details,figcaption,figure,footer,header,hgroup,main,nav,section,summary {
+       display: block;
+     }
 
-      svg:not(:root) {
-        overflow: hidden;
-      }
+     audio,canvas,progress,video {
+       display: inline-block;
+       vertical-align: baseline;
+     }
 
-      figure {
-        margin: 1em 40px;
-      }
+     audio:not([controls]) {
+       display: none;
+       height: 0;
+     }
 
-      hr {
-        -moz-box-sizing: content-box;
-        box-sizing: content-box;
-        height: 0;
-      }
+     [hidden],template {
+       display: none;
+     }
 
-      pre {
-        overflow: auto;
-      }
+     a {
+       background: 0 0;
+     }
 
-      code,kbd,pre,samp {
-        font-family: monospace,monospace;
-        font-size: 1em;
-      }
+     a:active,a:hover {
+       outline: 0;
+     }
 
-      button,input,optgroup,select,textarea {
-        color: inherit;
-        font: inherit;
-        margin: 0;
-      }
+     abbr[title] {
+       border-bottom: 1px dotted;
+     }
 
-      button {
-        overflow: visible;
-      }
+     b,strong {
+       font-weight: 700;
+     }
 
-      button,select {
-        text-transform: none;
-      }
+     dfn {
+       font-style: italic;
+     }
 
-      button,html input[type=button],input[type=reset],input[type=submit] {
-        -webkit-appearance: button;
-        cursor: pointer;
-      }
+     h1 {
+       font-size: 2em;
+       margin: .67em 0;
+     }
 
-      button[disabled],html input[disabled] {
-        cursor: default;
-      }
+     mark {
+       background: #ff0;
+       color: #000;
+     }
 
-      button::-moz-focus-graph,input::-moz-focus-graph {
-        border: 0;
-        padding: 0;
-      }
+     small {
+       font-size: 80%%;
+     }
 
-      input {
-        line-height: normal;
-      }
+     sub,sup {
+       font-size: 75%%;
+       line-height: 0;
+       position: relative;
+       vertical-align: baseline;
+     }
 
-      input[type=checkbox],input[type=radio] {
-        box-sizing: border-box;
-        padding: 0;
-      }
+     sup {
+       top: -.5em;
+     }
 
-      input[type=number]::-webkit-graph-spin-button,input[type=number]::-webkit-outer-spin-button {
-        height: auto;
-      }
+     sub {
+       bottom: -.25em;
+     }
 
-      input[type=search] {
-        -webkit-appearance: textfield;
-        -moz-box-sizing: content-box;
-        -webkit-box-sizing: content-box;
-        box-sizing: content-box;
-      }
+     img {
+       border: 0;
+     }
 
-      input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration {
-        -webkit-appearance: none;
-      }
+     svg:not(:root) {
+       overflow: hidden;
+     }
 
-      fieldset {
-        border: 1px solid silver;
-        margin: 0 2px;
-        padding: .35em .625em .75em;
-      }
+     figure {
+       margin: 1em 40px;
+     }
 
-      legend {
-        border: 0;
-        padding: 0;
-      }
+     hr {
+       -moz-box-sizing: content-box;
+       box-sizing: content-box;
+       height: 0;
+     }
 
-      textarea {
-        overflow: auto;
-      }
+     pre {
+       overflow: auto;
+     }
 
-      optgroup {
-        font-weight: 700;
-      }
+     code,kbd,pre,samp {
+       font-family: monospace,monospace;
+       font-size: 1em;
+     }
 
-      table {
-        border-collapse: collapse;
-        border-spacing: 0;
-      }
+     button,input,optgroup,select,textarea {
+       color: inherit;
+       font: inherit;
+       margin: 0;
+     }
 
-      td,th {
-        padding: 0;
-      }
+     button {
+       overflow: visible;
+     }
 
-      .sourceNode rect {
-        fill: #C3E4F7;
-      }
+     button,select {
+       text-transform: none;
+     }
 
-      .sinkNode rect {
-        fill: #C3E4F7;
-      }
+     button,html input[type=button],input[type=reset],input[type=submit] {
+       -webkit-appearance: button;
+       cursor: pointer;
+     }
 
-      .errorNode rect {
-        fill: #C38888;
-      }
+     button[disabled],html input[disabled] {
+       cursor: default;
+     }
 
-        .executionInfo {
-         font-size: 20%%;
-         float: right;
-        }
+     button::-moz-focus-graph,input::-moz-focus-graph {
+       border: 0;
+       padding: 0;
+     }
 
-        #outputContainer {
-        position: absolute;
-        top: 41px;
-        left: 41px;
-        width: 250px;
-        padding: 20px;
-        font-size: 0.75rem;
-      }
+     input {
+       line-height: normal;
+     }
 
-      #outputContainer h2 {
-        margin: 0 0 15px;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-      }
+     input[type=checkbox],input[type=radio] {
+       box-sizing: border-box;
+       padding: 0;
+     }
 
-      #outputContainer ul {
-        padding: 0;
-        margin: 0;
-      }
+     input[type=number]::-webkit-graph-spin-button,input[type=number]::-webkit-outer-spin-button
+     {
+       height: auto;
+     }
 
-      #outputContainer ul li {
-        text-align: left;
-        margin: 10px 0;
-        list-style-position: inside;
-      }
+     input[type=search] {
+       -webkit-appearance: textfield;
+       -moz-box-sizing: content-box;
+       -webkit-box-sizing: content-box;
+       box-sizing: content-box;
+     }
 
-      #outputContainer ul li:last-child {
-        margin-bottom: 0;
-      }
+     input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration
+     {
+       -webkit-appearance: none;
+     }
+
+     fieldset {
+       border: 1px solid silver;
+       margin: 0 2px;
+       padding: .35em .625em .75em;
+     }
+
+     legend {
+       border: 0;
+       padding: 0;
+     }
+
+     textarea {
+       overflow: auto;
+     }
+
+     optgroup {
+       font-weight: 700;
+     }
+
+     table {
+       border-collapse: collapse;
+       border-spacing: 0;
+     }
+
+     td,th {
+       padding: 0;
+     }
+
+     .sourceNode rect {
+       fill: #C3E4F7;
+     }
+
+     .sinkNode rect {
+       fill: #C3E4F7;
+     }
+
+     .errorNode rect {
+       fill: #C38888;
+     }
+
+     .executionInfo {
+       font-size: 20%%;
+       float: right;
+     }
     </style>
   </head>
   <body>
-    <svg width="100%%"><g id="graph"/></svg>
-    <div id="outputContainer">
-      <h2>Outputs</h2>
-%s
+    <header>
+      <h1>%s</h1>
+    </header>
+    <div id="app">
+      <div id="dag">
+        <nav id="outputContainer">
+          <!-- Sources will be rendered here if they are available -->
+          %s
+          <div class="outputs" >
+            <h2>Outputs</h2>
+            %s
+          </div>
+        </nav>
+        <svg width="100%%">
+          <g id="graph"/>
+        </svg>
+      </div>
     </div>
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <script src="http://cpettitt.github.io/project/dagre-d3/v0.4.6/dagre-d3.min.js"></script>
     <script>
-      (function() {
-        /**
-         * Class representing an individual Link.
-         */
-        function Link(href, text) {
-          this.href = href;
-          this.text = text;
-        };
+     (function() {
+       /**
+        * Class representing an individual Link.
+        */
+       function Link(href, text) {
+         this.href = href;
+         this.text = text;
+       };
 
-        Link.prototype.toHtml = function() {
-          return '<a href="' + this.href + '" target="_blank">' + this.text + '</a>';
-        };
+       Link.prototype.toHtml = function() {
+         return '<a href="' + this.href + '" target="_blank">' + this.text + '</a>';
+       };
 
-        /**
-         * Generates the content for a step of a step.
-         *
-         * @param {string}    label The step label.
-         * @param {string[]}  data  Array of data points to display in the step.
-         * @param {Link[]}    links Array of links to display in the step.
-         *
-         * @return {string}   The HTML for the step contents.
-         */
-        function generateStepContent(label, description, execInfo, data, links) {
-          var out = "<h2>" + label + "</h2>";
-          if(description) {
-            out += "<p>" + description + "</p>";
-          }
-          if(data && Array.isArray(data) && data.length > 0) {
-            out += '<ul class="data">';
-            data.forEach(function(d) {
-              out += '<li>' + d + '</li>';
-            });
-            out += '</ul>';
-          }
-          if(links && links.length > 0) {
-              out += '<ul class="links">';
-              links.forEach(function(l) {
-                if(l instanceof Link) {
-                  out += '<li>' + l.toHtml() + '</li>';
-                }
-              });
-              out += '</ul>';
-            }
-          out += '<span class="executionInfo">' + execInfo + '</span>';
-          return out;
-        };
+       /**
+        * Generates the content for a step of a step.
+        *
+        * @param {string}    label The step label.
+        * @param {string[]}  data  Array of data points to display in the step.
+        * @param {Link[]}    links Array of links to display in the step.
+        *
+        * @return {string}   The HTML for the step contents.
+        */
+       function generateStepContent(label, description, execInfo, data, links) {
+         var out = "<h2>" + label + "</h2>";
+         if(description) {
+           out += "<p>" + description + "</p>";
+         }
+         if(data && Array.isArray(data) && data.length > 0) {
+           out += '<ul class="data">';
+           data.forEach(function(d) {
+             out += '<li>' + d + '</li>';
+           });
+           out += '</ul>';
+         }
+         if(links && links.length > 0) {
+           out += '<ul class="links">';
+           links.forEach(function(l) {
+             if(l instanceof Link) {
+               out += '<li>' + l.toHtml() + '</li>';
+             }
+           });
+           out += '</ul>';
+         }
+         out += '<span class="executionInfo">' + execInfo + '</span>';
+         return out;
+       };
 
-        // Create a new directed graph
-        var g = new dagreD3.graphlib.Graph({ multigraph: true })
-          .setGraph({})
-          .setDefaultEdgeLabel(function() { return {}; });
+       // Create a new directed graph
+       var g = new dagreD3.graphlib.Graph({ multigraph: true })
+                          .setGraph({})
+                          .setDefaultEdgeLabel(function() { return {}; });
 
-        // Add nodes to the graph. The first argument is the node id. The second is
-        // metadata about the node. In this case we're going to add labels to each of
-        // our nodes.
-%s
+       // Add nodes to the graph. The first argument is the node id. The second is
+       // metadata about the node. In this case we're going to add labels to each of
+       // our nodes.
+       %s
 
        // Round the corners of the nodes
-        g.nodes().forEach(function(v) {
-          var node = g.node(v);
-          node.rx = node.ry = 10;
-        });
+       g.nodes().forEach(function(v) {
+         var node = g.node(v);
+         node.rx = node.ry = 10;
+       });
 
-        // Add edges to the graph. The first argument is the edge id. Here we use null
-        // to indicate that an arbitrary edge id can be assigned automatically. The
-        // second argument is the source of the edge. The third argument is the target
-        // of the edge. The last argument is the edge metadata.
-%s
+       // Add edges to the graph. The first argument is the edge id. Here we use null
+       // to indicate that an arbitrary edge id can be assigned automatically. The
+       // second argument is the source of the edge. The third argument is the target
+       // of the edge. The last argument is the edge metadata.
+       %s
 
-        var svg = d3.select("svg");
-        var graph = svg.select('#graph');
-        var zoom = d3.behavior.zoom().on("zoom", function() {
-              graph.attr("transform", "translate(" + d3.event.translate + ")" +
-                                          "scale(" + d3.event.scale + ")");
-            });
-        svg.call(zoom);
+       var svg = d3.select("svg");
+       var graph = svg.select('#graph');
+       var zoom = d3.behavior.zoom().on("zoom", function() {
+         graph.attr("transform", "translate(" + d3.event.translate + ")" +
+                                 "scale(" + d3.event.scale + ")");
+       });
+       svg.call(zoom);
 
-        // Create the renderer
-        var render = new dagreD3.render();
+       // Create the renderer
+       var render = new dagreD3.render();
 
-        // Run the renderer. This is what draws the final graph.
-        render(graph, g);
+       // Run the renderer. This is what draws the final graph.
+       render(graph, g);
 
-        // Center and zoom to fit
-        var graphDims = graph.node().getBBox();
-        var containerDims = svg.node().getBoundingClientRect();
+       // Center and zoom to fit
+       var graphDims = graph.node().getBBox();
+       var containerDims = svg.node().getBoundingClientRect();
 
-        var heightDiff = graphDims.height - containerDims.height;
-        var widthDiff = graphDims.width - containerDims.height;
+       var heightDiff = graphDims.height - containerDims.height;
+       var widthDiff = graphDims.width - containerDims.height;
 
-        var scale;
-        if(heightDiff > widthDiff) {
-          scale = containerDims.height / graphDims.height;
-        } else if(widthDiff >= heightDiff) {
-          scale = containerDims.width / graphDims.width;
-        }
+       var scale;
+       if(heightDiff > widthDiff) {
+         scale = containerDims.height / graphDims.height;
+       } else if(widthDiff >= heightDiff) {
+         scale = containerDims.width / graphDims.width;
+       }
 
-        // Reduce the graph so it fits cleanly.
-        scale = scale * 0.9;
+       // Reduce the graph so it fits cleanly.
+       scale = scale * 0.9;
 
-        var scaledGraphDims = {
-          width: graphDims.width * scale,
-          height: graphDims.height * scale
-        };
+       var scaledGraphDims = {
+         width: graphDims.width * scale,
+         height: graphDims.height * scale
+       };
 
-        var x = (containerDims.width - scaledGraphDims.width) / 2;
-        var y = (containerDims.height - scaledGraphDims.height) / 2;
+       var x = (containerDims.width - scaledGraphDims.width) / 2;
+       var y = (containerDims.height - scaledGraphDims.height) / 2;
 
-        zoom.translate([x, y])
-          .scale(scale)
-          .event(svg);
-      })();
+       zoom.translate([x, y])
+           .scale(scale)
+           .event(svg);
+     })();
+
+
     </script>
   </body>
 </html>

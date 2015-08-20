@@ -1,10 +1,10 @@
 package org.allenai.pipeline
 
+import java.net.URI
+
 import com.typesafe.config.ConfigFactory
 
 import scala.collection.JavaConverters._
-
-import java.net.URI
 
 /** Reads the version number and GitHub URL from
   * configuration file bundled into the jar.
