@@ -10,8 +10,6 @@ import org.apache.commons.io.FileUtils
 
 import scala.io.Source
 
-/** Created by rodneykinney on 8/20/15.
-  */
 object RunPipeScript extends App with Logging {
   if (args.length == 0) {
     println("Usage: RunScript <script file> [output-url]")

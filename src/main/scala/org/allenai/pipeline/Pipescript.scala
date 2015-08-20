@@ -35,7 +35,7 @@ object PipeScript {
     *
     * Example StepCommand:
     * {{{
-    * {in:$scripts/ExtractArrows.py} -i {in:./png, id:pngDir} -o {out:arrowDir, type:dir}
+    * run {input:s"${scripts}/ExtractArrows.py"} -i {input:./png} -o {output:arrowDir, type:dir}
     * }}}
     */
   case class RunCommand(tokens: Seq[CommandToken]) {

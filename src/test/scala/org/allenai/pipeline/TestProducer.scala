@@ -6,8 +6,6 @@ import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 
 import scala.util.Random
 
-/** Created by rodneykinney on 8/19/14.
-  */
 // scalastyle:off magic.number
 class TestProducer extends UnitSpec with ScratchDirectory {
 

@@ -6,8 +6,6 @@ import com.typesafe.config.{ ConfigFactory, ConfigValueFactory }
 import org.allenai.common.testkit.{ ScratchDirectory, UnitSpec }
 import org.allenai.pipeline.IoHelpers._
 
-/** Created by rodneykinney on 5/12/15.
-  */
 class TestConfiguredPipeline extends UnitSpec with ScratchDirectory {
   val baseConfig = ConfigFactory.load()
     .withValue("output.persist.Step2", ConfigValueFactory.fromAnyRef("Step2Output.txt"))

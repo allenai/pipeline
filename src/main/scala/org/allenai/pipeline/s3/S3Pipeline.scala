@@ -5,9 +5,6 @@ import java.net.URI
 import com.typesafe.config.Config
 import org.allenai.pipeline.{ ConfiguredPipeline, Pipeline, UrlToArtifact }
 
-/** Created by rodneykinney on 5/24/15.
-  */
-
 trait S3Pipeline extends Pipeline {
   def credentials: S3Credentials = S3Config.environmentCredentials()
   implicit val s3Cache: S3Cache = DefaultS3Cache

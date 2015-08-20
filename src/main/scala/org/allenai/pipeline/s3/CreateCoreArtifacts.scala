@@ -6,8 +6,6 @@ import org.allenai.pipeline.{ Artifact, CreateCoreArtifacts => CreateCoreFileArt
 
 import scala.reflect.ClassTag
 
-/** Created by rodneykinney on 5/22/15.
-  */
 object CreateCoreArtifacts {
   // Create a FlatArtifact or StructuredArtifact from an absolute s3:// URL
   def fromS3Urls(credentials: => S3Credentials)(

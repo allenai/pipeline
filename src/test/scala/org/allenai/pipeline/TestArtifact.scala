@@ -10,8 +10,6 @@ import org.scalatest._
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
-/** Created by rodneykinney on 8/19/14.
-  */
 class TestArtifact extends UnitSpec with ScratchDirectory {
   "FileArtifact" should "read/write" in {
     val rand = new Random()
