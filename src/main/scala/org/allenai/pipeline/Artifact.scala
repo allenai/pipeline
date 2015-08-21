@@ -57,7 +57,7 @@ object StructuredArtifact {
 }
 
 /** Artifact with nested structure, containing multiple data blobs identified by String names.
-  * Only one level of structure is supported.
+  * Subdirectories are supported as entries with '/' in the path
   */
 trait StructuredArtifact extends Artifact {
 

@@ -64,10 +64,19 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
     /** Throw exception if file does not exist. */
     def read(entryName: String): InputStream = new FileInputStream(new File(dir, entryName))
 
-    /** Read only read plain files (no recursive directory search). */
-    def readAll: Iterator[(String, InputStream)] = dir.listFiles.iterator.filterNot(
-      _.isDirectory
-    ).map(f => (f.getName, new FileInputStream(f)))
+    /** Read all plain files recursively */
+    def readAll: Iterator[(String, InputStream)] = {
+      def readDir(prefix: String, dir: File): Iterable[(String, InputStream)] = {
+        dir.listFiles.flatMap { f =>
+          if (f.isDirectory) {
+            readDir(s"${prefix}${f.getName}/", f)
+          } else {
+            List((s"${prefix}${f.getName}", new FileInputStream(f)))
+          }
+        }
+      }
+      readDir("", dir).iterator
+    }
   }
 
   /** Writing to a directory is atomic, like other artifacts.
@@ -80,7 +89,9 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
     val tmpDir = createTempDirectory
     val dirWriter = new Writer {
       def writeEntry[T2](name: String)(writer: ArtifactStreamWriter => T2): T2 = {
-        val out = new FileOutputStream(new File(tmpDir, name))
+        val outFile = new File(tmpDir, name)
+        require(outFile.getParentFile == null || outFile.getParentFile.exists || outFile.getParentFile.mkdirs(), "Cannot create file $outFile")
+        val out = new FileOutputStream(outFile)
         val result = writer(new ArtifactStreamWriter(out))
         out.close()
         result
