@@ -1,6 +1,5 @@
 package org.allenai.pipeline.examples
 
-import org.allenai.pipeline.IoHelpers._
 import org.allenai.pipeline._
 
 import java.io.File
@@ -9,7 +8,8 @@ import java.io.File
   * to train a model and to score the test data
   */
 object TrainModelViaPythonPipeline extends App {
-  val inputDir = new File("src/test/resources/pipeline")
+  import org.allenai.pipeline.IoHelpers._
+  val inputDir = new File("../core/src/test/resources/pipeline")
   val pipeline = Pipeline(new File("pipeline-output"))
 
   // Create the training and test data
@@ -19,31 +19,29 @@ object TrainModelViaPythonPipeline extends App {
   val trainModel =
     RunProcess(
       "python",
-      "script" -> new File(inputDir, "trainModel.py"),
+      "trainModel.py",
       OutputFileArg("modelFile"),
       "-data",
-      "trainingData" -> trainData
+      trainData -> "trainingData"
     )
 
   // Capture the output of the process and persist it
-  val modelFile = pipeline.persist(trainModel.outputFiles("modelFile"), UploadFile)
-  pipeline.persist(trainModel.stdout, SaveStream, "TrainingLogs")
+  val modelFile = pipeline.persist(trainModel.outputFiles("modelFile"), UploadFile, "TrainedModel")
 
   val measureModel =
     RunProcess(
       "python",
-      "script" -> new File(inputDir, "scoreModel.py"),
+      "scoreModel.py",
       OutputFileArg("prFile"),
       "-model",
-      "modelFile" -> modelFile,
+      modelFile -> "modelFile",
       "-data",
-      "testDataFile" -> testData
+      testData -> "testDataFile"
     )
 
   pipeline.persist(measureModel.outputFiles("prFile"), UploadFile, "PrecisionRecall")
-  pipeline.persist(measureModel.stdout, SaveStream, "MeasurementLogs")
 
   // Measure precision/recall of the model using the test data from above
-  pipeline.run("Train Model Python")
-
+  val steps = pipeline.run("Train Model Python")
+  if (steps.isEmpty) throw new RuntimeException("Unsuccessful pipeline") // for unit test
 }

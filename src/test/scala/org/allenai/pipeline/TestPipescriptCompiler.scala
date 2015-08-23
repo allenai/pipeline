@@ -50,15 +50,6 @@ class TestPipescriptCompiler extends UnitSpec {
     compiler.compileScript("run run#nothing\n run").runCommands.map(_.tokens.size) should equal(List(0, 0, 0))
   }
 
-  it should "successfully parse the sample vision workflow" in {
-    val scriptText = loadResource("/pipeline/vision-example/vision-workflow.pipe")
-
-    val workflow = PipeScriptCompiler.compileScript(scriptText)
-
-    assert(workflow.packages.size === 1)
-    assert(workflow.runCommands.size === 4)
-  }
-
   it should "handle comments correctly" in {
     val scriptText =
       """
@@ -73,36 +64,4 @@ class TestPipescriptCompiler extends UnitSpec {
     script.runCommands.map(_.tokens.size).sorted.toList should equal(List(2, 3))
   }
 
-  it should "successfully parse the sample aristo workflow" in {
-    val scriptText = loadResource("/pipeline/aristo-example/ablation-study.pipe")
-
-    val workflow = PipeScriptCompiler.compileScript(scriptText)
-
-    assert(workflow.packages.size === 3)
-    assert(workflow.runCommands.size === 7)
-  }
-
-  it should "build a pipeline from a script" in {
-    val scriptText = loadResource("/pipeline/vision-example/vision-workflow.pipe")
-
-    val parser = PipeScriptCompiler
-    val script = parser.compileScript(scriptText)
-  }
-
-  it should "run a pipeline from a script" in {
-    val scriptText = loadResource("/pipeline/vision-example/vision-workflow.pipe")
-
-    val dir = new File(new File("pipeline-output"), "RunScript")
-    val pipeline = new PipeScriptInterpreter(Pipeline(dir)).buildPipeline(scriptText)
-    pipeline.run("RunFromScript", None)
-  }
-
-  def loadResource(path: String) = {
-    val resourceUrl = {
-      val url = this.getClass.getResource(path)
-      require(url != null, s"Could not find resource $path")
-      url
-    }
-    Source.fromURL(resourceUrl).mkString
-  }
 }

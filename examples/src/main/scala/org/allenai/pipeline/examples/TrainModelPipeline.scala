@@ -12,27 +12,32 @@ import java.io.File
   * No actual machine-learning code is included.)
   */
 object TrainModelPipeline extends App {
-  val inputDir = new File("src/test/resources/pipeline")
-  val pipeline = Pipeline(new File("pipeline-output"))
+  run(new File("pipeline-output")).openDiagram()
 
-  // Create the training and test data
-  val (trainData, testData) = produceTrainAndTestData(pipeline, inputDir)
+  def run(outputDir: File) = {
+    val inputDir = new File("src/test/resources/pipeline")
+    val pipeline = Pipeline(outputDir)
 
-  // Train the model
-  val model = {
-    // Save the model in Json format
-    implicit val modelFormat = jsonFormat1(TrainedModel)
-    pipeline.Persist.Singleton.asJson(TrainModel(trainData))
+    // Create the training and test data
+    val (trainData, testData) = produceTrainAndTestData(pipeline, inputDir)
+
+    // Train the model
+    val model = {
+      // Save the model in Json format
+      implicit val modelFormat = jsonFormat1(TrainedModel)
+      pipeline.Persist.Singleton.asJson(TrainModel(trainData))
+    }
+
+    // Measure precision/recall of the model using the test data from above
+    val measure = {
+      // Save PR data in comma-separated text file
+      implicit val prFormat = columnFormat3(PR, ',')
+      pipeline.Persist.Collection.asText(MeasureModel(model, testData))
+    }
+
+    val result = pipeline.run("Train Model")
+    pipeline
   }
-
-  // Measure precision/recall of the model using the test data from above
-  val measure = {
-    // Save PR data in comma-separated text file
-    implicit val prFormat = columnFormat3(PR, ',')
-    pipeline.Persist.Collection.asText(MeasureModel(model, testData))
-  }
-
-  pipeline.run("Train Model")
 
   // Method that encapsulates a sub-pipeline that produces training and test data
   def produceTrainAndTestData(pipeline: Pipeline, inputDir: File) = {
