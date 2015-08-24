@@ -10,7 +10,7 @@ val pipeline = Project(
 val examples = Project(
   id = "examples",
   base = file("examples")
-).dependsOn("pipeline")
+).dependsOn("allenai-pipeline")
 
 
 StylePlugin.enableLineLimit := false
