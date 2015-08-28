@@ -87,7 +87,7 @@ class TestArtifact extends UnitSpec with ScratchDirectory {
     def countFiles(f: File): Int =
       f.listFiles.map(f => if (f.isDirectory) countFiles(f) else 1).sum
 
-    val originalFile = new File("src/test/resources/pipeline")
+    val originalFile = new File("src/test/scala")
     val original = new DirectoryArtifact(originalFile)
 
     entryNames(original) should have size (countFiles(originalFile))
