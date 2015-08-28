@@ -3,7 +3,7 @@ package org.allenai.pipeline
 import java.io._
 import java.nio.file.Files
 
-import org.allenai.common.Resource
+import org.allenai.common.{ Logging, Resource }
 import org.apache.commons.io.FileUtils
 
 import scala.io.Source
@@ -24,7 +24,7 @@ class RunProcess(
   stdinput: Producer[InputStream] = null,
   versionId: String = ""
 )
-    extends Producer[ProcessOutput] with Ai2SimpleStepInfo {
+    extends Producer[ProcessOutput] with Ai2SimpleStepInfo with Logging {
   {
     val outputFileNames = args.collect {
       case arg: OutputFileArg => arg
@@ -54,14 +54,15 @@ class RunProcess(
     val stderr = new FileWriter(captureStderrFile)
     val inputStream = Option(stdinput).map(_.get).getOrElse(new ByteArrayInputStream(Array.emptyByteArray))
 
-    val logger = ProcessLogger(
+    val pLogger = ProcessLogger(
       (o: String) => stdout.append(o).append('\n'),
       (e: String) => stderr.append(e).append('\n')
     )
 
     val command = cmd(scratchDir)
+    logger.debug(s"Executing command: ${command.mkString(" ")}")
 
-    val status = (command #< inputStream) ! logger
+    val status = (command #< inputStream) ! pLogger
     stdout.close()
     stderr.close()
 

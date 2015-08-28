@@ -1,5 +1,7 @@
 package org.allenai.pipeline
 
+import java.nio.file.Files
+
 import scala.io.Source
 
 import java.io.{ InputStream, File }
@@ -77,5 +79,28 @@ class TestArtifact extends UnitSpec with ScratchDirectory {
     numbers should equal(x._1)
     letters should equal(x._2)
     file.delete()
+  }
+
+  "DirectoryArtifact" should "support nested entries" in {
+    def entryNames(s: StructuredArtifact) = s.reader.readAll.map(_._1).toSet
+
+    def countFiles(f: File): Int =
+      f.listFiles.map(f => if (f.isDirectory) countFiles(f) else 1).sum
+
+    val originalFile = new File("src/test/scala")
+    val original = new DirectoryArtifact(originalFile)
+
+    entryNames(original) should have size (countFiles(originalFile))
+
+    val copy = new ZipFileArtifact(Files.createTempFile(null, null).toFile)
+    original.copyTo(copy)
+    entryNames(copy) should equal(entryNames(original))
+
+    val copiedBackFile = Files.createTempDirectory(null).toFile
+    val copiedBack = new DirectoryArtifact(copiedBackFile)
+    copy.copyTo(copiedBack)
+    entryNames(copiedBack) should equal(entryNames(original))
+
+    countFiles(originalFile) should equal(countFiles(copiedBackFile))
   }
 }

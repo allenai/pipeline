@@ -5,7 +5,7 @@ import java.util.Collections
 
 import scala.collection.JavaConverters._
 
-import org.allenai.common.Resource
+import org.allenai.common.{ Logging, Resource }
 
 /** Replicates a file (or directory) to a shared location
   *
@@ -19,7 +19,7 @@ import org.allenai.common.Resource
 abstract class ReplicateResource[T <: Artifact](
   resource: Either[(File, String => T), (T, T => String)]
 )
-    extends Producer[File] with Ai2SimpleStepInfo {
+    extends Producer[File] with Ai2SimpleStepInfo with Logging {
 
   protected[this] def upload(file: File)
 
@@ -31,11 +31,16 @@ abstract class ReplicateResource[T <: Artifact](
     resource match {
       case Left((file, _)) =>
         if (!artifact.exists) {
+          logger.info(s"Uploading $file to ${artifact.url}")
           upload(file)
+        } else {
+          logger.debug(s"${artifact.url} exists. Skipping upload")
         }
         file
-      case Right((artifact, _)) =>
+      case Right((artifact, _)) => {
+        logger.info(s"Downloading ${artifact.url}")
         download(artifact)
+      }
     }
   }
 
@@ -105,11 +110,8 @@ object InputStreamChecksum {
   }
 
   def forDirectory(dir: File) = {
-    val streams =
-      for (f <- dir.listFiles.sorted) yield {
-        new FileInputStream(f)
-      }
-    this(new SequenceInputStream(Collections.enumeration(streams.toList.asJava)))
+    val streams = new DirectoryArtifact(dir).reader.readAll.toVector.sortBy(_._1).map(_._2)
+    this(new SequenceInputStream(Collections.enumeration(streams.asJava)))
   }
 }
 

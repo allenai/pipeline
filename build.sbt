@@ -3,11 +3,18 @@ import Dependencies._
 import ReleaseKeys._
 
 val pipeline = Project(
-  id = "allenai-pipeline",
+  id = "pipeline",
   base = file(".")
 )
 
+val examples = Project(
+  id = "examples",
+  base = file("examples")
+).dependsOn("pipeline")
+
+
 StylePlugin.enableLineLimit := false
+logLevel in compile := Level.Error
 
 organization := "org.allenai"
 crossScalaVersions := Seq("2.11.5")

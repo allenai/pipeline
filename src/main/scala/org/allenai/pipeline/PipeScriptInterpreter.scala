@@ -39,10 +39,6 @@ class PipeScriptInterpreter(val pipeline: Pipeline) {
       result
     }
 
-    def replicatedUrlProducer(source: URI): Producer[File] = {
-      ReadFromURL(source)
-    }
-
     // 1. Create the Package steps
     script.packages foreach {
       case Package(id, source) =>
@@ -73,7 +69,7 @@ class PipeScriptInterpreter(val pipeline: Pipeline) {
           cacheArg(id)(InputFileArg(name, producer))
 
         case CommandToken.InputUrl(source) =>
-          val producer = replicatedUrlProducer(source)
+          val producer = ReadFromUrl(source)
           val id = source.toString
           val name = producer.stepInfo.className
           cacheArg(id)(InputFileArg(name, producer))

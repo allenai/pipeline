@@ -1,9 +1,9 @@
 package org.allenai.pipeline
 
+import scala.reflect.ClassTag
+
 import java.io.File
 import java.net.URI
-
-import scala.reflect.ClassTag
 
 /** Creates an Artifact from a URL
   */
@@ -52,7 +52,6 @@ object ArtifactFactory {
         fn(url)
       }
     }
-
 }
 
 /** Supports creation of a particular type of Artifact from a URL.
@@ -72,11 +71,13 @@ object UrlToArtifact {
   // Chain together a series of UrlToArtifact instances
   // The result will be a UrlToArtifact that supports creation of the union of Artifact types and input URLs
   // that are supported by the individual inputs
+  // Later instances have higher priority and will override earlier instances
   def chain(first: UrlToArtifact, second: UrlToArtifact, others: UrlToArtifact*) =
     new UrlToArtifact {
       override def urlToArtifact[A <: Artifact: ClassTag]: PartialFunction[URI, A] = {
-        var fn = first.urlToArtifact[A] orElse second.urlToArtifact[A]
-        for (o <- others) {
+        val all = (List(first, second) ++ others).reverse
+        var fn = PartialFunction.empty[URI, A]
+        for (o <- all) {
           fn = fn orElse o.urlToArtifact[A]
         }
         fn
@@ -104,13 +105,17 @@ object CreateCoreArtifacts {
           new FileArtifact(new File(url.getPath)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
           && "file" == url.getScheme
-          && new File(url).exists
-          && new File(url).isDirectory =>
+          && {
+            val file = new File(url)
+            file.exists && file.isDirectory
+          } =>
           new DirectoryArtifact(new File(url)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[DirectoryArtifact])
           && null == url.getScheme
-          && new File(url.getPath).exists
-          && new File(url.getPath).isDirectory =>
+          && {
+            val file = new File(url.getPath)
+            file.exists && file.isDirectory
+          } =>
           new DirectoryArtifact(new File(url.getPath)).asInstanceOf[A]
         case url if c.isAssignableFrom(classOf[ZipFileArtifact])
           && "file" == url.getScheme =>

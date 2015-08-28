@@ -9,7 +9,7 @@ import scala.concurrent.duration.Duration
   *
   * @tparam  T  the type of data being produced
   */
-trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
+trait Producer[+T] extends PipelineStep with CachingEnabled with Logging {
   self =>
   /** Produces the data, if not already produced and cached. */
   protected def create: T
@@ -91,16 +91,6 @@ trait Producer[T] extends PipelineStep with CachingEnabled with Logging {
     timing = Some(duration)
     result
   }
-
-  // It doesn't really make sense for a Producer class to control how it's persisted,
-  // because it might depend on the context of a pipeline
-  // Prefer using the Pipeline.persist(...) methods instead
-  @Deprecated
-  def persisted[A <: Artifact](
-    io: Serializer[T, A] with Deserializer[T, A],
-    artifactSource: => A
-  ): PersistedProducer[T, A] =
-    new ProducerWithPersistence(this, io, artifactSource)
 
   /** Default caching policy is set by the implementing class but can be overridden dynamically.
     *

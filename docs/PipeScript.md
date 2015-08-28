@@ -82,8 +82,8 @@ The `run` command indicates a system process to execute.
 where each argument is either a string (as defined above) or a *resource*. A *resource* is specified 
 by `key:value` pairs separated by commas within curly braces. The different kinds of resources are:
 
-#### `{input:<source-url>, type:<file|dir>}` 
-An input file or directory, where *source-url* is a local file path or `s3:` URL.
+#### `{input:<source-url>, type:<file|dir|url>}` 
+An input file or directory, where *source-url* is a local file path, or a `s3:`/`http:` URL.
 At runtime, this will resolve to an absolute filesystem path.  If not
 specified, the default type is `file`.
 
