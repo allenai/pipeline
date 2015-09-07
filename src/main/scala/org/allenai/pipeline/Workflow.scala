@@ -12,26 +12,8 @@ import scala.io.Source
 /** DAG representation of the execution of a set of Producers.
   */
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: String, pipescripts: Option[PipescriptSources] = None) {
-  def sourceNodes() = nodes.filter {
-    case (nodeId, node) =>
-      !links.exists(link => link.toId == nodeId)
-  }
-
-  def sinkNodes() = nodes.filter {
-    case (nodeId, node) =>
-      !links.exists(link => link.fromId == nodeId)
-  }
-
-  def errorNodes() = nodes.filter {
-    case (nodeId, node) => node.outputMissing
-  }
-
   lazy val renderHtml: String = {
     import Workflow._
-    //    val w = this
-    val sources = sourceNodes()
-    val sinks = sinkNodes()
-    val errors = errorNodes()
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
       (id, info) <- nodes.toList.sortBy(_._2.stepName)
@@ -68,12 +50,7 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: Stri
               }
             }
         val linksJson = links.mkString("[", ",", "]")
-        val clazz = sources match {
-          case _ if errors contains id => "errorNode"
-          case _ if sources contains id => "sourceNode"
-          case _ if sinks contains id => "sinkNode"
-          case _ => ""
-        }
+        val clazz = info.outputType
         val name = info.stepName
         val desc = {
           // Word wrap the description
@@ -141,8 +118,8 @@ case class Node(
   parameters: Map[String, String] = Map(),
   description: Option[String] = None,
   outputLocation: Option[URI] = None,
-  outputMissing: Boolean = false,
-  executionInfo: String = ""
+  executionInfo: String = "",
+  outputType: String = Node.OutputType.UNKNOWN
 )
 
 object Node {
@@ -157,6 +134,22 @@ object Node {
       case producer: Producer[_] => producer.executionInfo.status
       case _ => ""
     }
+    val outputType = {
+      import OutputType._
+      step match {
+        case producer: Producer[_] => producer.executionInfo match {
+          case ReadFromDisk(_) => READ_DATA
+          case Executed(_) => COMPUTED
+          case ExecutedAndPersisted(_) | ExecuteAndBufferStream(_) => COMPUTED_AND_STORED
+          case _ =>
+            step match {
+              case persisted: PersistedProducer[_, _] if !persisted.artifact.exists => MISSING
+              case _ => NOT_REQUESTED
+            }
+        }
+        case _ => UNKNOWN
+      }
+    }
     Node(
       stepName,
       stepInfo.className,
@@ -166,9 +159,17 @@ object Node {
       stepInfo.parameters,
       stepInfo.description,
       stepInfo.outputLocation,
-      outputMissing,
-      executionInfo
+      executionInfo,
+      outputType
     )
+  }
+  object OutputType {
+    val UNKNOWN = ""
+    val MISSING = "errorNode"
+    val NOT_REQUESTED = "unusedNode"
+    val READ_DATA = "readDataNode"
+    val COMPUTED = "computedNode"
+    val COMPUTED_AND_STORED = "writeDataNode"
   }
 }
 

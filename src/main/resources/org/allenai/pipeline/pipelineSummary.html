@@ -1,407 +1,416 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="utf-8">
     <title>Experiment Workflow</title>
     <style type="text/css">
-     html,body {
-       height: 100%%;
-     }
-
-     html {
-       font-size: 100%%;
-       background: #fff;
-     }
-
-     body {
-       display:-webkit-flex;
-       display:flex;
-       flex-direction:column;
-       -webkit-flex-direction:column;
-       margin: 0;
-     }
-
-     header {
-       text-align: center;
-       background-color: #58D75B;
-       box-shadow: 0 0 5px;
-     }
-
-     header h1 {
-       font-size: 1.5em;
-       margin: 8px;
-     }
-
-     #app {
-       display:-webkit-flex;
-       display:flex;
-       flex:auto;
-       -webkit-flex:auto;
-     }
-
-     #dag {
-       display:-webkit-flex;
-       display:flex;
-       flex:auto;
-       -webkit-flex:auto;
-       flex-direction:row;
-       -webkit-flex-direction:row;
-     }
-
-     nav {
-       font-size: 0.75rem;
-       display:-webkit-flex;
-       display:flex;
-       flex: 0 0 200px;
-       -webkit-flex: 0 0 200px;
-       background-color: rgba(255, 165, 0, 0.25);
-     }
-
-     nav h2 {
-       padding: 10px;
-       margin: 0;
-       font-size: 0.75rem;
-       text-transform: uppercase;
-     }
-
-     nav ul {
-       padding: 0;
-       margin: 0;
-       list-style: none;
-     }
-
-     nav ul li {
-       text-align: left;
-       padding: 5px 10px;
-       margin: 0;
-       list-style-position: inside;
-     }
-
-     nav ul li:hover {
-       background-color: yellow;
-     }
-
-     .typescripts {
-       background-image: url(http://s3-us-west-2.amazonaws.com/ai2-misc/hackathon-2015/pipescript.png);
-       margin-top: 10px;
-     }
-
-     .typescripts ul {
-       padding-top: 54px;
-       padding-bottom: 10px;
-       margin: 0 20px;
-     }
-
-     .typescripts ul li a {
-       color: white;
-     }
-
-     .typescripts ul li:hover a {
-       color: black;
-     }
-
-     .outputs {
-       margin-top: 10px;
-     }
-
-     .outputs h2 {
-       margin-top: 10px;
-       border-top: 1px solid #888;
-     }
-
-     svg {
-       border: 1px solid #ccc;
-       background: #fff;
-       padding: 0px;
-       box-sizing: border-box;
-       overflow: scroll;
-       box-shadow: inset 2px 2px 3px 0 #ccc;
-       flex: 1 1 auto;
-       -webkit-flex: 1 1 auto;
-     }
-
-     .node div {
-       padding: 20px;
-     }
-
-     .node div h2 {
-       margin: 0;
-       font-size: 1.25em;
-       text-align: center;
-     }
-
-     .node ul {
-       list-style-type: none;
-       margin: 10px 0;
-       padding: 0;
-     }
-
-     .node ul li {
-       margin: 10px 0;
-     }
-
-     .node ul li:first-child {
-       margin-top: 0;
-     }
-
-     .node ul li:last-child {
-       margin-bottom: 0;
-     }
-
-     .node .links {
-       border-top: 1px solid #2a75a1;
-       padding-top: 10px;
-     }
-
-     .node .data {
-       border-top: 1px solid #2a75a1;
-       padding-top: 10px;
-     }
-
-     .node rect {
-       stroke: #2a75a1;
-       stroke-width: 2px;
-       fill: #e2f0f8;
-     }
-
-     .node a {
-       color: #2a75a1;
-     }
-
-     .node a:hover {
-       color: #489dcf;
-     }
-
-     .edgeLabel rect {
-       fill: #fff;
-     }
-
-     .edgePath {
-       stroke: #2a75a1;
-       stroke-width: 2px;
-       fill: none;
-     }/*! normalize.css v3.0.1 | MIT License | git.io/normalize */html {
-       font-family: sans-serif;
-       -ms-text-size-adjust: 100%%;
-       -webkit-text-size-adjust: 100%%;
-     }
-
-     article,aside,details,figcaption,figure,footer,header,hgroup,main,nav,section,summary {
-       display: block;
-     }
-
-     audio,canvas,progress,video {
-       display: inline-block;
-       vertical-align: baseline;
-     }
-
-     audio:not([controls]) {
-       display: none;
-       height: 0;
-     }
-
-     [hidden],template {
-       display: none;
-     }
-
-     a {
-       background: 0 0;
-     }
-
-     a:active,a:hover {
-       outline: 0;
-     }
-
-     abbr[title] {
-       border-bottom: 1px dotted;
-     }
-
-     b,strong {
-       font-weight: 700;
-     }
-
-     dfn {
-       font-style: italic;
-     }
-
-     h1 {
-       font-size: 2em;
-       margin: .67em 0;
-     }
-
-     mark {
-       background: #ff0;
-       color: #000;
-     }
-
-     small {
-       font-size: 80%%;
-     }
-
-     sub,sup {
-       font-size: 75%%;
-       line-height: 0;
-       position: relative;
-       vertical-align: baseline;
-     }
-
-     sup {
-       top: -.5em;
-     }
-
-     sub {
-       bottom: -.25em;
-     }
-
-     img {
-       border: 0;
-     }
-
-     svg:not(:root) {
-       overflow: hidden;
-     }
-
-     figure {
-       margin: 1em 40px;
-     }
-
-     hr {
-       -moz-box-sizing: content-box;
-       box-sizing: content-box;
-       height: 0;
-     }
-
-     pre {
-       overflow: auto;
-     }
-
-     code,kbd,pre,samp {
-       font-family: monospace,monospace;
-       font-size: 1em;
-     }
-
-     button,input,optgroup,select,textarea {
-       color: inherit;
-       font: inherit;
-       margin: 0;
-     }
-
-     button {
-       overflow: visible;
-     }
-
-     button,select {
-       text-transform: none;
-     }
-
-     button,html input[type=button],input[type=reset],input[type=submit] {
-       -webkit-appearance: button;
-       cursor: pointer;
-     }
-
-     button[disabled],html input[disabled] {
-       cursor: default;
-     }
-
-     button::-moz-focus-graph,input::-moz-focus-graph {
-       border: 0;
-       padding: 0;
-     }
-
-     input {
-       line-height: normal;
-     }
-
-     input[type=checkbox],input[type=radio] {
-       box-sizing: border-box;
-       padding: 0;
-     }
-
-     input[type=number]::-webkit-graph-spin-button,input[type=number]::-webkit-outer-spin-button
-     {
-       height: auto;
-     }
-
-     input[type=search] {
-       -webkit-appearance: textfield;
-       -moz-box-sizing: content-box;
-       -webkit-box-sizing: content-box;
-       box-sizing: content-box;
-     }
-
-     input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration
-     {
-       -webkit-appearance: none;
-     }
-
-     fieldset {
-       border: 1px solid silver;
-       margin: 0 2px;
-       padding: .35em .625em .75em;
-     }
-
-     legend {
-       border: 0;
-       padding: 0;
-     }
-
-     textarea {
-       overflow: auto;
-     }
-
-     optgroup {
-       font-weight: 700;
-     }
-
-     table {
-       border-collapse: collapse;
-       border-spacing: 0;
-     }
-
-     td,th {
-       padding: 0;
-     }
-
-     .sourceNode rect {
-       fill: #C3E4F7;
-     }
-
-     .sinkNode rect {
-       fill: #C3E4F7;
-     }
-
-     .errorNode rect {
-       fill: #C38888;
-     }
-
-     .executionInfo {
-       font-size: 20%%;
-       float: right;
-     }
+        html,body {
+        height: 100%%;
+        }
+
+        html {
+        font-size: 100%%;
+        background: #fff;
+        }
+
+        body {
+        display:-webkit-flex;
+        display:flex;
+        flex-direction:column;
+        -webkit-flex-direction:column;
+        margin: 0;
+        }
+
+        header {
+        text-align: center;
+        background-color: #58D75B;
+        box-shadow: 0 0 5px;
+        }
+
+        header h1 {
+        font-size: 1.5em;
+        margin: 8px;
+        }
+
+        #app {
+        display:-webkit-flex;
+        display:flex;
+        flex:auto;
+        -webkit-flex:auto;
+        }
+
+        #dag {
+        display:-webkit-flex;
+        display:flex;
+        flex:auto;
+        -webkit-flex:auto;
+        flex-direction:row;
+        -webkit-flex-direction:row;
+        }
+
+        nav {
+        font-size: 0.75rem;
+        display:-webkit-flex;
+        display:flex;
+        flex: 0 0 200px;
+        -webkit-flex: 0 0 200px;
+        background-color: rgba(255, 165, 0, 0.25);
+        }
+
+        nav h2 {
+        padding: 10px;
+        margin: 0;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        }
+
+        nav ul {
+        padding: 0;
+        margin: 0;
+        list-style: none;
+        }
+
+        nav ul li {
+        text-align: left;
+        padding: 5px 10px;
+        margin: 0;
+        list-style-position: inside;
+        }
+
+        nav ul li:hover {
+        background-color: yellow;
+        }
+
+        .typescripts {
+        background-image:
+        url(http://s3-us-west-2.amazonaws.com/ai2-misc/hackathon-2015/pipescript.png);
+        margin-top: 10px;
+        }
+
+        .typescripts ul {
+        padding-top: 54px;
+        padding-bottom: 10px;
+        margin: 0 20px;
+        }
+
+        .typescripts ul li a {
+        color: white;
+        }
+
+        .typescripts ul li:hover a {
+        color: black;
+        }
+
+        .outputs {
+        margin-top: 10px;
+        }
+
+        .outputs h2 {
+        margin-top: 10px;
+        border-top: 1px solid #888;
+        }
+
+        svg {
+        border: 1px solid #ccc;
+        background: #fff;
+        padding: 0px;
+        box-sizing: border-box;
+        overflow: scroll;
+        box-shadow: inset 2px 2px 3px 0 #ccc;
+        flex: 1 1 auto;
+        -webkit-flex: 1 1 auto;
+        }
+
+        .node div {
+        padding: 20px;
+        }
+
+        .node div h2 {
+        margin: 0;
+        font-size: 1.25em;
+        text-align: center;
+        }
+
+        .node ul {
+        list-style-type: none;
+        margin: 10px 0;
+        padding: 0;
+        }
+
+        .node ul li {
+        margin: 10px 0;
+        }
+
+        .node ul li:first-child {
+        margin-top: 0;
+        }
+
+        .node ul li:last-child {
+        margin-bottom: 0;
+        }
+
+        .node .links {
+        border-top: 1px solid #2a75a1;
+        padding-top: 10px;
+        }
+
+        .node .data {
+        border-top: 1px solid #2a75a1;
+        padding-top: 10px;
+        }
+
+        .node rect {
+        stroke: #2a75a1;
+        stroke-width: 2px;
+        fill: #e2f0f8;
+        }
+
+        .node a {
+        color: #2a75a1;
+        }
+
+        .node a:hover {
+        color: #489dcf;
+        }
+
+        .edgeLabel rect {
+        fill: #fff;
+        }
+
+        .edgePath {
+        stroke: #2a75a1;
+        stroke-width: 2px;
+        fill: none;
+        }/*! normalize.css v3.0.1 | MIT License | git.io/normalize */html {
+        font-family: sans-serif;
+        -ms-text-size-adjust: 100%%;
+        -webkit-text-size-adjust: 100%%;
+        }
+
+        article,aside,details,figcaption,figure,footer,header,hgroup,main,nav,section,summary {
+        display: block;
+        }
+
+        audio,canvas,progress,video {
+        display: inline-block;
+        vertical-align: baseline;
+        }
+
+        audio:not([controls]) {
+        display: none;
+        height: 0;
+        }
+
+        [hidden],template {
+        display: none;
+        }
+
+        a {
+        background: 0 0;
+        }
+
+        a:active,a:hover {
+        outline: 0;
+        }
+
+        abbr[title] {
+        border-bottom: 1px dotted;
+        }
+
+        b,strong {
+        font-weight: 700;
+        }
+
+        dfn {
+        font-style: italic;
+        }
+
+        h1 {
+        font-size: 2em;
+        margin: .67em 0;
+        }
+
+        mark {
+        background: #ff0;
+        color: #000;
+        }
+
+        small {
+        font-size: 80%%;
+        }
+
+        sub,sup {
+        font-size: 75%%;
+        line-height: 0;
+        position: relative;
+        vertical-align: baseline;
+        }
+
+        sup {
+        top: -.5em;
+        }
+
+        sub {
+        bottom: -.25em;
+        }
+
+        img {
+        border: 0;
+        }
+
+        svg:not(:root) {
+        overflow: hidden;
+        }
+
+        figure {
+        margin: 1em 40px;
+        }
+
+        hr {
+        -moz-box-sizing: content-box;
+        box-sizing: content-box;
+        height: 0;
+        }
+
+        pre {
+        overflow: auto;
+        }
+
+        code,kbd,pre,samp {
+        font-family: monospace,monospace;
+        font-size: 1em;
+        }
+
+        button,input,optgroup,select,textarea {
+        color: inherit;
+        font: inherit;
+        margin: 0;
+        }
+
+        button {
+        overflow: visible;
+        }
+
+        button,select {
+        text-transform: none;
+        }
+
+        button,html input[type=button],input[type=reset],input[type=submit] {
+        -webkit-appearance: button;
+        cursor: pointer;
+        }
+
+        button[disabled],html input[disabled] {
+        cursor: default;
+        }
+
+        button::-moz-focus-graph,input::-moz-focus-graph {
+        border: 0;
+        padding: 0;
+        }
+
+        input {
+        line-height: normal;
+        }
+
+        input[type=checkbox],input[type=radio] {
+        box-sizing: border-box;
+        padding: 0;
+        }
+
+        input[type=number]::-webkit-graph-spin-button,input[type=number]::-webkit-outer-spin-button
+        {
+        height: auto;
+        }
+
+        input[type=search] {
+        -webkit-appearance: textfield;
+        -moz-box-sizing: content-box;
+        -webkit-box-sizing: content-box;
+        box-sizing: content-box;
+        }
+
+        input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration
+        {
+        -webkit-appearance: none;
+        }
+
+        fieldset {
+        border: 1px solid silver;
+        margin: 0 2px;
+        padding: .35em .625em .75em;
+        }
+
+        legend {
+        border: 0;
+        padding: 0;
+        }
+
+        textarea {
+        overflow: auto;
+        }
+
+        optgroup {
+        font-weight: 700;
+        }
+
+        table {
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+
+        td,th {
+        padding: 0;
+        }
+
+        .readDataNode rect {
+        fill: #C3E4F7;
+        }
+
+        .writeDataNode rect {
+        fill: #E5E58E;
+        }
+
+        .unusedNode rect {
+        fill: #C5C5C5
+        }
+
+        .computedNode rect {
+        fill: #F6F6AB;
+        }
+
+        .errorNode rect {
+        fill: #C38888;
+        }
+
+        .executionInfo {
+        font-size: 20%%;
+        float: right;
+        }
     </style>
-  </head>
-  <body>
-    <header>
-      <h1>%s</h1>
-    </header>
-    <div id="app">
-      <div id="dag">
+</head>
+<body>
+<header>
+    <h1>%s</h1>
+</header>
+<div id="app">
+    <div id="dag">
         <nav id="outputContainer">
-          <!-- Sources will be rendered here if they are available -->
-          %s
-          <div class="outputs" >
-            <h2>Outputs</h2>
+            <!-- Sources will be rendered here if they are available -->
             %s
-          </div>
+            <div class="outputs">
+                <h2>Outputs</h2>
+                %s
+            </div>
         </nav>
         <svg width="100%%">
-          <g id="graph"/>
+            <g id="graph"/>
         </svg>
-      </div>
     </div>
-    <script src="http://d3js.org/d3.v3.min.js"></script>
-    <script src="http://cpettitt.github.io/project/dagre-d3/v0.4.6/dagre-d3.min.js"></script>
-    <script>
+</div>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://cpettitt.github.io/project/dagre-d3/v0.4.6/dagre-d3.min.js"></script>
+<script>
      (function() {
        /**
         * Class representing an individual Link.
@@ -516,6 +525,7 @@
      })();
 
 
-    </script>
-  </body>
+
+</script>
+</body>
 </html>
