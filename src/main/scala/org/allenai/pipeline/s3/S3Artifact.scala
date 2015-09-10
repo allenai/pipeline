@@ -155,7 +155,7 @@ case class LocalS3Cache(
 
   override def readFlat(artifact: S3Artifact) = {
     if (usePersistentCache) {
-      new FileArtifact(downloadLocalCopy(artifact)).read
+      withDownloadedLocalCopy(artifact)(new FileArtifact(_).read)
     } else {
       artifact.readContents()
     }
@@ -164,21 +164,25 @@ case class LocalS3Cache(
   def usePersistentCache = persistentCacheDir.isDefined
 
   override def writeFlat[T](artifact: S3Artifact, writer: ArtifactStreamWriter => T): T = {
-    val local = localFile(artifact)
-    val result = new FileArtifact(local).write(writer)
-    artifact.upload(local)
-    result
+    withLocalFile(artifact) { local =>
+      val result = new FileArtifact(local).write(writer)
+      artifact.upload(local)
+      result
+    }
   }
 
   override def readZip(artifact: S3Artifact): Reader = {
-    new ZipFileArtifact(downloadLocalCopy(artifact)).reader
+    withDownloadedLocalCopy(artifact) { file =>
+      new ZipFileArtifact(file).reader
+    }
   }
 
   override def writeZip[T](artifact: S3Artifact, writer: Writer => T) = {
-    val local = localFile(artifact)
-    val result = new ZipFileArtifact(local).write(writer)
-    artifact.upload(local)
-    result
+    withLocalFile(artifact) { local =>
+      val result = new ZipFileArtifact(local).write(writer)
+      artifact.upload(local)
+      result
+    }
   }
 
   // Create persistent cache directory if necessary
@@ -199,22 +203,25 @@ case class LocalS3Cache(
 
   protected[this] val bufferSize = 1048576 // 1 MB buffer
 
-  protected[this] def localFile(artifact: S3Artifact): File = {
+  protected[this] def withLocalFile[T](artifact: S3Artifact)(function: File => T): T = {
     val fileName = artifact.path.replaceAll("""/""", """\$""")
     persistentCacheDir match {
-      case Some(cacheDir) => new File(cacheDir, fileName)
+      case Some(cacheDir) => function(new File(cacheDir, fileName))
       case None =>
-        val f = File.createTempFile(fileName, "tmp")
+        val f = File.createTempFile(fileName, ".tmp")
         f.deleteOnExit()
-        f
+        val result = function(f)
+        f.delete()
+        result
     }
   }
 
-  protected[this] def downloadLocalCopy(artifact: S3Artifact): File = {
-    val file = localFile(artifact)
-    if (!(usePersistentCache && file.exists)) {
-      artifact.download(file, bufferSize)
+  protected[this] def withDownloadedLocalCopy[T](artifact: S3Artifact)(function: File => T): T = {
+    withLocalFile(artifact) { file =>
+      if (!(usePersistentCache && file.exists)) {
+        artifact.download(file, bufferSize)
+      }
+      function(file)
     }
-    file
   }
 }
