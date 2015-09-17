@@ -1,19 +1,20 @@
 package org.allenai.pipeline
 
-import java.net.URI
-
 import org.allenai.common.Resource
+
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
+import java.net.URI
+
 /** DAG representation of the execution of a set of Producers.
   */
 case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: String, pipescripts: Option[PipescriptSources] = None) {
   lazy val renderHtml: String = {
-    import Workflow._
+    import org.allenai.pipeline.Workflow._
     // Collect nodes with output paths to be displayed in the upper-left.
     val outputNodeLinks = for {
       (id, info) <- nodes.toList.sortBy(_._2.stepName)
@@ -72,14 +73,14 @@ case class Workflow(nodes: Map[String, Node], links: Iterable[Link], title: Stri
           textLines.mkString("<ul><li>", "</li><li>", "</li></ul>")
         }
         s"""        g.setNode("$id", {
-                                    |       class: "$clazz",
-                                                            |       labelType: "html",
-                                                            |       label: generateStepContent(${name.toJson},
-                                                                                                               |         ${desc.toJson},
-                                                                                                                                         |         ${info.executionInfo.toJson},
-                                                                                                                                                                                 |         ${params.toJson},
-                                                                                                                                                                                                             |         ${linksJson})
-                                                                                                                                                                                                                                     |     });""".stripMargin
+                                    |      class: "$clazz",
+                                                           |      labelType: "html",
+                                                           |      label: generateStepContent(${name.toJson},
+                                                                                                             |        ${desc.toJson},
+                                                                                                                                      |        ${info.executionInfo.toJson},
+                                                                                                                                                                             |        ${params.toJson},
+                                                                                                                                                                                                        |        ${linksJson})
+                                                                                                                                                                                                                               |    });""".stripMargin
       }
     val addEdges =
       for (Link(from, to, name) <- links) yield {
@@ -135,7 +136,7 @@ object Node {
       case _ => ""
     }
     val outputType = {
-      import OutputType._
+      import org.allenai.pipeline.Node.OutputType._
       step match {
         case producer: Producer[_] => producer.executionInfo match {
           case ReadFromDisk(_) => READ_DATA
@@ -163,6 +164,7 @@ object Node {
       outputType
     )
   }
+
   object OutputType {
     val UNKNOWN = ""
     val MISSING = "errorNode"
@@ -171,6 +173,7 @@ object Node {
     val COMPUTED = "computedNode"
     val COMPUTED_AND_STORED = "writeDataNode"
   }
+
 }
 
 /** Represents dependency between Producer instances */
@@ -180,21 +183,21 @@ object Workflow {
   def forPipeline(steps: Iterable[(String, PipelineStep)], targets: Iterable[String], title: String, pipescripts: Option[PipescriptSources]): Workflow = {
     val idToName = steps.map { case (k, v) => (v.stepInfo.signature.id, k) }.toMap
     val nameToStep = steps.toMap
-    def findNodes(s: PipelineStep): Iterable[PipelineStep] =
-      Seq(s) ++ s.stepInfo.dependencies.flatMap {
-        case (name, step) =>
-          findNodes(step)
+    val allSteps = scala.collection.mutable.Set.empty[PipelineStep]
+    def findSteps(s: PipelineStep): Unit = {
+      if (!allSteps.contains(s)) {
+        allSteps += s
+        s.stepInfo.dependencies.values.foreach(findSteps)
       }
-
-    val nodeList = for {
-      name <- targets
-      step = nameToStep(name)
-      childStep <- findNodes(step)
-    } yield {
-      val id = childStep.stepInfo.signature.id
-      val childName = idToName.getOrElse(id, childStep.stepInfo.className)
-      (id, Node(childName, childStep))
     }
+    for (stepName <- targets) findSteps(nameToStep(stepName))
+
+    val nodeList =
+      for (step <- allSteps) yield {
+        val id = step.stepInfo.signature.id
+        val name = idToName.getOrElse(id, step.stepInfo.className)
+        (id, Node(name, step))
+      }
 
     def findLinks(s: PipelineStepInfo): Iterable[(PipelineStepInfo, PipelineStepInfo, String)] =
       s.dependencies.map { case (name, dep) => (dep.stepInfo, s, name) } ++
@@ -251,6 +254,7 @@ object Workflow {
   }
 
   private val urlRegex = """https?://[^\s]+""".r
+
   private[pipeline] def linkUrlsInString(string: String) = {
     urlRegex.replaceAllIn(string, m => s"<a href='${m.group(0)}'>${limitLength(m.group(0))}</a>")
   }
@@ -268,5 +272,6 @@ object Workflow {
     }
     trimmed
   }
+
   private def unescape(s: String) = s.replaceAll(">", "&gt;").replaceAll("<", "&lt;")
 }
