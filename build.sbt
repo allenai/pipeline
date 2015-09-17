@@ -2,6 +2,22 @@ import Dependencies._
 
 import ReleaseKeys._
 
+// Override the problematic new release plugin.
+import sbtrelease.ReleaseStateTransformations._
+releaseProcess := Seq(
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  publishArtifacts,
+  setNextVersion,
+  commitNextVersion,
+  pushChanges
+)
+
 val pipeline = Project(
   id = "pipeline",
   base = file(".")
