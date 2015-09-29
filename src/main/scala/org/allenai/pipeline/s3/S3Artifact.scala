@@ -150,12 +150,19 @@ object DefaultS3Cache extends LocalS3Cache()
   *                           on the size of the data stored in the persistent directory
   */
 case class LocalS3Cache(
-    persistentCacheDir: Option[File] = Some(new File(System.getProperty("java.io.tmpdir"), "pipeline-cache"))
+    persistentCacheDir: Option[File] = Some(new File(System.getProperty("java.io.tmpdir"), "pipeline-cache")),
+    enableCompression: Boolean = false
 ) extends S3Cache with Logging {
+
+  private def makeFileArtifact(file: File) = if (enableCompression) {
+    new CompressedFileArtifact(file)
+  } else {
+    new FileArtifact(file)
+  }
 
   override def readFlat(artifact: S3Artifact) = {
     if (usePersistentCache) {
-      withDownloadedLocalCopy(artifact)(new FileArtifact(_).read)
+      withDownloadedLocalCopy(artifact)(makeFileArtifact(_).read)
     } else {
       artifact.readContents()
     }
@@ -165,7 +172,7 @@ case class LocalS3Cache(
 
   override def writeFlat[T](artifact: S3Artifact, writer: ArtifactStreamWriter => T): T = {
     withLocalFile(artifact) { local =>
-      val result = new FileArtifact(local).write(writer)
+      val result = makeFileArtifact(local).write(writer)
       artifact.upload(local)
       result
     }

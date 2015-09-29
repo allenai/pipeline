@@ -1,5 +1,9 @@
 package org.allenai.pipeline
 
+import org.allenai.common.Resource
+
+import org.apache.commons.compress.compressors.bzip2.{ BZip2CompressorOutputStream, BZip2CompressorInputStream }
+
 import java.io._
 import java.net.URI
 import java.util.zip.{ ZipEntry, ZipFile, ZipOutputStream }
@@ -10,7 +14,7 @@ import scala.collection.JavaConverters._
 
 /** Flat file.  */
 class FileArtifact(val file: File) extends FlatArtifact {
-  private val parentDir = {
+  protected val parentDir = {
     val f = file.getCanonicalFile.getParentFile
     FileUtils.forceMkdir(f)
     f
@@ -29,15 +33,31 @@ class FileArtifact(val file: File) extends FlatArtifact {
   def write[T](writer: ArtifactStreamWriter => T): T = {
     val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
     tmpFile.deleteOnExit()
-    val fileOut = new FileOutputStream(tmpFile)
-    val out = new ArtifactStreamWriter(fileOut)
-    val result = writer(out)
-    fileOut.close()
+    val result = Resource.using(new FileOutputStream(tmpFile)) {
+      fileOut => writer(new ArtifactStreamWriter(fileOut))
+    }
     require(tmpFile.renameTo(file), s"Unable to create $file")
     result
   }
 
   override def toString: String = s"FileArtifact[${file.getCanonicalPath}]"
+}
+
+/** Compressed flat file.  */
+class CompressedFileArtifact(file: File) extends FileArtifact(file) {
+  override def read: InputStream = new BZip2CompressorInputStream(new FileInputStream(file))
+
+  override def write[T](writer: ArtifactStreamWriter => T): T = {
+    val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
+    tmpFile.deleteOnExit()
+    val result = Resource.using(new BZip2CompressorOutputStream(new FileOutputStream(tmpFile))) {
+      fileOut => writer(new ArtifactStreamWriter(fileOut))
+    }
+    require(tmpFile.renameTo(file), s"Unable to create $file")
+    result
+  }
+
+  override def toString: String = s"CompressedFileArtifact[${file.getCanonicalPath}]"
 }
 
 /** Directory of files.  */
