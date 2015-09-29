@@ -66,7 +66,8 @@ libraryDependencies ++= Seq(
   scalaReflection,
   awsJavaSdk,
   parserCombinators,
-  apacheCommonsLang
+  apacheCommonsLang,
+  apacheCompress
 )
 
 // To create release zip: sbt universal:packageBin
