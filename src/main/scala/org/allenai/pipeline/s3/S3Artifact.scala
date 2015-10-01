@@ -167,9 +167,6 @@ trait CompressedS3Artifact extends S3Artifact {
   override def readContents(): InputStream = new BZip2CompressorInputStream(super.readContents())
 }
 
-object CompressedS3Artifact {
-}
-
 /** Implements policy for making local caches of artifacts in S3
   */
 trait S3Cache {
