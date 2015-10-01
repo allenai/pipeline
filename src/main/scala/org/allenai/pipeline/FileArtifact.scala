@@ -31,7 +31,7 @@ class FileArtifact(val file: File) extends FlatArtifact {
   // Note:  The write operation is atomic.  The file is only created if the write operation
   // completes successfully
   def write[T](writer: ArtifactStreamWriter => T): T = {
-    val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
+    val tmpFile = File.createTempFile(file.getName, ".tmp", parentDir)
     tmpFile.deleteOnExit()
     val result = Resource.using(new FileOutputStream(tmpFile)) {
       fileOut => writer(new ArtifactStreamWriter(fileOut))
@@ -48,7 +48,7 @@ class CompressedFileArtifact(file: File) extends FileArtifact(file) {
   override def read: InputStream = new BZip2CompressorInputStream(new FileInputStream(file))
 
   override def write[T](writer: ArtifactStreamWriter => T): T = {
-    val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
+    val tmpFile = File.createTempFile(file.getName, ".tmp", parentDir)
     tmpFile.deleteOnExit()
     val result = Resource.using(new BZip2CompressorOutputStream(new FileOutputStream(tmpFile))) {
       fileOut => writer(new ArtifactStreamWriter(fileOut))
@@ -176,7 +176,7 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
       (parentDir.exists && parentDir.isDirectory) || parentDir.mkdirs,
       s"Unable to find or create directory $parentDir"
     )
-    private val tmpFile = File.createTempFile(file.getName, "tmp", parentDir)
+    private val tmpFile = File.createTempFile(file.getName, ".tmp", parentDir)
     tmpFile.deleteOnExit()
     private val zipOut = new ZipOutputStream(new FileOutputStream(tmpFile))
     private val out = new ArtifactStreamWriter(zipOut)
