@@ -1,5 +1,7 @@
 package org.allenai.pipeline.s3
 
+import org.apache.commons.compress.compressors.bzip2.{ BZip2CompressorOutputStream, BZip2CompressorInputStream }
+
 import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URI
 
@@ -7,9 +9,11 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.{ BasicAWSCredentials, EnvironmentVariableCredentialsProvider }
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.{ CannedAccessControlList, ObjectMetadata, PutObjectRequest }
-import org.allenai.common.Logging
+import org.allenai.common.{ Resource, Logging }
 import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
 import org.allenai.pipeline._
+
+import java.nio.file.Files
 
 case class S3Config(bucket: String, credentials: S3Credentials = S3Config.environmentCredentials()) {
   @transient
@@ -47,6 +51,16 @@ class S3FlatArtifact(
     cachingImpl.writeFlat(this, writer)
 
   override def toString: String = s"S3Artifact[${config.bucket}, $path}]"
+}
+
+class CompressedS3FlatArtifact(
+  path: String,
+  config: S3Config,
+  contentTypeOverride: Option[String] = None
+)(implicit cachingImpl: S3Cache = DefaultS3Cache)
+    extends S3FlatArtifact(path, config, contentTypeOverride) with CompressedS3Artifact {
+
+  override def toString: String = s"CompressedS3Artifact[${config.bucket}, $path}]"
 }
 
 /** Zip file stored in S3.  */
@@ -116,18 +130,44 @@ trait S3Artifact extends Artifact with Logging {
 
   def readContents(): InputStream = service.getObject(bucket, path).getObjectContent
 
-  def download(file: File, bufferSize: Int = 1048576): Unit = {
+  def download(file: File): Unit = {
     logger.debug(s"Downloading $bucket/$path to $file")
     val tmpFile = new File(file.getCanonicalFile.getParent, file.getName + ".tmp")
-    val os = new FileOutputStream(tmpFile)
-    val is = readContents()
-    val buffer = new Array[Byte](bufferSize)
-    Iterator.continually(is.read(buffer)).takeWhile(_ != -1).foreach(n =>
-      os.write(buffer, 0, n))
-    is.close()
-    os.close()
-    require(tmpFile.renameTo(file), s"Unable to create $file")
+    tmpFile.deleteOnExit()
+    try {
+      Resource.using(readContents()) { is =>
+        Files.copy(is, tmpFile.toPath)
+      }
+      require(tmpFile.renameTo(file), s"Unable to create $file")
+    } finally {
+      tmpFile.delete() // just in case
+    }
   }
+}
+
+trait CompressedS3Artifact extends S3Artifact {
+  override def upload(file: File): Unit = {
+    val compressedFile = File.createTempFile(file.getName, ".tmp.bz2")
+    compressedFile.deleteOnExit()
+    try {
+      Resource.using(new BZip2CompressorOutputStream(new FileOutputStream(compressedFile))) { os =>
+        Files.copy(file.toPath, os)
+      }
+      val bz2metadata = new ObjectMetadata() // This object is mutated when we call putObject(), so
+      // we have to have our own copy.
+      bz2metadata.setContentType("application/bzip2")
+      val request = new PutObjectRequest(bucket, path, compressedFile).withMetadata(bz2metadata)
+      request.setCannedAcl(CannedAccessControlList.PublicRead)
+      service.putObject(request)
+    } finally {
+      compressedFile.delete()
+    }
+  }
+
+  override def readContents(): InputStream = new BZip2CompressorInputStream(super.readContents())
+}
+
+object CompressedS3Artifact {
 }
 
 /** Implements policy for making local caches of artifacts in S3
@@ -150,19 +190,12 @@ object DefaultS3Cache extends LocalS3Cache()
   *                           on the size of the data stored in the persistent directory
   */
 case class LocalS3Cache(
-    persistentCacheDir: Option[File] = Some(new File(System.getProperty("java.io.tmpdir"), "pipeline-cache")),
-    enableCompression: Boolean = false
+    persistentCacheDir: Option[File] = Some(new File(System.getProperty("java.io.tmpdir"), "pipeline-cache"))
 ) extends S3Cache with Logging {
-
-  private def makeFileArtifact(file: File) = if (enableCompression) {
-    new CompressedFileArtifact(file)
-  } else {
-    new FileArtifact(file)
-  }
 
   override def readFlat(artifact: S3Artifact) = {
     if (usePersistentCache) {
-      withDownloadedLocalCopy(artifact)(makeFileArtifact(_).read)
+      withDownloadedLocalCopy(artifact)(new FileArtifact(_).read)
     } else {
       artifact.readContents()
     }
@@ -172,7 +205,7 @@ case class LocalS3Cache(
 
   override def writeFlat[T](artifact: S3Artifact, writer: ArtifactStreamWriter => T): T = {
     withLocalFile(artifact) { local =>
-      val result = makeFileArtifact(local).write(writer)
+      val result = new FileArtifact(local).write(writer)
       artifact.upload(local)
       result
     }
@@ -208,8 +241,6 @@ case class LocalS3Cache(
     case None => ()
   }
 
-  protected[this] val bufferSize = 1048576 // 1 MB buffer
-
   protected[this] def withLocalFile[T](artifact: S3Artifact)(function: File => T): T = {
     val fileName = artifact.path.replaceAll("""/""", """\$""")
     persistentCacheDir match {
@@ -226,7 +257,7 @@ case class LocalS3Cache(
   protected[this] def withDownloadedLocalCopy[T](artifact: S3Artifact)(function: File => T): T = {
     withLocalFile(artifact) { file =>
       if (!(usePersistentCache && file.exists)) {
-        artifact.download(file, bufferSize)
+        artifact.download(file)
       }
       function(file)
     }
