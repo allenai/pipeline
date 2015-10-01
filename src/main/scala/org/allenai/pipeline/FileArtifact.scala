@@ -110,7 +110,7 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
     val dirWriter = new Writer {
       def writeEntry[T2](name: String)(writer: ArtifactStreamWriter => T2): T2 = {
         val outFile = new File(tmpDir, name)
-        require(outFile.getParentFile == null || outFile.getParentFile.exists || outFile.getParentFile.mkdirs(), "Cannot create file $outFile")
+        require(outFile.getParentFile == null || outFile.getParentFile.exists || outFile.getParentFile.mkdirs(), s"Cannot create file $outFile")
         val out = new FileOutputStream(outFile)
         val result = writer(new ArtifactStreamWriter(out))
         out.close()
