@@ -33,7 +33,7 @@ class FileArtifact(val file: File) extends FlatArtifact {
   def write[T](writer: ArtifactStreamWriter => T): T = {
     val tmpFile = File.createTempFile(file.getName, ".tmp", parentDir)
     tmpFile.deleteOnExit()
-    val result = Resource.using(new FileOutputStream(tmpFile)) {
+    val result = Resource.using(new BufferedOutputStream(new FileOutputStream(tmpFile))) {
       fileOut => writer(new ArtifactStreamWriter(fileOut))
     }
     require(tmpFile.renameTo(file), s"Unable to create $file")
@@ -82,7 +82,8 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
     require(exists, s"Attempt to read for non-existent directory $dir")
 
     /** Throw exception if file does not exist. */
-    def read(entryName: String): InputStream = new FileInputStream(new File(dir, entryName))
+    def read(entryName: String): InputStream =
+      new BufferedInputStream(new FileInputStream(new File(dir, entryName)))
 
     /** Read all plain files recursively */
     def readAll: Iterator[(String, InputStream)] = {
@@ -91,7 +92,7 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
           if (f.isDirectory) {
             readDir(s"${prefix}${f.getName}/", f)
           } else {
-            List((s"${prefix}${f.getName}", new FileInputStream(f)))
+            List((s"${prefix}${f.getName}", new BufferedInputStream(new FileInputStream(f))))
           }
         }
       }
@@ -111,7 +112,7 @@ class DirectoryArtifact(val dir: File) extends StructuredArtifact {
       def writeEntry[T2](name: String)(writer: ArtifactStreamWriter => T2): T2 = {
         val outFile = new File(tmpDir, name)
         require(outFile.getParentFile == null || outFile.getParentFile.exists || outFile.getParentFile.mkdirs(), s"Cannot create file $outFile")
-        val out = new FileOutputStream(outFile)
+        val out = new BufferedOutputStream(new FileOutputStream(outFile))
         val result = writer(new ArtifactStreamWriter(out))
         out.close()
         result
@@ -194,5 +195,4 @@ class ZipFileArtifact(val file: File) extends StructuredArtifact {
       require(tmpFile.renameTo(file), s"Unable to create $file")
     }
   }
-
 }
