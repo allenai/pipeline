@@ -13,7 +13,7 @@ import org.allenai.common.{ Resource, Logging }
 import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
 import org.allenai.pipeline._
 
-import java.nio.file.Files
+import java.nio.file.{ StandardCopyOption, Files }
 
 case class S3Config(bucket: String, credentials: S3Credentials = S3Config.environmentCredentials()) {
   @transient
@@ -128,7 +128,19 @@ trait S3Artifact extends Artifact with Logging {
     service.putObject(request)
   }
 
-  def readContents(): InputStream = service.getObject(bucket, path).getObjectContent
+  def readContents(): InputStream = {
+    // We can't stream this directly out of S3, because it's not reliable enough. If the caller
+    // reads half the input stream, then waits for 5 minutes, and then attempts to read again, S3
+    // will time out the connection in the meantime.
+    val file = File.createTempFile(s"$bucket/$path".replace('/', '$'), ".tmp")
+    file.deleteOnExit()
+    Resource.using(service.getObject(bucket, path).getObjectContent) { objectContent =>
+      Files.copy(objectContent, file.toPath, StandardCopyOption.REPLACE_EXISTING)
+    }
+    val inputStream = new BufferedInputStream(new FileInputStream(file))
+    file.delete()
+    inputStream
+  }
 
   def download(file: File): Unit = {
     logger.debug(s"Downloading $bucket/$path to $file")
@@ -171,7 +183,7 @@ trait CompressedS3Artifact extends S3Artifact {
   }
 
   override def readContents(): InputStream =
-    new BufferedInputStream(new BZip2CompressorInputStream(super.readContents()))
+    new BZip2CompressorInputStream(super.readContents())
 }
 
 /** Implements policy for making local caches of artifacts in S3
