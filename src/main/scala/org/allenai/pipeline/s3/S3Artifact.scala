@@ -2,7 +2,7 @@ package org.allenai.pipeline.s3
 
 import org.apache.commons.compress.compressors.bzip2.{ BZip2CompressorOutputStream, BZip2CompressorInputStream }
 
-import java.io.{ File, FileOutputStream, InputStream }
+import java.io._
 import java.net.URI
 
 import com.amazonaws.AmazonServiceException
@@ -150,9 +150,15 @@ trait CompressedS3Artifact extends S3Artifact {
     val compressedFile = File.createTempFile(file.getName, ".tmp.bz2")
     compressedFile.deleteOnExit()
     try {
-      Resource.using(new BZip2CompressorOutputStream(new FileOutputStream(compressedFile))) { os =>
-        Files.copy(file.toPath, os)
-      }
+      Resource.using(
+        new BZip2CompressorOutputStream(
+          new BufferedOutputStream(
+            new FileOutputStream(compressedFile)
+          )
+        )
+      ) { os =>
+          Files.copy(file.toPath, os)
+        }
       val bz2metadata = new ObjectMetadata() // This object is mutated when we call putObject(), so
       // we have to have our own copy.
       bz2metadata.setContentType("application/bzip2")
@@ -164,7 +170,8 @@ trait CompressedS3Artifact extends S3Artifact {
     }
   }
 
-  override def readContents(): InputStream = new BZip2CompressorInputStream(super.readContents())
+  override def readContents(): InputStream =
+    new BufferedInputStream(new BZip2CompressorInputStream(super.readContents()))
 }
 
 /** Implements policy for making local caches of artifacts in S3
