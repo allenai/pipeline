@@ -141,7 +141,7 @@ object Producer {
   def fromMemory[T](data: T): Producer[T] = new Producer[T] with BasicPipelineStepInfo {
     override def create: T = data
 
-    override def stepInfo: PipelineStepInfo =
+    override val stepInfo: PipelineStepInfo =
       super.stepInfo.copy(
         className = data.getClass.getName,
         classVersion = data.hashCode.toHexString

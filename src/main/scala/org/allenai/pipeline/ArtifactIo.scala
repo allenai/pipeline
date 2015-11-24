@@ -53,7 +53,7 @@ class SingletonIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     _.write(implicitly[StringSerializable[T]].toString(data))
   }
 
-  override def stepInfo: PipelineStepInfo = {
+  override val stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
       className = s"ReadObject[$className]",
@@ -84,7 +84,7 @@ class LineCollectionIo[T: StringSerializable: ClassTag](implicit codec: Codec)
   override def write(data: Iterable[T], artifact: FlatArtifact): Unit =
     delegate.write(data.iterator, artifact)
 
-  override def stepInfo: PipelineStepInfo = {
+  override val stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
       className = s"ReadCollection[$className]",
@@ -129,7 +129,7 @@ class LineIteratorIo[T: StringSerializable: ClassTag](implicit codec: Codec)
     }
   }
 
-  override def stepInfo: PipelineStepInfo = {
+  override val stepInfo: PipelineStepInfo = {
     val className = scala.reflect.classTag[T].runtimeClass.getSimpleName
     super.stepInfo.copy(
       className =

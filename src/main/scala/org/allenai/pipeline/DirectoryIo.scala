@@ -24,5 +24,5 @@ object DirectoryIo extends ArtifactIo[Map[String, String], StructuredArtifact] {
     }).toMap
   }
 
-  override def stepInfo: PipelineStepInfo = PipelineStepInfo("SaveDirectory")
+  override val stepInfo: PipelineStepInfo = PipelineStepInfo("SaveDirectory")
 }

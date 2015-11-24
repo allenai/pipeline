@@ -178,21 +178,21 @@ class TestProducer extends UnitSpec with ScratchDirectory {
   }
 
   val prs6withDep = new PipelineStep {
-    override def stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4, "upstream" -> prs1)
+    override val stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4, "upstream" -> prs1)
   }
   val prs6withSomeDep = new PipelineStep {
-    override def stepInfo: PipelineStepInfo =
+    override val stepInfo: PipelineStepInfo =
       base.addParameters("param1" -> 4, "upstream" -> Some(prs1))
   }
   val prs6withSomeOtherDepSameSig = new PipelineStep {
-    override def stepInfo: PipelineStepInfo =
+    override val stepInfo: PipelineStepInfo =
       base.addParameters("param1" -> 4, "upstream" -> Some(prs1a))
   }
   val prs6withNoneDep = new PipelineStep {
-    override def stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4, "upstream" -> None)
+    override val stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4, "upstream" -> None)
   }
   val prs6withoutDep = new PipelineStep {
-    override def stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4)
+    override val stepInfo: PipelineStepInfo = base.addParameters("param1" -> 4)
   }
   "Signature with Option[Producer]" should "have the same signature as with just same Producer" in {
     prs6withDep.stepInfo.signature.id should equal(prs6withSomeDep.stepInfo.signature.id)
