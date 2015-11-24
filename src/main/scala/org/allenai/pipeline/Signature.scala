@@ -1,7 +1,11 @@
 package org.allenai.pipeline
 
+import java.security.MessageDigest
+
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+
+import scala.collection.mutable.StringBuilder
 
 /** Acts as an identifier for a Producer instance.  Represents the version of the implementation
   * class, the inputs, and the static configuration.  The PipelineRunner class uses a Producer's
@@ -25,13 +29,19 @@ case class Signature(
     parameters: Map[String, String]
 ) {
 
-  def id: String = {
-    val hashString = this.toJson.compactPrint
-    val hashCodeLong = hashString.foldLeft(0L) { (hash, char) => hash * 31 + char }
-    hashCodeLong.toHexString
-  }
+  private lazy val asJson = this.toJson
 
-  def infoString: String = this.toJson.prettyPrint
+  lazy val infoString: String = asJson.compactPrint
+
+  lazy val id: String = {
+    val digest = MessageDigest.getInstance("SHA-1")
+    digest.update(infoString.getBytes)
+    val sb = new StringBuilder(40)
+    for (b <- digest.digest) {
+      sb.append(f"$b%02x")
+    }
+    sb.toString
+  }
 }
 
 object Signature {
@@ -44,7 +54,7 @@ object Signature {
 
     def write(s: Signature): JsValue = {
       // Sort keys in dependencies and parameters so that json format is identical for equal objects
-      val deps = s.dependencies.toList.map(t => (t._1, jsonWriter.write(t._2.stepInfo.signature))).
+      val deps = s.dependencies.toList.map(t => (t._1, t._2.stepInfo.signature.id)).
         sortBy(_._1).toJson
       val params = s.parameters.toList.sortBy(_._1).toJson
       JsObject(
