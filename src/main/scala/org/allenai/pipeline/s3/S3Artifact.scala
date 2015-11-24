@@ -1,6 +1,6 @@
 package org.allenai.pipeline.s3
 
-import org.apache.commons.compress.compressors.bzip2.{ BZip2CompressorOutputStream, BZip2CompressorInputStream }
+import org.apache.commons.compress.compressors.gzip.{ GzipCompressorInputStream, GzipCompressorOutputStream }
 
 import java.io._
 import java.net.URI
@@ -159,11 +159,11 @@ trait S3Artifact extends Artifact with Logging {
 
 trait CompressedS3Artifact extends S3Artifact {
   override def upload(file: File): Unit = {
-    val compressedFile = File.createTempFile(file.getName, ".tmp.bz2")
+    val compressedFile = File.createTempFile(file.getName, ".tmp.gz")
     compressedFile.deleteOnExit()
     try {
       Resource.using(
-        new BZip2CompressorOutputStream(
+        new GzipCompressorOutputStream(
           new BufferedOutputStream(
             new FileOutputStream(compressedFile)
           )
@@ -171,10 +171,10 @@ trait CompressedS3Artifact extends S3Artifact {
       ) { os =>
           Files.copy(file.toPath, os)
         }
-      val bz2metadata = new ObjectMetadata() // This object is mutated when we call putObject(), so
+      val gzmetadata = new ObjectMetadata() // This object is mutated when we call putObject(), so
       // we have to have our own copy.
-      bz2metadata.setContentType("application/bzip2")
-      val request = new PutObjectRequest(bucket, path, compressedFile).withMetadata(bz2metadata)
+      gzmetadata.setContentType("application/gzip")
+      val request = new PutObjectRequest(bucket, path, compressedFile).withMetadata(gzmetadata)
       request.setCannedAcl(CannedAccessControlList.PublicRead)
       service.putObject(request)
     } finally {
@@ -183,7 +183,7 @@ trait CompressedS3Artifact extends S3Artifact {
   }
 
   override def readContents(): InputStream =
-    new BZip2CompressorInputStream(super.readContents())
+    new GzipCompressorInputStream(super.readContents())
 }
 
 /** Implements policy for making local caches of artifacts in S3
