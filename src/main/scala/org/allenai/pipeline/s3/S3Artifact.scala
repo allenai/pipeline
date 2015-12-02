@@ -1,6 +1,7 @@
 package org.allenai.pipeline.s3
 
-import org.apache.commons.compress.compressors.bzip2.{ BZip2CompressorOutputStream, BZip2CompressorInputStream }
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
+import org.apache.commons.compress.compressors.gzip.{ GzipCompressorInputStream, GzipCompressorOutputStream }
 
 import java.io._
 import java.net.URI
@@ -14,6 +15,8 @@ import org.allenai.pipeline.StructuredArtifact.{ Reader, Writer }
 import org.allenai.pipeline._
 
 import java.nio.file.{ StandardCopyOption, Files }
+import scala.annotation.tailrec
+import scala.util.{ Success, Failure, Try }
 
 case class S3Config(bucket: String, credentials: S3Credentials = S3Config.environmentCredentials()) {
   @transient
@@ -128,7 +131,7 @@ trait S3Artifact extends Artifact with Logging {
     service.putObject(request)
   }
 
-  def readContents(): InputStream = {
+  protected def bufferedInputStreamFromS3(bucket: String, path: String) = {
     // We can't stream this directly out of S3, because it's not reliable enough. If the caller
     // reads half the input stream, then waits for 5 minutes, and then attempts to read again, S3
     // will time out the connection in the meantime.
@@ -141,6 +144,8 @@ trait S3Artifact extends Artifact with Logging {
     file.delete()
     inputStream
   }
+
+  def readContents(): InputStream = bufferedInputStreamFromS3(bucket, path)
 
   def download(file: File): Unit = {
     logger.debug(s"Downloading $bucket/$path to $file")
@@ -158,12 +163,31 @@ trait S3Artifact extends Artifact with Logging {
 }
 
 trait CompressedS3Artifact extends S3Artifact {
+  import CompressedS3Artifact._
+
+  private def activeDecompressor = {
+    decompressors.iterator.find {
+      case Decompressor(suffix, _) =>
+        try {
+          service.getObjectMetadata(config.bucket, path + suffix)
+          true
+        } catch {
+          case e: AmazonServiceException if e.getStatusCode == 404 => false
+          case ex: Exception => throw ex
+        }
+    }
+  }
+
+  override def exists: Boolean = activeDecompressor.isDefined
+
+  def compressionSuffix = activeDecompressor.map(_.suffix)
+
   override def upload(file: File): Unit = {
-    val compressedFile = File.createTempFile(file.getName, ".tmp.bz2")
+    val compressedFile = File.createTempFile(file.getName, ".tmp.gz")
     compressedFile.deleteOnExit()
     try {
       Resource.using(
-        new BZip2CompressorOutputStream(
+        new GzipCompressorOutputStream(
           new BufferedOutputStream(
             new FileOutputStream(compressedFile)
           )
@@ -171,10 +195,10 @@ trait CompressedS3Artifact extends S3Artifact {
       ) { os =>
           Files.copy(file.toPath, os)
         }
-      val bz2metadata = new ObjectMetadata() // This object is mutated when we call putObject(), so
+      val gzmetadata = new ObjectMetadata() // This object is mutated when we call putObject(), so
       // we have to have our own copy.
-      bz2metadata.setContentType("application/bzip2")
-      val request = new PutObjectRequest(bucket, path, compressedFile).withMetadata(bz2metadata)
+      gzmetadata.setContentType("application/gzip")
+      val request = new PutObjectRequest(bucket, path + ".gz", compressedFile).withMetadata(gzmetadata)
       request.setCannedAcl(CannedAccessControlList.PublicRead)
       service.putObject(request)
     } finally {
@@ -182,8 +206,53 @@ trait CompressedS3Artifact extends S3Artifact {
     }
   }
 
-  override def readContents(): InputStream =
-    new BZip2CompressorInputStream(super.readContents())
+  override def readContents(): InputStream = {
+    val decompressedTries = decompressors.iterator.map {
+      case Decompressor(suffix, decompress) =>
+        Try {
+          // This relies on the fact that bufferedInputStreamFromS3 will throw an exception when
+          // path + suffix can't be found in the bucket.
+          val compressed = bufferedInputStreamFromS3(bucket, path + suffix)
+          decompress(compressed)
+        }
+    }
+
+    /** Returns the first failure or the first success out of an iterator of Try, taking care not to
+      * exhaust the iterator when possible.
+      *
+      * @param tries          The iterator of Try. Must not be empty.
+      * @param defaultFailure The return value to use if all tries left in the iterators are
+      *                       failures. If this is None, use the first failure from the iterator.
+      * @return the first success out of the iterator, or the first failure if there is no success
+      */
+    @tailrec
+    def firstSuccessOrFirstFailure[A](
+      tries: Iterator[Try[A]],
+      defaultFailure: Option[Failure[A]] = None
+    ): Try[A] = {
+      tries.next() match {
+        case s: Success[A] => s
+        case f: Failure[A] =>
+          val newDefaultFailure = defaultFailure.getOrElse(f)
+          if (tries.hasNext) {
+            firstSuccessOrFirstFailure(tries, Some(newDefaultFailure))
+          } else {
+            newDefaultFailure
+          }
+      }
+    }
+
+    firstSuccessOrFirstFailure(decompressedTries).get
+  }
+}
+
+object CompressedS3Artifact {
+  case class Decompressor(suffix: String, decompress: (InputStream => InputStream))
+  val decompressors = Seq(
+    Decompressor(".gz", new GzipCompressorInputStream(_)),
+    Decompressor(".bz2", new BZip2CompressorInputStream(_)),
+    Decompressor("", identity)
+  )
 }
 
 /** Implements policy for making local caches of artifacts in S3
