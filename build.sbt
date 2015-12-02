@@ -25,10 +25,10 @@ val pipeline = Project(
   base = file(".")
 )
 
-//val examples = Project(
-//  id = "examples",
-//  base = file("examples")
-//).dependsOn("pipeline")
+val examples = Project(
+  id = "examples",
+  base = file("examples")
+).dependsOn("pipeline")
 
 
 StylePlugin.enableLineLimit := false
