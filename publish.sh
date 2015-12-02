@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -x
 
 # Publish to BinTray if the HEAD commit is tagged with a version number.
 if [ "$PULL_REQUEST_NUMBER" ]; then
