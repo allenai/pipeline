@@ -2,6 +2,8 @@ import Dependencies._
 
 import ReleaseKeys._
 
+enablePlugins(LibraryPlugin)
+
 // Override the problematic new release plugin.
 import sbtrelease.ReleaseStateTransformations._
 releaseProcess := Seq(
@@ -54,7 +56,6 @@ pomExtra := (
 )
 
 // Enable the LibraryPlugin for release workflow support
-enablePlugins(LibraryPlugin)
 PublishTo.ai2Public
 
 dependencyOverrides += "org.scala-lang" % "scala-reflect" % "2.11.5"
