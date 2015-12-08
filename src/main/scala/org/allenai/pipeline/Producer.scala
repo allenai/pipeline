@@ -75,20 +75,26 @@ trait Producer[+T] extends PipelineStep with CachingEnabled with Logging {
   }
 
   private var initialized = false
-  protected[this] var timing: Option[Duration] = None
-  protected[this] var executionMode: Duration => ExecutionInfo = Executed
+  protected[this] var timing: Duration = Duration.Undefined
+  private[this] var _executionMode: Duration => ExecutionInfo = NotRequested
+  protected[this] def executionMode: Duration => ExecutionInfo = _executionMode
+  protected[this] def executionMode_=(newValue: Duration => ExecutionInfo) = {
+    if (_executionMode == NotRequested) {
+      _executionMode = newValue
+    }
+  }
   private lazy val cachedValue: T = createAndTime
 
   /** Report the method by which this Producer's result was obtained
     * (Read from disk, executed, not needed)
     */
-  def executionInfo: ExecutionInfo =
-    timing.map(executionMode).getOrElse(NotRequested)
+  def executionInfo: ExecutionInfo = executionMode(timing)
 
   /** Call `create` but store time taken. */
   protected[this] def createAndTime: T = {
     val (result, duration) = Timing.time(this.create)
-    timing = Some(duration)
+    timing = duration
+    executionMode = Executed
     result
   }
 
