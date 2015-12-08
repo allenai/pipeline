@@ -27,7 +27,8 @@ trait ExecutionInfo {
 /** The Producer was not needed to run the pipeline.
   * (All downstream steps were already persisted)
   */
-case object NotRequested extends ExecutionInfo {
+case object NotRequested extends Function1[Duration, ExecutionInfo] with ExecutionInfo {
+  override def apply(duration: Duration) = this
   override def status = "Not requested"
 }
 
