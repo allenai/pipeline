@@ -5,23 +5,26 @@ import scala.concurrent.duration.Duration
 /** Information on how a Producer was executed during a pipeline run */
 trait ExecutionInfo {
   def status: String
-  def formatDuration(duration: Duration) = {
-    val seconds = 1000
-    val minutes = seconds * 60
-    val hours = minutes * 60
-    val days = hours * 24
-    duration.toMillis match {
-      case x if x / days > 1 =>
-        "%.2f days".format(x.toDouble / days)
-      case x if x / hours > 1 =>
-        "%.2f hours".format(x.toDouble / hours)
-      case x if x / minutes > 1 =>
-        "%.2f minutes".format(x.toDouble / minutes)
-      case x if x / seconds > 1 =>
-        "%.2f seconds".format(x.toDouble / seconds)
-      case x => "%d ms".format(x)
+  def formatDuration(duration: Duration) =
+    if (duration.isFinite) {
+      val seconds = 1000
+      val minutes = seconds * 60
+      val hours = minutes * 60
+      val days = hours * 24
+      duration.toMillis match {
+        case x if x / days > 1 =>
+          "%.2f days".format(x.toDouble / days)
+        case x if x / hours > 1 =>
+          "%.2f hours".format(x.toDouble / hours)
+        case x if x / minutes > 1 =>
+          "%.2f minutes".format(x.toDouble / minutes)
+        case x if x / seconds > 1 =>
+          "%.2f seconds".format(x.toDouble / seconds)
+        case x => "%d ms".format(x)
+      }
+    } else {
+      "unknown time"
     }
-  }
 }
 
 /** The Producer was not needed to run the pipeline.
